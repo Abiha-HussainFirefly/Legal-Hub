@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Eye, EyeOff, CheckCircle } from 'lucide-react';
 
-export default function Signup() {
+export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -22,21 +22,33 @@ export default function Signup() {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left Side - Purple Gradient */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-purple-500 via-purple-600 to-purple-700 p-12 flex-col justify-center items-center text-white relative overflow-hidden">
+      {/* Left Side - Purple Gradient with Background Image */}
+      <div 
+        className="hidden lg:flex lg:w-1/2 p-12 flex-col justify-center items-center text-white relative overflow-hidden"
+        style={{
+          background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.9), rgba(126, 34, 206, 0.9)), url(/background-pattern.jpg)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundImage:'src="/bg.jpg" ',
+        }}
+      >
+        {/* Fallback gradient if no image */}
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-500 via-purple-600 to-purple-700 -z-10" />
+        
         {/* Background Pattern */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-10 left-10 w-32 h-32 border-4 border-white rounded-full" />
           <div className="absolute bottom-20 right-20 w-24 h-24 border-4 border-white rounded-full" />
           <div className="absolute top-1/2 left-1/4 w-16 h-16 border-4 border-white rounded-full" />
+          <img src="bg.jpg" alt="" />
         </div>
 
         {/* Content */}
         <div className="relative z-10 max-w-md text-center">
-          {/* Logo */}
+          {/* Logo - White version for left side */}
           <div className="mb-12">
             <Image 
-              src="/legal-hub-logo.png" 
+              src="/logo-legal-hub.png" 
               alt="Legal Hub" 
               width={200}
               height={60}
@@ -73,10 +85,10 @@ export default function Signup() {
       {/* Right Side - White Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
         <div className="w-full max-w-md">
-          {/* Logo for mobile */}
-          <div className="lg:hidden mb-8 text-center">
+          {/* Logo - Original colors for right side (mobile and desktop) */}
+          <div className="mb-8 text-center">
             <Image 
-              src="/legal-hub-logo.png" 
+              src="/logo-legal-hub.png" 
               alt="Legal Hub" 
               width={160}
               height={40}

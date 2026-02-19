@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Eye, EyeOff, CheckCircle, Upload } from 'lucide-react';
 
-export default function LawyerSignup() {
+export default function LawyerRegister() {
   const [showPassword, setShowPassword] = useState(false);
   const [fileName, setFileName] = useState('');
   const [formData, setFormData] = useState({
@@ -40,6 +40,7 @@ export default function LawyerSignup() {
           <div className="absolute top-10 left-10 w-32 h-32 border-4 border-white rounded-full" />
           <div className="absolute bottom-20 right-20 w-24 h-24 border-4 border-white rounded-full" />
           <div className="absolute top-1/2 left-1/4 w-16 h-16 border-4 border-white rounded-full" />
+          <img src="bg.jpg" alt="" />
         </div>
 
         {/* Content Box with Border */}
@@ -47,7 +48,8 @@ export default function LawyerSignup() {
           {/* Logo */}
           <div className="mb-8">
             <Image 
-              src="/legal-hub-logo.png" 
+              src="/logo-legal-hub.png" 
+              
               alt="Legal Hub" 
               width={200}
               height={60}
@@ -82,18 +84,18 @@ export default function LawyerSignup() {
       </div>
 
       {/* Right Side - White Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white overflow-y-auto">
-        <div className="w-full max-w-md">
-          {/* Logo for mobile */}
-          <div className="lg:hidden mb-8 text-center">
-            <Image 
-              src="/legal-hub-logo.png" 
-              alt="Legal Hub" 
-              width={160}
-              height={40}
-              className="mx-auto"
-            />
-          </div>
+            <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
+              <div className="w-full max-w-md">
+                {/* Logo - Original colors for right side (mobile and desktop) */}
+                <div className="mb-8 text-center">
+                  <Image 
+                    src="/logo-legal-hub.png" 
+                    alt="Legal Hub" 
+                    width={160}
+                    height={40}
+                    className="mx-auto"
+                  />
+                </div>
 
           {/* Sign up heading */}
           <div className="text-center mb-8">
