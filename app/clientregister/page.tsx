@@ -1,40 +1,40 @@
 'use client';
 
-import { CheckCircle, Eye, EyeOff, Upload } from 'lucide-react';
+import { CheckCircle, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 
-export default function LawyerRegister() {
+export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
-  const [fileName, setFileName] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
-    barCouncilNo: '',
-    professionalId: null as File | null,
-    jurisdiction: '',
+    region: '',
   });
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setFileName(file.name);
-      setFormData({ ...formData, professionalId: file });
-    }
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Lawyer signup data:', formData);
-    // Handle lawyer signup logic here
+    console.log('Signup data:', formData);
+    // Handle signup logic here
   };
 
   return (
     <div className="min-h-screen flex">
-      {/* Left Side - Purple Gradient */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-purple-500 via-purple-600 to-purple-700 p-12 flex-col justify-center items-center text-white relative overflow-hidden">
+      {/* Left Side - Purple Gradient with Background Image */}
+      <div 
+        className="hidden lg:flex lg:w-1/2 p-12 flex-col justify-center items-center text-white relative overflow-hidden"
+        style={{
+          background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.9), rgba(126, 34, 206, 0.9)), url(/background-pattern.jpg)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundImage:'src="/bg.jpg" ',
+        }}
+      >
+        {/* Fallback gradient if no image */}
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-500 via-purple-600 to-purple-700 -z-10" />
+        
         {/* Background Pattern */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-10 left-10 w-32 h-32 border-4 border-white rounded-full" />
@@ -43,13 +43,12 @@ export default function LawyerRegister() {
           <img src="bg.jpg" alt="" />
         </div>
 
-        {/* Content Box with Border */}
-        <div className="relative z-10 max-w-md text-center border-2 border-white/30 rounded-2xl p-8 backdrop-blur-sm">
-          {/* Logo */}
-          <div className="mb-8">
+        {/* Content */}
+        <div className="relative z-10 max-w-md text-center">
+          {/* Logo - White version for left side */}
+          <div className="mb-12">
             <Image 
               src="/logo-legal-hub.png" 
-              
               alt="Legal Hub" 
               width={200}
               height={60}
@@ -58,49 +57,48 @@ export default function LawyerRegister() {
           </div>
 
           {/* Heading */}
-          <h1 className="text-3xl font-bold mb-4">
+          <h1 className="text-4xl font-bold mb-4">
             Join the Legal Community
           </h1>
-          <p className="text-purple-100 mb-8">
+          <p className="text-purple-100 mb-12 text-lg">
             Connect with verified lawyers, get legal advice, and manage your case all one place
           </p>
 
           {/* Features */}
-          <div className="space-y-3 text-left">
+          <div className="space-y-4 text-left">
             <div className="flex items-center gap-3">
               <CheckCircle className="w-5 h-5 flex-shrink-0" />
-              <span className="text-purple-50 text-sm">AI-Powered Matching</span>
+              <span className="text-purple-50">AI-Powered Matching</span>
             </div>
             <div className="flex items-center gap-3">
               <CheckCircle className="w-5 h-5 flex-shrink-0" />
-              <span className="text-purple-50 text-sm">Regional Expertise</span>
+              <span className="text-purple-50">Regional Expertise</span>
             </div>
             <div className="flex items-center gap-3">
               <CheckCircle className="w-5 h-5 flex-shrink-0" />
-              <span className="text-purple-50 text-sm">Verified Professionals</span>
+              <span className="text-purple-50">Verified Professionals</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Right Side - White Form */}
-            <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
-              <div className="w-full max-w-md">
-                {/* Logo - Original colors for right side (mobile and desktop) */}
-                <div className="mb-8 text-center">
-                  <Image 
-                    src="/logo-legal-hub.png" 
-                    alt="Legal Hub" 
-                    width={160}
-                    height={40}
-                    className="mx-auto"
-                  />
-                </div>
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
+        <div className="w-full max-w-md">
+          {/* Logo - Original colors for right side (mobile and desktop) */}
+          <div className="mb-8 text-center">
+            <Image 
+              src="/logo-legal-hub.png" 
+              alt="Legal Hub" 
+              width={160}
+              height={40}
+              className="mx-auto"
+            />
+          </div>
 
           {/* Sign up heading */}
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-purple-600 mb-2">Sign up</h2>
-            <p className="text-sm text-gray-500">Register as a Verified Lawyer</p>
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">Sign up</h2>
           </div>
 
           {/* Social Login Buttons */}
@@ -190,55 +188,14 @@ export default function LawyerRegister() {
               </div>
             </div>
 
-            {/* Bar Council Registration No */}
+            {/* Region */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Bar Council Registration No
-              </label>
-              <input
-                type="text"
-                placeholder="License No"
-                value={formData.barCouncilNo}
-                onChange={(e) => setFormData({ ...formData, barCouncilNo: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
-                required
-              />
-            </div>
-
-            {/* Professional ID */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Professional ID
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Upload Document"
-                  value={fileName}
-                  readOnly
-                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg bg-gray-50 cursor-pointer"
-                  onClick={() => document.getElementById('file-upload')?.click()}
-                />
-                <Upload className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  id="file-upload"
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={handleFileChange}
-                  className="hidden"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Primary Jurisdiction */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Primary Jurisdiction
+                Select Region
               </label>
               <select
-                value={formData.jurisdiction}
-                onChange={(e) => setFormData({ ...formData, jurisdiction: e.target.value })}
+                value={formData.region}
+                onChange={(e) => setFormData({ ...formData, region: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition bg-white"
                 required
               >
@@ -253,21 +210,20 @@ export default function LawyerRegister() {
                 <option value="Quetta">Quetta</option>
               </select>
             </div>
-            
 
             {/* Submit Button */}
             <button
               type="submit"
               className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition shadow-lg hover:shadow-xl"
             >
-              SignUp
+              Signup
             </button>
           </form>
 
           {/* Login Link */}
           <p className="text-center text-sm text-gray-600 mt-6">
             Already have an account?{' '}
-            <Link href="/lawyerlogin" className="text-purple-600 font-semibold hover:underline">
+            <Link href="/clientlogin" className="text-purple-600 font-semibold hover:underline">
               Login
             </Link>
           </p>

@@ -1,21 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { CheckCircle, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Eye, EyeOff, CheckCircle } from 'lucide-react';
+import { useState } from 'react';
 
-export default function Login() {
+export default function LawyerLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
+    name: '',
     email: '',
     password: '',
+    region: '',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Login data:', formData);
-    // Handle login logic here
+    console.log('Signup data:', formData);
+    // Handle signup logic here
   };
 
   return (
@@ -26,8 +28,8 @@ export default function Login() {
         style={{
           background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.9), rgba(126, 34, 206, 0.9)), url(/background-pattern.jpg)',
           backgroundSize: 'cover',
-          
           backgroundPosition: 'center',
+          backgroundImage:'src="/bg.jpg" ',
         }}
       >
         {/* Fallback gradient if no image */}
@@ -43,7 +45,7 @@ export default function Login() {
 
         {/* Content */}
         <div className="relative z-10 max-w-md text-center">
-          {/* Logo */}
+          {/* Logo - White version for left side */}
           <div className="mb-12">
             <Image 
               src="/logo-legal-hub.png" 
@@ -56,48 +58,47 @@ export default function Login() {
 
           {/* Heading */}
           <h1 className="text-4xl font-bold mb-4">
-            Welcome Back
+            Join the Legal Community
           </h1>
           <p className="text-purple-100 mb-12 text-lg">
-            Sign in to access your legal dashboard and connect with verified professionals
+            Connect with verified lawyers, get legal advice, and manage your case all one place
           </p>
 
           {/* Features */}
           <div className="space-y-4 text-left">
             <div className="flex items-center gap-3">
               <CheckCircle className="w-5 h-5 flex-shrink-0" />
-              <span className="text-purple-50">Secure Authentication</span>
+              <span className="text-purple-50">AI-Powered Matching</span>
             </div>
             <div className="flex items-center gap-3">
               <CheckCircle className="w-5 h-5 flex-shrink-0" />
-              <span className="text-purple-50">24/7 Access to Legal Resources</span>
+              <span className="text-purple-50">Regional Expertise</span>
             </div>
             <div className="flex items-center gap-3">
               <CheckCircle className="w-5 h-5 flex-shrink-0" />
-              <span className="text-purple-50">Connect with Verified Lawyers</span>
+              <span className="text-purple-50">Verified Professionals</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Right Side - White Form */}
-            <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
-              <div className="w-full max-w-md">
-                {/* Logo - Original colors for right side (mobile and desktop) */}
-                <div className="mb-8 text-center">
-                  <Image 
-                    src="/logo-legal-hub.png" 
-                    alt="Legal Hub" 
-                    width={160}
-                    height={40}
-                    className="mx-auto"
-                  />
-                </div>
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
+        <div className="w-full max-w-md">
+          {/* Logo - Original colors for right side (mobile and desktop) */}
+          <div className="mb-8 text-center">
+            <Image 
+              src="/logo-legal-hub.png" 
+              alt="Legal Hub" 
+              width={160}
+              height={40}
+              className="mx-auto"
+            />
+          </div>
 
-          {/* Login heading */}
+          {/* Sign up heading */}
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold text-gray-900 mb-2">Login</h2>
-            <p className="text-gray-500">Welcome back! Please login to your account</p>
           </div>
 
           {/* Social Login Buttons */}
@@ -128,7 +129,8 @@ export default function Login() {
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
+
             {/* Email */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -136,7 +138,7 @@ export default function Login() {
               </label>
               <input
                 type="email"
-                placeholder="Enter your email address"
+                placeholder="Enter your email address here"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
@@ -152,7 +154,7 @@ export default function Login() {
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter your password"
+                  placeholder="Enter your password here"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
@@ -173,18 +175,18 @@ export default function Login() {
             </div>
 
             {/* Remember Me & Forgot Password */}
-            <div className="flex items-center justify-between">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
-                />
-                <span className="ml-2 text-sm text-gray-600">Remember me</span>
-              </label>
-              <Link href="/forgot-password" className="text-sm text-purple-600 hover:underline">
-                Forgot Password?
-              </Link>
-            </div>
+                        <div className="flex items-center justify-between">
+                          <label className="flex items-center">
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                            />
+                            <span className="ml-2 text-sm text-gray-600">Remember me</span>
+                          </label>
+                          <Link href="/forgot-password" className="text-sm text-purple-600 hover:underline">
+                            Forgot Password?
+                          </Link>
+                        </div>
 
             {/* Submit Button */}
             <button
@@ -195,10 +197,10 @@ export default function Login() {
             </button>
           </form>
 
-          {/* Register Link */}
+          {/* Login Link */}
           <p className="text-center text-sm text-gray-600 mt-6">
-            Don't have an account?{' '}
-            <Link href="/register" className="text-purple-600 font-semibold hover:underline">
+            Already have an account?{' '}
+            <Link href="/lawyerregister" className="text-purple-600 font-semibold hover:underline">
               Sign up
             </Link>
           </p>
