@@ -3,7 +3,7 @@
 import { BarChart3, Home, Settings, FileSearch, ShieldCheck, Users } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useSidebar } from '@/app/components/SidebarContext';
+import { useSidebar } from '@/app/components/admin/sidebar/SidebarContext';
 
 const menuItems = [
   { icon: Home,        label: 'Dashboard',    href: '/dashboard'    },

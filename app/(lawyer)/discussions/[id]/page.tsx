@@ -1,7 +1,7 @@
 'use client';
 
 import { ArrowLeft, Bookmark, Eye, Flag, Menu, Share2, X } from 'lucide-react';
-import AISummaryModal from '@/app/components/AISummaryModal';
+import AISummaryModal from '@/app/components/lawyer/discussions/ai-summary-modal';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';

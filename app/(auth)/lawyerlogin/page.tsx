@@ -248,13 +248,13 @@ export default function LawyerLogin() {
                   onClick={() =>
                     signIn("google", { callbackUrl: "/discussions" })
                   }
-                  className="flex-1 flex items-center justify-center p-3 border-[1.5px] border-gray-200 rounded-[10px] bg-white hover:bg-gray-50 transition-colors"
+                  className="flex-1 flex items-center justify-center p-3 border-[1.5px] border-gray-200 rounded-[10px] bg-white hover:bg-gray-50 transition-colors cursor-pointer"
                 >
                   <GoogleIcon />
                 </button>
                 <button
                   type="button"
-                  className="flex-1 flex items-center justify-center p-3 border-[1.5px] border-gray-200 rounded-[10px] bg-white hover:bg-gray-50 transition-colors"
+                  className="flex-1 flex items-center justify-center p-3 border-[1.5px] border-gray-200 rounded-[10px] bg-white hover:bg-gray-50 transition-colors cursor-pointer"
                 >
                   <FacebookIcon />
                 </button>
@@ -311,7 +311,7 @@ export default function LawyerLogin() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
                     >
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
@@ -353,7 +353,7 @@ export default function LawyerLogin() {
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}
-                      className="w-4 h-4 accent-purple-600"
+                      className="w-4 h-4 accent-purple-600 cursor-pointer"
                     />
                     Remember me
                   </label>

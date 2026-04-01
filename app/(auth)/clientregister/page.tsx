@@ -191,13 +191,13 @@ export default function ClientRegister() {
               <div className="flex gap-3 mb-5">
                 <button
                   type="button"
-                  className="flex-1 flex items-center justify-center p-3 border-[1.5px] border-gray-200 rounded-[10px] bg-white hover:bg-gray-50 transition-colors"
+                  className="flex-1 flex items-center justify-center p-3 border-[1.5px] border-gray-200 rounded-[10px] bg-white hover:bg-gray-50 transition-colors cursor-pointer"
                 >
                   <GoogleIcon />
                 </button>
                 <button
                   type="button"
-                  className="flex-1 flex items-center justify-center p-3 border-[1.5px] border-gray-200 rounded-[10px] bg-white hover:bg-gray-50 transition-colors"
+                  className="flex-1 flex items-center justify-center p-3 border-[1.5px] border-gray-200 rounded-[10px] bg-white hover:bg-gray-50 transition-colors cursor-pointer"
                 >
                   <FacebookIcon />
                 </button>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useSidebar } from '@/app/components/SidebarContext';
+import { useSidebar } from '@/app/components/admin/sidebar/SidebarContext';
 import { Bell, List, LogOut, Search, X } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';

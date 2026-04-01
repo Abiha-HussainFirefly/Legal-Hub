@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useSession }          from 'next-auth/react';
 import { useRouter }           from 'next/navigation';
-import { SidebarProvider, useSidebar } from '@/app/components/SidebarContext';
-import Sidebar from '@/app/components/Sidebar';
-import Header  from '@/app/components/Header';
+import { SidebarProvider, useSidebar } from '@/app/components/admin/sidebar/SidebarContext';
+import Sidebar from '@/app/components/admin/sidebar/Sidebar';
+import Header  from '@/app/components/lawyer/navbar/header';
 
 function AdminShell({
   children,

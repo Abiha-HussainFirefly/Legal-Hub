@@ -270,7 +270,7 @@ export default function AdminLogin() {
             <button
               onClick={handleGoogleSignIn}
               disabled={googleLoading}
-              className="flex-1 flex items-center justify-center p-3 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-colors disabled:opacity-60"
+              className="flex-1 flex items-center justify-center p-3 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-colors disabled:opacity-60 cursor-pointer"
             >
               {googleLoading ? (
                 <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
@@ -278,7 +278,7 @@ export default function AdminLogin() {
                 <GoogleIcon />
               )}
             </button>
-            <button className="flex-1 flex items-center justify-center p-3 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-colors">
+            <button className="flex-1 flex items-center justify-center p-3 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-colors cursor-pointer">
               <FacebookIcon />
             </button>
           </div>
