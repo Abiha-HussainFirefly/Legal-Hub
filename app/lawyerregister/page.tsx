@@ -1,276 +1,501 @@
 'use client';
 
-import { CheckCircle, Eye, EyeOff, Upload } from 'lucide-react';
+import { CheckSquare, Eye, EyeOff, Mail, XCircle } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { z } from 'zod';
+import { signIn } from 'next-auth/react';
+// Zod Schema 
+const registerSchema = z.object({
+  name: z
+    .string()
+    .min(2, 'Name must be at least 2 characters')
+    .max(60, 'Name must be at most 60 characters')
+    .regex(/^[a-zA-Z\s]+$/, 'Name can only contain letters and spaces'),
+
+  email: z
+    .string()
+    .min(1, 'Email is required')
+    .refine(
+      val => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val),
+      { message: 'Please enter a valid email address' }
+    ),
+
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .regex(/[0-9]/, 'Password must contain at least one number')
+    .regex(/[^A-Za-z0-9]/, 'Password must contain at least one special character'),
+});
+
+type RegisterFormData = z.infer<typeof registerSchema>;
+type FieldErrors = Partial<Record<keyof RegisterFormData, string>>;
+type WorkflowStep = 'form' | 'loading' | 'verify_email' | 'email_exists' | 'success' | 'error';
 
 export default function LawyerRegister() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
-  const [fileName, setFileName] = useState('');
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    barCouncilNo: '',
-    professionalId: null as File | null,
-    jurisdiction: '',
-  });
+  const [step, setStep]                 = useState<WorkflowStep>('form');
+  const [errorMsg, setErrorMsg]         = useState('');
+  const [createdUser, setCreatedUser]   = useState<any>(null);
+  const [formData, setFormData]         = useState<RegisterFormData>({ name: '', email: '', password: '' });
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setFileName(file.name);
-      setFormData({ ...formData, professionalId: file });
+  const [fieldErrors, setFieldErrors]   = useState<FieldErrors>({});
+  
+  const [touched, setTouched]           = useState<Partial<Record<keyof RegisterFormData, boolean>>>({});
+
+  // Helpers 
+  const validateField = (field: keyof RegisterFormData, value: string): string | undefined => {
+    const result = registerSchema.shape[field].safeParse(value);
+    return result.success ? undefined : result.error.issues[0].message;
+  };
+
+  const handleChange = (field: keyof RegisterFormData, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    
+    if (touched[field]) {
+      const err = validateField(field, value);
+      setFieldErrors(prev => ({ ...prev, [field]: err }));
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('Lawyer signup data:', formData);
-    // Handle lawyer signup logic here
+  const handleBlur = (field: keyof RegisterFormData) => {
+    setTouched(prev => ({ ...prev, [field]: true }));
+    const err = validateField(field, formData[field]);
+    setFieldErrors(prev => ({ ...prev, [field]: err }));
   };
 
-  return (
-    <div className="min-h-screen flex">
-      {/* Left Side - Purple Gradient */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-purple-500 via-purple-600 to-purple-700 p-12 flex-col justify-center items-center text-white relative overflow-hidden">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-10 left-10 w-32 h-32 border-4 border-white rounded-full" />
-          <div className="absolute bottom-20 right-20 w-24 h-24 border-4 border-white rounded-full" />
-          <div className="absolute top-1/2 left-1/4 w-16 h-16 border-4 border-white rounded-full" />
-          <img src="bg.jpg" alt="" />
-        </div>
+  const handleVerified = async () => {
+    try {
+      await fetch('/api/email/welcome', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ email: formData.email, name: formData.name }),
+      });
+    } catch {
+      
+    }
+    router.push('/lawyerlogin');
+  };
 
-        {/* Content Box with Border */}
-        <div className="relative z-10 max-w-md text-center border-2 border-white/30 rounded-2xl p-8 backdrop-blur-sm">
-          {/* Logo */}
-          <div className="mb-8">
-            <Image 
-              src="/logo-legal-hub.png" 
-              
-              alt="Legal Hub" 
-              width={200}
-              height={60}
-              className="mx-auto brightness-0 invert"
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    
+    setTouched({ name: true, email: true, password: true });
+
+    // Full schema validation
+    const result = registerSchema.safeParse(formData);
+    if (!result.success) {
+      const errors: FieldErrors = {};
+      result.error.issues.forEach(err => {
+        const field = err.path[0] as keyof RegisterFormData;
+        if (!errors[field]) errors[field] = err.message;
+      });
+      setFieldErrors(errors);
+      return; 
+    }
+
+    setFieldErrors({});
+    setStep('loading');
+
+    try {
+      const res  = await fetch('/api/auth/register', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name:         formData.name,
+          email:        formData.email,
+          password:     formData.password,
+          barCouncilNo: 'N/A',
+          jurisdiction: 'N/A',
+          expertise:    'N/A',
+        }),
+      });
+      const data = await res.json();
+
+      if (res.status === 409) { setStep('email_exists'); return; }
+      if (!res.ok) { setErrorMsg(data.message ?? 'Registration failed. Please try again.'); setStep('error'); return; }
+
+      setCreatedUser(data.user);
+      setStep('verify_email');
+
+    } catch {
+      setErrorMsg('Network error. Please check your connection and try again.');
+      setStep('error');
+    }
+  };
+
+  // Styles 
+  const inputStyle = (hasError: boolean): React.CSSProperties => ({
+    width: '100%', padding: '11px 14px',
+    border: `1.5px solid ${hasError ? '#ef4444' : '#e5e7eb'}`,
+    borderRadius: '10px', fontSize: '15px',
+    fontFamily: 'inherit', color: '#1a1a2e',
+    background: hasError ? '#fff5f5' : '#fafafa',
+    outline: 'none', boxSizing: 'border-box',
+    transition: 'border-color 0.2s, background 0.2s',
+  });
+
+  const labelStyle: React.CSSProperties = {
+    display: 'block', fontSize: '15px', fontWeight: 600,
+    color: '#374151', marginBottom: '6px',
+  };
+
+  const errorTextStyle: React.CSSProperties = {
+    fontSize: '12px', color: '#ef4444',
+    marginTop: '4px', display: 'flex',
+    alignItems: 'center', gap: '4px',
+  };
+
+  const getPasswordStrength = (pwd: string): { label: string; color: string; width: string } => {
+    let score = 0;
+    if (pwd.length >= 8)            score++;
+    if (/[A-Z]/.test(pwd))          score++;
+    if (/[a-z]/.test(pwd))          score++;
+    if (/[0-9]/.test(pwd))          score++;
+    if (/[^A-Za-z0-9]/.test(pwd))   score++;
+
+    if (score <= 1) return { label: 'Very Weak',  color: '#ef4444', width: '20%'  };
+    if (score === 2) return { label: 'Weak',       color: '#f97316', width: '40%'  };
+    if (score === 3) return { label: 'Fair',       color: '#eab308', width: '60%'  };
+    if (score === 4) return { label: 'Strong',     color: '#22c55e', width: '80%'  };
+    return                 { label: 'Very Strong', color: '#16a34a', width: '100%' };
+  };
+
+  const pwStrength = formData.password ? getPasswordStrength(formData.password) : null;
+
+  return (
+    <div
+      className="flex flex-col lg:flex-row lg:p-[14px] lg:gap-[14px] lg:h-screen lg:overflow-hidden"
+      style={{
+        width: '100%', minHeight: '100vh', backgroundColor: '#FFFFFF',
+        alignItems: 'stretch', boxSizing: 'border-box',
+      }}
+    >
+
+      {/* LEFT PANEL */}
+      <div
+        className="hidden lg:flex lg:w-[62%] lg:h-full lg:p-[58px_46px]"
+        style={{
+          flexGrow: 0,
+          flexShrink: 0,
+          height: '100%',
+          borderRadius: '24px',
+          overflow: 'hidden',
+          position: 'relative',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxSizing: 'border-box',
+          color: 'white',
+        }}>
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: 'url("/bg.jpg")',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          zIndex: 0,
+        }} />
+
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(135deg, rgba(76,47,94,0.91) 0%, rgba(130,81,160,0.97) 65%, rgba(159,99,196,1) 100%)',
+          zIndex: 1,
+        }} />
+
+        {/* Content */}
+        <div style={{ position: 'relative', zIndex: 3, textAlign: 'center', width: '100%' }}>
+
+
+          <div style={{ marginBottom: '38px' }}>
+            <Image
+              src="/logo-legal-hub.png"
+              alt="Legal Hub"
+              width={220}
+              height={65}
+              style={{ margin: '0 auto', filter: 'brightness(0) invert(1)' }}
             />
           </div>
 
-          {/* Heading */}
-          <h1 className="text-3xl font-bold mb-4">
+          <h1 style={{ fontSize: '32px', fontWeight: 700, marginBottom: '16px', lineHeight: 1.3 }}>
             Join the Legal Community
           </h1>
-          <p className="text-purple-100 mb-8">
+
+          
+          <p 
+            style={{ 
+              fontSize: '18px', 
+              color: '#ffffff', 
+              lineHeight: 1.5, 
+              marginBottom: '40px', 
+              textAlign: 'center'
+            }} 
+            className="w-full"
+          >
             Connect with verified lawyers, get legal advice, and manage your case all one place
           </p>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '13px' }}>
+                <CheckSquare
+                  size={16}
+                  fill="#4C2F5E"
+                  stroke="#FFFFFF"
+                  strokeWidth={2}
+                  style={{ flexShrink: 0 }}
+                />
+                <span style={{ fontSize: '18px', color: '#FFFFFF', fontWeight: 500 }}>AI-Powered Matching</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '13px' }}>
+                <CheckSquare
+                  size={16}
+                  fill="#4C2F5E"
+                  stroke="#FFFFFF"
+                  strokeWidth={2}
+                  style={{ flexShrink: 0 }}
+                />
+                <span style={{ fontSize: '18px', color: '#FFFFFF', fontWeight: 500 }}>Regional Expertise</span>
+              </div>
+            </div>
 
-          {/* Features */}
-          <div className="space-y-3 text-left">
-            <div className="flex items-center gap-3">
-              <CheckCircle className="w-5 h-5 flex-shrink-0" />
-              <span className="text-purple-50 text-sm">AI-Powered Matching</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <CheckCircle className="w-5 h-5 flex-shrink-0" />
-              <span className="text-purple-50 text-sm">Regional Expertise</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <CheckCircle className="w-5 h-5 flex-shrink-0" />
-              <span className="text-purple-50 text-sm">Verified Professionals</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '13px' }}>
+              <CheckSquare
+                size={16}
+                fill="#4C2F5E"
+                stroke="#FFFFFF"
+                strokeWidth={2}
+                style={{ flexShrink: 0 }}
+              />
+              <span style={{ fontSize: '18px', color: '#ffffff', fontWeight: 500 }}>
+                Verified Professionals
+              </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Right Side - White Form */}
-            <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
-              <div className="w-full max-w-md">
-                {/* Logo - Original colors for right side (mobile and desktop) */}
-                <div className="mb-8 text-center">
-                  <Image 
-                    src="/logo-legal-hub.png" 
-                    alt="Legal Hub" 
-                    width={160}
-                    height={40}
-                    className="mx-auto"
-                  />
-                </div>
+      {/* RIGHT PANEL*/}
+      <div
+        className="w-full min-h-screen lg:min-h-0 lg:w-[calc(38%-14px)] lg:h-full px-6 py-10 lg:px-[40px] lg:py-[32px]"
+        style={{
+          flexGrow: 0, flexShrink: 0, borderRadius: '24px',
+          backgroundColor: '#FCFCFF', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', boxSizing: 'border-box', overflowY: 'auto',
+        }}
+      >
+        <div style={{ width: '100%', maxWidth: '340px' }}>
+          {step === 'form' && (
+            <>
+              <div style={{ textAlign: 'center', marginBottom: '14px' }}>
+                <Image src="/logo-legal-hub.png" alt="Legal Hub" width={155} height={44} style={{ margin: '0 auto', marginTop: '70px' }} />
+              </div>
+              <h2 style={{ textAlign: 'center', fontSize: '22px', fontWeight: 700, color: '#9F63C4', marginBottom: '20px' }}>
+                Sign up
+              </h2>
 
-          {/* Sign up heading */}
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-purple-600 mb-2">Sign up</h2>
-            <p className="text-sm text-gray-500">Register as a Verified Lawyer</p>
-          </div>
-
-          {/* Social Login Buttons */}
-          <div className="flex gap-4 mb-6">
-            <button className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-              </svg>
-            </button>
-            <button className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
-              <svg className="w-5 h-5" fill="#1877F2" viewBox="0 0 24 24">
-                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-              </svg>
-            </button>
-          </div>
-
-          {/* Divider */}
-          <div className="relative mb-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-gray-500">or</span>
-            </div>
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Name
-              </label>
-              <input
-                type="text"
-                placeholder="Enter your full name here"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
-                required
-              />
-            </div>
-
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email
-              </label>
-              <input
-                type="email"
-                placeholder="Enter your email address here"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
-                required
-              />
-            </div>
-
-            {/* Password */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter your password here"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
-                  required
-                />
+              {/* Social Buttons */}
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '18px' }}>
                 <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  {showPassword ? (
-                    <EyeOff className="w-5 h-5" />
-                  ) : (
-                    <Eye className="w-5 h-5" />
-                  )}
+  type="button"
+  onClick={() => signIn('google', { callbackUrl: '/discussions' })}
+  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '13px', border: '1.5px solid #e5e7eb', borderRadius: '10px', background: 'white', cursor: 'pointer' }}
+>
+  <svg width="24" height="24" viewBox="0 0 24 24">
+    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+  </svg>
+</button>
+                <button type="button" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '13px', border: '1.5px solid #e5e7eb', borderRadius: '10px', background: 'white', cursor: 'pointer' }}>
+                  <svg width="24" height="24" fill="#1877F2" viewBox="0 0 24 24">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                  </svg>
                 </button>
               </div>
-            </div>
 
-            {/* Bar Council Registration No */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Bar Council Registration No
-              </label>
-              <input
-                type="text"
-                placeholder="License No"
-                value={formData.barCouncilNo}
-                onChange={(e) => setFormData({ ...formData, barCouncilNo: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
-                required
-              />
-            </div>
-
-            {/* Professional ID */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Professional ID
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Upload Document"
-                  value={fileName}
-                  readOnly
-                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg bg-gray-50 cursor-pointer"
-                  onClick={() => document.getElementById('file-upload')?.click()}
-                />
-                <Upload className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  id="file-upload"
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={handleFileChange}
-                  className="hidden"
-                  required
-                />
+              {/* Divider */}
+              <div style={{ position: 'relative', marginBottom: '18px' }}>
+                <div style={{ borderTop: '1px solid #e5e7eb', position: 'absolute', top: '50%', width: '100%' }} />
+                <div style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
+                  <span style={{ background: '#FCFCFF', padding: '0 12px', color: '#9ca3af', fontSize: '15px' }}>or</span>
+                </div>
               </div>
+
+              <form onSubmit={handleSubmit} noValidate>
+
+                {/* Name */}
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={labelStyle}>Name</label>
+                  <input
+                    type="text"
+                    placeholder="Enter your full name here"
+                    style={inputStyle(!!fieldErrors.name)}
+                    value={formData.name}
+                    onChange={e => handleChange('name', e.target.value)}
+                    onBlur={() => handleBlur('name')}
+                    required
+                  />
+                  {fieldErrors.name && (
+                    <p style={errorTextStyle}>
+                      <XCircle size={12} /> {fieldErrors.name}
+                    </p>
+                  )}
+                </div>
+
+                {/* Email */}
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={labelStyle}>Email</label>
+                  <input
+                    type="email"
+                    placeholder="Enter your email address here"
+                    style={inputStyle(!!fieldErrors.email)}
+                    value={formData.email}
+                    onChange={e => handleChange('email', e.target.value)}
+                    onBlur={() => handleBlur('email')}
+                    required
+                  />
+                  {fieldErrors.email && (
+                    <p style={errorTextStyle}>
+                      <XCircle size={12} /> {fieldErrors.email}
+                    </p>
+                  )}
+                </div>
+
+                {/* Password */}
+                <div style={{ marginBottom: '6px' }}>
+                  <label style={labelStyle}>Password</label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Enter your password here"
+                      style={{ ...inputStyle(!!fieldErrors.password), paddingRight: '44px' }}
+                      value={formData.password}
+                      onChange={e => handleChange('password', e.target.value)}
+                      onBlur={() => handleBlur('password')}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex', alignItems: 'center' }}
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+
+                  {formData.password && (
+                    <div style={{ marginTop: '8px' }}>
+                      <div style={{ height: '4px', background: '#e5e7eb', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%', width: pwStrength!.width,
+                          background: pwStrength!.color,
+                          borderRadius: '4px',
+                          transition: 'width 0.3s ease, background 0.3s ease',
+                        }} />
+                      </div>
+                      <p style={{ fontSize: '11px', color: pwStrength!.color, marginTop: '3px', fontWeight: 600 }}>
+                        {pwStrength!.label}
+                      </p>
+                    </div>
+                  )}
+
+                  {fieldErrors.password && (
+                    <p style={errorTextStyle}>
+                      <XCircle size={12} /> {fieldErrors.password}
+                    </p>
+                  )}
+                </div>
+
+                <div style={{ marginBottom: '20px' }} />
+
+                <button
+                  type="submit"
+                  style={{ width: '100%', padding: '14px', background: '#9F63C4', color: 'white', border: 'none', borderRadius: '10px', fontSize: '18px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+                >
+                  Submit
+                </button>
+              </form>
+
+              <p style={{ textAlign: 'center', fontSize: '16px', color: '#000000', marginTop: '16px' }}>
+                Already have an account?{' '}
+                <Link href="/lawyerlogin" style={{ color: '#9F63C4', fontWeight: 600, textDecoration: 'none' }}>Login</Link>
+              </p>
+            </>
+          )}
+
+          {step === 'loading' && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: 20 }}>
+              <Image src="/logo-legal-hub.png" alt="Legal Hub" width={140} height={40} style={{ margin: '0 auto' }} />
+              <div style={{ width: 64, height: 64, borderRadius: '50%', border: '3px solid rgba(159,99,196,0.20)', borderTopColor: '#9F63C4', animation: 'lh-spin 0.85s linear infinite' }} />
+              <style>{`@keyframes lh-spin{to{transform:rotate(360deg)}}`}</style>
+              <p style={{ fontSize: '17px', fontWeight: 700, color: '#4C2F5E' }}>Creating your account…</p>
+              <p style={{ fontSize: '14px', color: '#aaa' }}>Please wait a moment</p>
             </div>
+          )}
 
-            {/* Primary Jurisdiction */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Primary Jurisdiction
-              </label>
-              <select
-                value={formData.jurisdiction}
-                onChange={(e) => setFormData({ ...formData, jurisdiction: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition bg-white"
-                required
-              >
-                <option value="">City</option>
-                <option value="Islamabad">Islamabad</option>
-                <option value="Karachi">Karachi</option>
-                <option value="Lahore">Lahore</option>
-                <option value="Rawalpindi">Rawalpindi</option>
-                <option value="Faisalabad">Faisalabad</option>
-                <option value="Multan">Multan</option>
-                <option value="Peshawar">Peshawar</option>
-                <option value="Quetta">Quetta</option>
-              </select>
+          {/* VERIFY EMAIL STEP */}
+          {step === 'verify_email' && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 16 }}>
+              <Image src="/logo-legal-hub.png" alt="Legal Hub" width={140} height={40} style={{ margin: '0 auto' }} />
+              <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(159,99,196,0.12)', border: '2px solid rgba(159,99,196,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Mail size={34} color="#9F63C4" strokeWidth={1.5} />
+              </div>
+              <p style={{ fontSize: '20px', fontWeight: 700, color: '#4C2F5E', margin: 0 }}>Check Your Email!</p>
+              <p style={{ fontSize: '14px', color: '#777', lineHeight: 1.6, maxWidth: 280, margin: 0 }}>
+                Your account has been created successfully. We&apos;ve sent a verification link to:
+              </p>
+              <div style={{ background: 'rgba(159,99,196,0.08)', border: '1px solid rgba(159,99,196,0.28)', borderRadius: 10, padding: '12px 16px', fontSize: '14px', fontWeight: 600, color: '#4C2F5E', width: '100%', wordBreak: 'break-all' }}>
+                📧 {formData.email}
+              </div>
+              <button type="button" onClick={handleVerified} style={{ width: '100%', padding: '13px', background: '#9F63C4', color: 'white', border: 'none', borderRadius: '10px', fontSize: '16px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                ✓ I&apos;ve Verified My Email
+              </button>
             </div>
-            
+          )}
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition shadow-lg hover:shadow-xl"
-            >
-              SignUp
-            </button>
-          </form>
+          {/* EMAIL EXISTS STEP  */}
+          {step === 'email_exists' && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 16 }}>
+              <Image src="/logo-legal-hub.png" alt="Legal Hub" width={140} height={40} style={{ margin: '0 auto' }} />
+              <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(239,68,68,0.10)', border: '2px solid rgba(239,68,68,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <XCircle size={36} color="#ef4444" strokeWidth={1.5} />
+              </div>
+              <p style={{ fontSize: '18px', fontWeight: 700, color: '#b91c1c', margin: 0 }}>Email Already Registered</p>
+              <p style={{ fontSize: '14px', color: '#777', lineHeight: 1.6, maxWidth: 280, margin: 0 }}>
+                This email is already in use. Please sign in or try a different email address.
+              </p>
+              <button type="button" onClick={() => setStep('form')} style={{ width: '100%', padding: '13px', background: '#9F63C4', color: 'white', border: 'none', borderRadius: '10px', fontSize: '16px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                ← Try a Different Email
+              </button>
+              <p style={{ fontSize: '14px', color: '#999', margin: 0 }}>
+                Have an account?{' '}
+                <Link href="/lawyerlogin" style={{ color: '#9F63C4', fontWeight: 600, textDecoration: 'none' }}>Sign in</Link>
+              </p>
+            </div>
+          )}
 
-          {/* Login Link */}
-          <p className="text-center text-sm text-gray-600 mt-6">
-            Already have an account?{' '}
-            <Link href="/lawyerlogin" className="text-purple-600 font-semibold hover:underline">
-              Login
-            </Link>
-          </p>
+          {step === 'error' && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 16 }}>
+              <Image src="/logo-legal-hub.png" alt="Legal Hub" width={140} height={40} style={{ margin: '0 auto' }} />
+              <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(239,68,68,0.10)', border: '2px solid rgba(239,68,68,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <XCircle size={36} color="#ef4444" strokeWidth={1.5} />
+              </div>
+              <p style={{ fontSize: '18px', fontWeight: 700, color: '#b91c1c', margin: 0 }}>Registration Failed</p>
+              <p style={{ fontSize: '14px', color: '#777', lineHeight: 1.6, maxWidth: 280, margin: 0 }}>{errorMsg}</p>
+              <button type="button" onClick={() => { setStep('form'); setErrorMsg(''); }} style={{ width: '100%', padding: '13px', background: '#9F63C4', color: 'white', border: 'none', borderRadius: '10px', fontSize: '16px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                ← Try Again
+              </button>
+            </div>
+          )}
+
         </div>
       </div>
     </div>

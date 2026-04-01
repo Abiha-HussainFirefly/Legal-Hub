@@ -32,9 +32,9 @@ export default function StartDiscussionModal({ isOpen, onClose }: StartDiscussio
       />
 
       <div className="flex min-h-full items-center justify-center p-4">
-        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl transform transition-all border-4 border-dashed border-purple-300">
+        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl transform transition-all border-4  border-purple-300">
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
-            <h2 className="text-xl font-bold text-purple-700">Start a New Legal Discussion</h2>
+            <h2 className="text-xl font-bold text-[#9d5ac7]">Start a New Legal Discussion</h2>
             <button
               onClick={onClose}
               className="p-1 hover:bg-gray-100 rounded-lg transition"
@@ -45,8 +45,8 @@ export default function StartDiscussionModal({ isOpen, onClose }: StartDiscussio
 
           <form onSubmit={handleSubmit} className="p-6">
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Discussion Title<span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-[#4C2F5E] mb-2">
+                Discussion Title<span className="text-[#4C2F5E]">*</span>
               </label>
               <input
                 type="text"
@@ -60,8 +60,8 @@ export default function StartDiscussionModal({ isOpen, onClose }: StartDiscussio
 
             <div className="grid grid-cols-2 gap-4 mb-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Category<span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-[#4C2F5E] mb-2">
+                  Category<span className="text-[#4C2F5E]">*</span>
                 </label>
                 <select
                   value={formData.category}
@@ -80,8 +80,8 @@ export default function StartDiscussionModal({ isOpen, onClose }: StartDiscussio
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Region<span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-[#4C2F5E] mb-2">
+                  Region<span className="text-[#4C2F5E]">*</span>
                 </label>
                 <select
                   value={formData.region}
@@ -100,15 +100,15 @@ export default function StartDiscussionModal({ isOpen, onClose }: StartDiscussio
             </div>
 
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Description<span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-[#4C2F5E] mb-2">
+                Description<span className="text0[#4C2F5E]">*</span>
               </label>
               <textarea
                 placeholder="Describe your legal question or topic detail. Include relevate facts, dates, and any specific concerns..."
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={8}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none resize-none transition"
+                className="w-full px-4 py-3 border border-[#D9E9E8] rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none resize-none transition"
                 required
               />
             </div>
@@ -117,13 +117,13 @@ export default function StartDiscussionModal({ isOpen, onClose }: StartDiscussio
               <button
                 type="button"
                 onClick={onClose}
-                className="px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium"
+                className="px-6 py-2.5 text-[#9F63C4] bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-6 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-medium shadow-lg hover:shadow-xl"
+                className="px-6 py-2.5 bg-[#68427f] text-white rounded-lg hover:bg-purple-700 transition font-medium shadow-lg hover:shadow-xl"
               >
                 Post Discussion
               </button>

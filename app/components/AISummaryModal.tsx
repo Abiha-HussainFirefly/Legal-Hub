@@ -14,7 +14,6 @@ export default function AISummaryModal({ isOpen, onClose }: AISummaryModalProps)
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
         onClick={onClose}
@@ -26,25 +25,24 @@ export default function AISummaryModal({ isOpen, onClose }: AISummaryModalProps)
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-purple-600" />
-              <h2 className="text-xl font-bold text-purple-700">AI Summary</h2>
+              <Sparkles className="w-5 h-5 text-[#9E62C4]" />
+              <h2 className="text-xl font-bold text-[#4C2F5E]">AI Summary</h2>
             </div>
             <button
               onClick={onClose}
               className="p-1 hover:bg-gray-100 rounded-lg transition"
             >
-              <X className="w-6 h-6 text-gray-500" />
+              <X className="w-6 h-6 text-[#4C2F5E]" />
             </button>
           </div>
 
           {/* Content */}
           <div className="p-6">
-            {/* Title Section */}
-            <div className="bg-purple-50 rounded-lg p-4 mb-6">
-              <h3 className="font-semibold text-gray-900 mb-2">
+            <div className="bg-[#EDE2F3] rounded-lg p-4 mb-6">
+              <h3 className="font-semibold text-[#4C2F5E] mb-2">
                 Legal Framework for Digital Assets in Pakistan - Need Clarification
               </h3>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-[#6E7D7D]">
                 AI-generated summary based on discussion content and expert replies
               </p>
             </div>
@@ -52,10 +50,10 @@ export default function AISummaryModal({ isOpen, onClose }: AISummaryModalProps)
             {/* Main Issue */}
             <div className="mb-6">
               <div className="flex items-start gap-2 mb-2">
-                <CheckCircle2 className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
-                <h4 className="font-semibold text-purple-700">Main Issue</h4>
+                <CheckCircle2 className="w-5 h-5 text-[#9E62C4] flex-shrink-0 mt-0.5" />
+                <h4 className="font-semibold text-[#4C2F5E]">Main Issue</h4>
               </div>
-              <p className="text-sm text-gray-700 leading-relaxed ml-7">
+              <p className="text-sm text-[#6E7D7D] leading-relaxed ml-7">
                 The discussion centers on understanding the legal framework and implications of the topic within Pakistan jurisdiction
               </p>
             </div>
@@ -63,20 +61,20 @@ export default function AISummaryModal({ isOpen, onClose }: AISummaryModalProps)
             {/* Key Points */}
             <div className="mb-6">
               <div className="flex items-start gap-2 mb-3">
-                <CheckCircle2 className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
-                <h4 className="font-semibold text-purple-700">Key Points</h4>
+                <CheckCircle2 className="w-5 h-5 text-[#9E62C4] flex-shrink-0 mt-0.5" />
+                <h4 className="font-semibold text-[#4C2F5E]">Key Points</h4>
               </div>
               <ul className="ml-7 space-y-2">
-                <li className="flex items-start gap-2 text-sm text-gray-700">
-                  <span className="w-1.5 h-1.5 bg-purple-600 rounded-full mt-2 flex-shrink-0"></span>
+                <li className="flex items-start gap-2 text-sm text-[#6E7D7D]">
+                  <span className="w-1.5 h-1.5 bg-[#4C2F5E] rounded-full mt-2 flex-shrink-0"></span>
                   <span>Relevant laws and statutory provisions discussed</span>
                 </li>
-                <li className="flex items-start gap-2 text-sm text-gray-700">
-                  <span className="w-1.5 h-1.5 bg-purple-600 rounded-full mt-2 flex-shrink-0"></span>
+                <li className="flex items-start gap-2 text-sm text-[#6E7D7D]">
+                  <span className="w-1.5 h-1.5 bg-[#4C2F5E] rounded-full mt-2 flex-shrink-0"></span>
                   <span>Precedents and case law references provided</span>
                 </li>
-                <li className="flex items-start gap-2 text-sm text-gray-700">
-                  <span className="w-1.5 h-1.5 bg-purple-600 rounded-full mt-2 flex-shrink-0"></span>
+                <li className="flex items-start gap-2 text-sm text-[#6E7D7D]">
+                  <span className="w-1.5 h-1.5 bg-[#4C2F5E] rounded-full mt-2 flex-shrink-0"></span>
                   <span>Practical steps and recommendations outlined</span>
                 </li>
               </ul>
@@ -85,19 +83,24 @@ export default function AISummaryModal({ isOpen, onClose }: AISummaryModalProps)
             {/* Expert Consensus */}
             <div className="mb-6">
               <div className="flex items-start gap-2 mb-2">
-                <CheckCircle2 className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
-                <h4 className="font-semibold text-purple-700">Expert Consensus</h4>
+                <CheckCircle2 className="w-5 h-5 text-[#9E62C4] flex-shrink-0 mt-0.5" />
+                <h4 className="font-semibold text-[#4C2F5E]">Expert Consensus</h4>
               </div>
-              <p className="text-sm text-gray-700 leading-relaxed ml-7">
-                Multiple verified lawyers have provided aligned guidance on the proper legal approach and recommended next steps.
+              <p className="text-sm text-[#6E7D7D] leading-relaxed ml-7">
+                Multiple verified lawyers have provided aligned\guidance on the proper legal approach and recommended next steps.
               </p>
             </div>
 
             {/* Footer Badge */}
-            <div className="flex items-center gap-2 bg-purple-600 text-white px-4 py-3 rounded-lg">
-              <Sparkles className="w-4 h-4" />
-              <span className="text-sm font-medium">Generated by Legal Hub AI</span>
-            </div>
+           
+<div className="p-6 pt-0 flex justify-start">
+  <div className="flex items-center justify-center gap-3 bg-gradient-to-r from-[#4C2F5E] to-[#8A54B0] text-white px-6 py-2.5 rounded-xl w-72 shadow-md">
+    <Sparkles className="w-4 h-4 shrink-0" />
+    <span className="text-sm font-bold tracking-wide">
+      Generated by Legal Hub AI
+    </span>
+  </div>
+</div>
           </div>
         </div>
       </div>

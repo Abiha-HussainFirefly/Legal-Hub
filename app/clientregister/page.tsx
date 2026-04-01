@@ -1,130 +1,202 @@
 'use client';
 
-import { CheckCircle, Eye, EyeOff } from 'lucide-react';
+import { CheckSquare, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 
-export default function Register() {
+export default function ClientRegister() {
   const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    region: '',
-  });
+  const [formData, setFormData] = useState({ name:'',email: '', password: '' ,region:''});
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Signup data:', formData);
-    // Handle signup logic here
+    console.log('Login data:', formData);
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left Side - Purple Gradient with Background Image */}
-      <div 
-        className="hidden lg:flex lg:w-1/2 p-12 flex-col justify-center items-center text-white relative overflow-hidden"
-        style={{
-          background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.9), rgba(126, 34, 206, 0.9)), url(/background-pattern.jpg)',
+    <div style={{
+      width: '100vw',
+      height: '100vh',
+      backgroundColor: '#FFFFFF',
+      display: 'flex',
+      flexDirection: 'row',
+      alignItems: 'stretch',
+      padding: '14px',
+      gap: '14px',
+      boxSizing: 'border-box',
+      overflow: 'hidden',
+    }}>
+
+      {/* LEFT PANEL */}
+      <div style={{
+        width: '62%',
+        flexBasis: '62%',
+        flexGrow: 0,
+        flexShrink: 0,
+        height: '100%',
+        borderRadius: '24px',
+        overflow: 'hidden',
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '58px 46px',
+        boxSizing: 'border-box',
+        color: 'white',
+      }}>
+
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: 'url("/bg.jpg")',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          backgroundImage:'src="/bg.jpg" ',
-        }}
-      >
-        {/* Fallback gradient if no image */}
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-500 via-purple-600 to-purple-700 -z-10" />
-        
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-10 left-10 w-32 h-32 border-4 border-white rounded-full" />
-          <div className="absolute bottom-20 right-20 w-24 h-24 border-4 border-white rounded-full" />
-          <div className="absolute top-1/2 left-1/4 w-16 h-16 border-4 border-white rounded-full" />
-          <img src="bg.jpg" alt="" />
-        </div>
+          zIndex: 0,
+        }} />
+
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(135deg, rgba(76,47,94,0.91) 0%, rgba(130,81,160,0.97) 65%, rgba(159,99,196,1) 100%)',
+          zIndex: 1,
+        }} />
 
         {/* Content */}
-        <div className="relative z-10 max-w-md text-center">
-          {/* Logo - White version for left side */}
-          <div className="mb-12">
-            <Image 
-              src="/logo-legal-hub.png" 
-              alt="Legal Hub" 
-              width={200}
-              height={60}
-              className="mx-auto brightness-0 invert"
-            />
-          </div>
+        <div style={{ position: 'relative', zIndex: 3, textAlign: 'center', width: '100%' }}>
+  
+  {/* Logo */}
+  <div style={{ marginBottom: '38px' }}>
+    <Image
+      src="/logo-legal-hub.png"
+      alt="Legal Hub"
+      width={220}
+      height={65}
+      style={{ margin: '0 auto', filter: 'brightness(0) invert(1)' }}
+    />
+  </div>
 
-          {/* Heading */}
-          <h1 className="text-4xl font-bold mb-4">
-            Join the Legal Community
-          </h1>
-          <p className="text-purple-100 mb-12 text-lg">
-            Connect with verified lawyers, get legal advice, and manage your case all one place
-          </p>
+  <h1 style={{ fontSize: '32px', fontWeight: 700, marginBottom: '16px', lineHeight: 1.3 }}>
+    Join the Legal Community
+  </h1>
 
-          {/* Features */}
-          <div className="space-y-4 text-left">
-            <div className="flex items-center gap-3">
-              <CheckCircle className="w-5 h-5 flex-shrink-0" />
-              <span className="text-purple-50">AI-Powered Matching</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <CheckCircle className="w-5 h-5 flex-shrink-0" />
-              <span className="text-purple-50">Regional Expertise</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <CheckCircle className="w-5 h-5 flex-shrink-0" />
-              <span className="text-purple-50">Verified Professionals</span>
-            </div>
-          </div>
+          <p 
+    style={{ 
+      fontSize: '18px', 
+      color: '#ffffff', 
+      lineHeight: 1.5, 
+      marginBottom: '40px', 
+      whiteSpace: 'nowrap',
+      textAlign: 'center'
+    }} 
+    className="w-full"
+  >
+    Connect with verified lawyers, get legal advice, and manage your case all one place
+  </p>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'center', gap: '20px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '13px' }}>
+                        <CheckSquare
+                         size={16}
+                         fill="#4C2F5E"
+                         stroke="#FFFFFF"
+                         strokeWidth={2}
+                         style={{ flexShrink: 0 }}
+                         />
+                          <span style={{ fontSize: '18px', color: '#FFFFFF', fontWeight: 500 }}>AI-Powered Matching</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '13px' }}>
+                          <CheckSquare
+    size={16}
+    fill="#4C2F5E"
+    stroke="#FFFFFF"
+    strokeWidth={2}
+    style={{ flexShrink: 0 }}
+  />
+                          <span style={{ fontSize: '18px', color: '#FFFFFF', fontWeight: 500 }}>Regional Expertise</span>
+                        </div>
+                      </div>
+
+<div style={{ display: 'flex', alignItems: 'center', gap: '13px' }}>
+  <CheckSquare
+    size={16}
+    fill="#4C2F5E"
+    stroke="#FFFFFF"
+    strokeWidth={2}
+    style={{ flexShrink: 0 }}
+  />
+  <span style={{ fontSize: '18px', color: '#ffffff', fontWeight: 500 }}>
+    Verified Professionals
+  </span>
+</div>
+      </div>
         </div>
       </div>
 
-      {/* Right Side - White Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
-        <div className="w-full max-w-md">
-          {/* Logo - Original colors for right side (mobile and desktop) */}
-          <div className="mb-8 text-center">
-            <Image 
-              src="/logo-legal-hub.png" 
-              alt="Legal Hub" 
-              width={160}
-              height={40}
-              className="mx-auto"
-            />
-          </div>
+      {/*RIGHT PANEL*/}
+      <div style={{
+        width: 'calc(38% - 14px)',
+        flexBasis: 'calc(38% - 14px)',
+        flexGrow: 0,
+        flexShrink: 0,
+        height: '100%',
+        borderRadius: '24px',
+        backgroundColor: '#FCFCFF',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '58px 46px',
+        boxSizing: 'border-box',
+        overflowY: 'auto',
+      }}>
+        <div style={{ width: '100%', maxWidth: '340px' }}>
 
-          {/* Sign up heading */}
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">Sign up</h2>
-          </div>
+                    <div style={{ textAlign: 'center', marginBottom: '18px',marginTop:'150px' }}>
+                      <Image
+                        src="/logo-legal-hub.png"
+                        alt="Legal Hub"
+                        width={155}
+                        height={44}
+                        style={{ margin: '0 auto' }}
+                      />
+                    </div>
 
-          {/* Social Login Buttons */}
-          <div className="flex gap-4 mb-6">
-            <button className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
+          <h2 style={{ textAlign: 'center', fontSize: '22px', fontWeight: 700, color: '#9F63C4', marginBottom: '24px' ,marginTop:'10px' }}>
+            Sign up
+          </h2>
+
+          {/* Social Buttons */}
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
+            <button style={{
+              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '13px', border: '1.5px solid #e5e7eb', borderRadius: '10px',
+              background: 'white', cursor: 'pointer',
+            }}>
+              <svg width="24" height="24" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
               </svg>
             </button>
-            <button className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
-              <svg className="w-5 h-5" fill="#1877F2" viewBox="0 0 24 24">
+            <button style={{
+              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '13px', border: '1.5px solid #e5e7eb', borderRadius: '10px',
+              background: 'white', cursor: 'pointer',
+            }}>
+              <svg width="24" height="24" fill="#1877F2" viewBox="0 0 24 24">
                 <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
               </svg>
             </button>
           </div>
 
           {/* Divider */}
-          <div className="relative mb-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-gray-500">or</span>
+          <div style={{ position: 'relative', marginBottom: '20px' }}>
+            <div style={{ borderTop: '1px solid #e5e7eb', position: 'absolute', top: '50%', width: '100%' }} />
+            <div style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
+              <span style={{ background: 'white', padding: '0 12px', color: '#9ca3af', fontSize: '15px' }}>or</span>
             </div>
           </div>
 
@@ -211,24 +283,28 @@ export default function Register() {
               </select>
             </div>
 
-            {/* Submit Button */}
             <button
               type="submit"
-              className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition shadow-lg hover:shadow-xl"
+              style={{
+                width: '100%', padding: '14px', background: '#9F63C4', color: 'white',
+                border: 'none', borderRadius: '10px', fontSize: '18px', fontWeight: 600,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
             >
-              Signup
+              Sign up
             </button>
           </form>
 
-          {/* Login Link */}
-          <p className="text-center text-sm text-gray-600 mt-6">
+          <p style={{ textAlign: 'center', fontSize: '16px', color: '#000000', marginTop: '20px' }}>
             Already have an account?{' '}
-            <Link href="/clientlogin" className="text-purple-600 font-semibold hover:underline">
+            <Link href="/clientlogin" style={{ color: '#9F63C4', fontWeight: 600, textDecoration: 'none' }}>
               Login
             </Link>
           </p>
+
         </div>
       </div>
+
     </div>
   );
 }

@@ -1,14 +1,1057 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider = "prisma-client"
-  output   = "../app/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// AUTHENTICATION + REGISTRATION (existing base, extended only)
+// ============================================================
+
+// --------------------
+// Enums
+// --------------------
+enum UserType {
+  SYSTEM
+  EXTERNAL
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DISABLED
+  DELETED
+}
+
+enum IdentifierType {
+  EMAIL
+  PHONE
+}
+
+enum AuthProviderType {
+  CREDENTIALS
+  OAUTH
+  SAML
+  OIDC
+}
+
+enum AuditAction {
+  USER_CREATED
+  USER_UPDATED
+  USER_DISABLED
+  USER_SUSPENDED
+  LOGIN_SUCCESS
+  LOGIN_FAILED
+  LOGOUT
+  SESSION_REVOKED
+  PASSWORD_CHANGED
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_RESET_COMPLETED
+  EMAIL_VERIFIED
+  ROLE_ASSIGNED
+  ROLE_REMOVED
+
+  DISCUSSION_CREATED
+  DISCUSSION_UPDATED
+  DISCUSSION_CLOSED
+  ANSWER_POSTED
+  ANSWER_ACCEPTED
+  CONTENT_REPORTED
+  LAWYER_VERIFICATION_SUBMITTED
+  LAWYER_VERIFIED
+  MODERATION_ACTION_TAKEN
+}
+
+enum RegionType {
+  COUNTRY
+  FEDERAL
+  PROVINCE
+  STATE
+  CITY
+  DISTRICT
+}
+
+enum LawyerVerificationStatus {
+  NOT_SUBMITTED
+  PENDING
+  UNDER_REVIEW
+  VERIFIED
+  REJECTED
+  EXPIRED
+}
+
+enum VerificationDocumentType {
+  BAR_LICENSE
+  BAR_COUNCIL_CARD
+  PRACTICING_CERTIFICATE
+  NATIONAL_ID
+  PROFILE_PHOTO
+  OTHER
+}
+
+enum DiscussionStatus {
+  OPEN
+  ANSWERED
+  CLOSED
+  LOCKED
+  HIDDEN
+  DELETED
+}
+
+enum DiscussionVisibility {
+  PUBLIC
+  UNLISTED
+  PRIVATE
+}
+
+enum ContentStatus {
+  ACTIVE
+  PENDING_MODERATION
+  FLAGGED
+  HIDDEN
+  REMOVED
+  DELETED
+}
+
+enum VoteType {
+  UPVOTE
+  DOWNVOTE
+}
+
+enum TagType {
+  PRACTICE_AREA
+  TOPIC
+  TREND
+  SPECIALTY
+}
+
+enum SummaryStatus {
+  PENDING
+  GENERATED
+  FAILED
+  STALE
+}
+
+enum ContentTargetType {
+  DISCUSSION
+  ANSWER
+  COMMENT
+  USER
+}
+
+enum ReportReason {
+  SPAM
+  HARASSMENT
+  HATE_SPEECH
+  MISINFORMATION
+  LEGAL_RISK
+  COPYRIGHT
+  PRIVACY
+  FRAUD
+  OFF_TOPIC
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  UNDER_REVIEW
+  ACTIONED
+  DISMISSED
+  RESOLVED
+}
+
+enum AIAlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AIAlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+  FALSE_POSITIVE
+}
+
+enum ModerationActionType {
+  WARNING
+  NOTE_ADDED
+  CONTENT_HIDDEN
+  CONTENT_REMOVED
+  CONTENT_RESTORED
+  USER_SUSPENDED
+  USER_BANNED
+  VERIFICATION_APPROVED
+  VERIFICATION_REJECTED
+}
+
+enum NotificationType {
+  NEW_ANSWER
+  ANSWER_ACCEPTED
+  DISCUSSION_FOLLOWED
+  DISCUSSION_MENTIONED
+  COMMENT_REPLIED
+  DISCUSSION_BOOKMARKED
+  VERIFICATION_APPROVED
+  VERIFICATION_REJECTED
+  REPORT_UPDATE
+  AI_SUMMARY_READY
+  SYSTEM
+}
+
+enum ReputationEventType {
+  DISCUSSION_CREATED
+  ANSWER_POSTED
+  ANSWER_ACCEPTED
+  DISCUSSION_UPVOTED
+  ANSWER_UPVOTED
+  LAWYER_VERIFIED
+  REPORT_CONFIRMED
+  CONTENT_REMOVED
+  MANUAL_ADJUSTMENT
+}
+
+// --------------------
+// Core User
+// --------------------
+model User {
+  id       String     @id @default(cuid())
+  userType UserType   @default(EXTERNAL)
+  status   UserStatus @default(ACTIVE)
+
+  displayName String?
+  avatarUrl   String?
+  locale      String? @default("en")
+  timeZone    String?
+
+  lastLoginAt   DateTime?
+  lastLoginIp   String?
+  lastUserAgent String?
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Auth / security
+  identifiers        UserIdentifier[]
+  credential         Credential?
+  accounts           ExternalAccount[]
+  sessions           Session[]
+  roles              UserRole[]
+  auditLogs          AuditLog[]          @relation("AuditActor")
+  auditTargets       AuditLog[]          @relation("AuditTarget")
+  verificationTokens VerificationToken[]
+
+  // Domain profile
+  profile       UserProfile?
+  stats         UserStats?
+  lawyerProfile LawyerProfile?
+
+  // Community
+  discussions        Discussion[]          @relation("DiscussionAuthor")
+  answers            Answer[]              @relation("AnswerAuthor")
+  comments           Comment[]             @relation("CommentAuthor")
+  discussionVotes    DiscussionVote[]
+  answerVotes        AnswerVote[]
+  follows            DiscussionFollow[]
+  savedDiscussions   SavedDiscussion[]
+  discussionViews    DiscussionView[]
+  reputationEvents   ReputationLedger[]
+  attachments        Attachment[]          @relation("AttachmentUploader")
+  generatedSummaries DiscussionAISummary[] @relation("AISummaryGeneratedBy")
+  notifications      Notification[]        @relation("NotificationRecipient")
+  notificationActors Notification[]        @relation("NotificationActor")
+
+  // Verification and moderation
+  verificationReviews       LawyerVerificationRequest[] @relation("VerificationReviewedBy")
+  verifiedLawyers           LawyerProfile[]             @relation("LawyerVerifiedBy")
+  reportsSubmitted          ContentReport[]             @relation("ReportReporter")
+  reportsAgainst            ContentReport[]             @relation("ReportedUser")
+  reportReviews             ContentReport[]             @relation("ReportReviewer")
+  reviewedAlerts            AIAlert[]                   @relation("AIAlertReviewer")
+  moderationActionsTaken    ModerationAction[]          @relation("ModerationActor")
+  moderationActionsReceived ModerationAction[]          @relation("ModerationTargetUser")
+
+  @@index([userType, status])
+  @@index([createdAt])
+}
+
+// --------------------
+// Identifiers (email/phone) + verification
+// --------------------
+model UserIdentifier {
+  id         String         @id @default(cuid())
+  userId     String
+  type       IdentifierType
+  value      String // normalize email to lowercase in app layer
+  isPrimary  Boolean        @default(false)
+  verifiedAt DateTime?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([type, value])
+  @@index([userId, type])
+  @@index([userId, isPrimary])
+}
+
+// --------------------
+// Local credentials (password auth)
+// Store only password hash (never plaintext).
+// Recommended password algorithms: argon2id or bcrypt.
+// --------------------
+model Credential {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  passwordHash  String
+  passwordAlgo  String? // e.g. "argon2id", "bcrypt"
+  passwordSetAt DateTime @default(now())
+  mustRotate    Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// --------------------
+// External accounts / social auth
+// Use providerType = OAUTH and provider values like:
+// - "google"
+// - "facebook"
+// Existing auth is preserved; these fields make Google/Facebook richer.
+// --------------------
+model ExternalAccount {
+  id     String @id @default(cuid())
+  userId String
+
+  providerType      AuthProviderType @default(OAUTH)
+  provider          String // e.g. "google", "facebook", "github", "azure-ad"
+  providerAccountId String // provider user id / subject
+
+  providerEmail       String?
+  providerDisplayName String?
+  providerAvatarUrl   String?
+  providerProfile     Json?
+
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  tokenType             String?
+  scope                 String?
+  expiresAt             Int? // unix seconds
+  refreshTokenExpiresAt Int? // unix seconds, if provider returns it
+  sessionState          String?
+
+  linkedAt   DateTime  @default(now())
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId, provider])
+  @@index([provider, providerEmail])
+}
+
+// --------------------
+// Sessions (DB-backed with revocation support)
+// --------------------
+model Session {
+  id           String @id @default(cuid())
+  userId       String
+  sessionToken String @unique
+
+  ip          String?
+  userAgent   String?
+  deviceLabel String?
+
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  expiresAt  DateTime
+
+  revokedAt    DateTime?
+  revokeReason String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+}
+
+// --------------------
+// Tokens: email verification + password reset + magic links
+// Keep token hashed in DB in the app/service layer when possible.
+// --------------------
+model VerificationToken {
+  id         String    @id @default(cuid())
+  userId     String?
+  purpose    String // e.g. "email_verify", "password_reset", "magic_link"
+  token      String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+
+  identifierType  IdentifierType?
+  identifierValue String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([purpose, expiresAt])
+  @@index([userId, purpose])
+}
+
+// --------------------
+// RBAC
+// --------------------
+model Role {
+  id          String  @id @default(cuid())
+  name        String  @unique // e.g. "admin", "moderator", "member", "lawyer"
+  description String?
+  isSystem    Boolean @default(false)
+
+  users       UserRole[]
+  permissions RolePermission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Permission {
+  id          String  @id @default(cuid())
+  key         String  @unique // e.g. "discussion.delete", "user.suspend"
+  description String?
+
+  roles RolePermission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UserRole {
+  id     String @id @default(cuid())
+  userId String
+  roleId String
+
+  assignedAt DateTime @default(now())
+  assignedBy String? // actor userId (optional, stored as scalar for simplicity)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([roleId])
+}
+
+model RolePermission {
+  id           String   @id @default(cuid())
+  roleId       String
+  permissionId String
+  grantedAt    DateTime @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([permissionId])
+}
+
+// --------------------
+// Audit trail
+// --------------------
+model AuditLog {
+  id           String      @id @default(cuid())
+  action       AuditAction
+  actorId      String?
+  targetUserId String?
+
+  ip        String?
+  userAgent String?
+  meta      Json?
+
+  createdAt DateTime @default(now())
+
+  actor      User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  targetUser User? @relation("AuditTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+
+  @@index([action, createdAt])
+  @@index([actorId, createdAt])
+  @@index([targetUserId, createdAt])
+}
+
+// ============================================================
+// LEGAL HUB DOMAIN MODELS
+// ============================================================
+
+// --------------------
+// User profile and reputation aggregates
+// --------------------
+model UserProfile {
+  id              String  @id @default(cuid())
+  userId          String  @unique
+  username        String? @unique
+  headline        String?
+  bio             String?
+  company         String?
+  websiteUrl      String?
+  linkedInUrl     String?
+  countryCode     String? @default("PK")
+  primaryRegionId String?
+  isLawyer        Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  primaryRegion Region? @relation(fields: [primaryRegionId], references: [id], onDelete: SetNull)
+
+  @@index([primaryRegionId])
+  @@index([isLawyer])
+}
+
+model UserStats {
+  userId              String    @id
+  discussionCount     Int       @default(0)
+  answerCount         Int       @default(0)
+  commentCount        Int       @default(0)
+  acceptedAnswerCount Int       @default(0)
+  followerCount       Int       @default(0)
+  bookmarkCount       Int       @default(0)
+  discussionViewCount Int       @default(0)
+  reputationScore     Int       @default(0)
+  lastContributionAt  DateTime?
+  updatedAt           DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ReputationLedger {
+  id           String              @id @default(cuid())
+  userId       String
+  eventType    ReputationEventType
+  pointsDelta  Int
+  discussionId String?
+  answerId     String?
+  note         String?
+  createdAt    DateTime            @default(now())
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  discussion Discussion? @relation(fields: [discussionId], references: [id], onDelete: SetNull)
+  answer     Answer?     @relation(fields: [answerId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([eventType, createdAt])
+  @@index([discussionId])
+  @@index([answerId])
+}
+
+// --------------------
+// Lawyer verification and specializations
+// --------------------
+model LawyerProfile {
+  id                 String                   @id @default(cuid())
+  userId             String                   @unique
+  barCouncil         String?
+  barLicenseNumber   String?                  @unique
+  practiceStartYear  Int?
+  firmName           String?
+  chamberAddress     String?
+  verificationStatus LawyerVerificationStatus @default(NOT_SUBMITTED)
+  verifiedAt         DateTime?
+  verifiedById       String?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  user                 User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verifiedBy           User?                       @relation("LawyerVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+  practiceAreas        LawyerPracticeArea[]
+  verificationRequests LawyerVerificationRequest[]
+
+  @@index([verificationStatus])
+  @@index([verifiedById])
+}
+
+model LawyerPracticeArea {
+  id              String   @id @default(cuid())
+  lawyerProfileId String
+  categoryId      String
+  yearsExperience Int?
+  isPrimary       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  lawyerProfile LawyerProfile @relation(fields: [lawyerProfileId], references: [id], onDelete: Cascade)
+  category      Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([lawyerProfileId, categoryId])
+  @@index([categoryId])
+}
+
+model LawyerVerificationRequest {
+  id              String                   @id @default(cuid())
+  lawyerProfileId String
+  status          LawyerVerificationStatus @default(PENDING)
+  submittedAt     DateTime                 @default(now())
+  reviewedAt      DateTime?
+  reviewedById    String?
+  rejectionReason String?
+  adminNote       String?
+  expiresAt       DateTime?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  lawyerProfile LawyerProfile                @relation(fields: [lawyerProfileId], references: [id], onDelete: Cascade)
+  reviewedBy    User?                        @relation("VerificationReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  documents     LawyerVerificationDocument[]
+
+  @@index([status, submittedAt])
+  @@index([reviewedById])
+}
+
+model LawyerVerificationDocument {
+  id                    String                   @id @default(cuid())
+  verificationRequestId String
+  type                  VerificationDocumentType
+  fileUrl               String
+  fileName              String?
+  mimeType              String?
+  fileSize              Int?
+  createdAt             DateTime                 @default(now())
+
+  verificationRequest LawyerVerificationRequest @relation(fields: [verificationRequestId], references: [id], onDelete: Cascade)
+
+  @@index([verificationRequestId, type])
+}
+
+// --------------------
+// Taxonomy / discovery
+// --------------------
+model Category {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String   @unique
+  description String?
+  colorHex    String?
+  iconName    String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  discussions Discussion[]
+  lawyerLinks LawyerPracticeArea[]
+
+  @@index([isActive, sortOrder])
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String   @unique
+  type      TagType  @default(TOPIC)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  discussions DiscussionTag[]
+
+  @@index([type, isActive])
+}
+
+model DiscussionTag {
+  id           String   @id @default(cuid())
+  discussionId String
+  tagId        String
+  createdAt    DateTime @default(now())
+
+  discussion Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  tag        Tag        @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([discussionId, tagId])
+  @@index([tagId])
+}
+
+model Region {
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  name        String
+  type        RegionType
+  countryCode String     @default("PK")
+  parentId    String?
+  sortOrder   Int        @default(0)
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  parent      Region?       @relation("RegionHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Region[]      @relation("RegionHierarchy")
+  profiles    UserProfile[]
+  discussions Discussion[]
+
+  @@unique([name, type, parentId])
+  @@index([parentId])
+  @@index([countryCode, type, isActive])
+}
+
+// --------------------
+// Discussions, answers, comments
+// --------------------
+model Discussion {
+  id               String               @id @default(cuid())
+  slug             String               @unique
+  title            String
+  body             String
+  excerpt          String?
+  authorId         String
+  categoryId       String
+  regionId         String
+  status           DiscussionStatus     @default(OPEN)
+  visibility       DiscussionVisibility @default(PUBLIC)
+  contentStatus    ContentStatus        @default(ACTIVE)
+  acceptedAnswerId String?              @unique
+  score            Int                  @default(0)
+  answerCount      Int                  @default(0)
+  commentCount     Int                  @default(0)
+  viewCount        Int                  @default(0)
+  followerCount    Int                  @default(0)
+  bookmarkCount    Int                  @default(0)
+  isAiSummaryReady Boolean              @default(false)
+  lastActivityAt   DateTime             @default(now())
+  closedAt         DateTime?
+  lockedAt         DateTime?
+  deletedAt        DateTime?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  author            User                  @relation("DiscussionAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  category          Category              @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  region            Region                @relation(fields: [regionId], references: [id], onDelete: Restrict)
+  answers           Answer[]              @relation("DiscussionAnswers")
+  acceptedAnswer    Answer?               @relation("AcceptedDiscussionAnswer", fields: [acceptedAnswerId], references: [id], onDelete: SetNull)
+  comments          Comment[]
+  votes             DiscussionVote[]
+  followers         DiscussionFollow[]
+  bookmarks         SavedDiscussion[]
+  views             DiscussionView[]
+  tags              DiscussionTag[]
+  aiSummaries       DiscussionAISummary[]
+  attachments       Attachment[]
+  reports           ContentReport[]
+  aiAlerts          AIAlert[]
+  moderationActions ModerationAction[]
+  notifications     Notification[]
+  reputationEvents  ReputationLedger[]
+
+  @@index([authorId, createdAt])
+  @@index([categoryId, regionId, status])
+  @@index([status, lastActivityAt])
+  @@index([contentStatus, createdAt])
+  @@index([acceptedAnswerId])
+}
+
+model Answer {
+  id             String        @id @default(cuid())
+  discussionId   String
+  authorId       String
+  body           String
+  status         ContentStatus @default(ACTIVE)
+  isAccepted     Boolean       @default(false)
+  isExpertAnswer Boolean       @default(false)
+  score          Int           @default(0)
+  commentCount   Int           @default(0)
+  acceptedAt     DateTime?
+  deletedAt      DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  discussion           Discussion         @relation("DiscussionAnswers", fields: [discussionId], references: [id], onDelete: Cascade)
+  author               User               @relation("AnswerAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  acceptedInDiscussion Discussion?        @relation("AcceptedDiscussionAnswer")
+  comments             Comment[]
+  votes                AnswerVote[]
+  attachments          Attachment[]
+  reports              ContentReport[]
+  aiAlerts             AIAlert[]
+  moderationActions    ModerationAction[]
+  notifications        Notification[]
+  reputationEvents     ReputationLedger[]
+
+  @@index([discussionId, createdAt])
+  @@index([authorId, createdAt])
+  @@index([status, createdAt])
+  @@index([isAccepted])
+}
+
+model Comment {
+  id           String        @id @default(cuid())
+  discussionId String?
+  answerId     String?
+  parentId     String?
+  authorId     String
+  body         String
+  status       ContentStatus @default(ACTIVE)
+  deletedAt    DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  discussion        Discussion?        @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  answer            Answer?            @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  parent            Comment?           @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies           Comment[]          @relation("CommentReplies")
+  author            User               @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  attachments       Attachment[]
+  reports           ContentReport[]
+  aiAlerts          AIAlert[]
+  moderationActions ModerationAction[]
+
+  @@index([discussionId, createdAt])
+  @@index([answerId, createdAt])
+  @@index([authorId, createdAt])
+  @@index([parentId])
+}
+
+model DiscussionVote {
+  id           String   @id @default(cuid())
+  discussionId String
+  userId       String
+  voteType     VoteType
+  createdAt    DateTime @default(now())
+
+  discussion Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([discussionId, userId])
+  @@index([userId])
+  @@index([voteType])
+}
+
+model AnswerVote {
+  id        String   @id @default(cuid())
+  answerId  String
+  userId    String
+  voteType  VoteType
+  createdAt DateTime @default(now())
+
+  answer Answer @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([answerId, userId])
+  @@index([userId])
+  @@index([voteType])
+}
+
+model DiscussionFollow {
+  id           String   @id @default(cuid())
+  discussionId String
+  userId       String
+  createdAt    DateTime @default(now())
+
+  discussion Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([discussionId, userId])
+  @@index([userId, createdAt])
+}
+
+model SavedDiscussion {
+  id           String   @id @default(cuid())
+  discussionId String
+  userId       String
+  createdAt    DateTime @default(now())
+
+  discussion Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([discussionId, userId])
+  @@index([userId, createdAt])
+}
+
+model DiscussionView {
+  id           String   @id @default(cuid())
+  discussionId String
+  userId       String?
+  ipHash       String?
+  userAgent    String?
+  viewedAt     DateTime @default(now())
+
+  discussion Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  user       User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([discussionId, viewedAt])
+  @@index([userId, viewedAt])
+}
+
+model Attachment {
+  id           String   @id @default(cuid())
+  uploaderId   String
+  discussionId String?
+  answerId     String?
+  commentId    String?
+  fileUrl      String
+  fileName     String
+  mimeType     String?
+  fileSize     Int?
+  checksum     String?
+  createdAt    DateTime @default(now())
+
+  uploader   User        @relation("AttachmentUploader", fields: [uploaderId], references: [id], onDelete: Cascade)
+  discussion Discussion? @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  answer     Answer?     @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  comment    Comment?    @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([uploaderId, createdAt])
+  @@index([discussionId])
+  @@index([answerId])
+  @@index([commentId])
+}
+
+// --------------------
+// AI summary and moderation
+// --------------------
+model DiscussionAISummary {
+  id              String        @id @default(cuid())
+  discussionId    String
+  version         Int           @default(1)
+  status          SummaryStatus @default(PENDING)
+  summaryText     String?
+  mainIssue       String?
+  keyPoints       Json?
+  expertConsensus String?
+  modelName       String?
+  promptVersion   String?
+  tokensUsed      Int?
+  errorMessage    String?
+  isCurrent       Boolean       @default(true)
+  generatedById   String?
+  generatedAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  discussion  Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  generatedBy User?      @relation("AISummaryGeneratedBy", fields: [generatedById], references: [id], onDelete: SetNull)
+
+  @@unique([discussionId, version])
+  @@index([discussionId, isCurrent])
+  @@index([status, generatedAt])
+}
+
+model ContentReport {
+  id             String            @id @default(cuid())
+  reporterId     String
+  reportedUserId String?
+  discussionId   String?
+  answerId       String?
+  commentId      String?
+  targetType     ContentTargetType
+  reason         ReportReason
+  description    String?
+  status         ReportStatus      @default(OPEN)
+  reviewedById   String?
+  reviewedAt     DateTime?
+  resolutionNote String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  reporter          User               @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedUser      User?              @relation("ReportedUser", fields: [reportedUserId], references: [id], onDelete: SetNull)
+  discussion        Discussion?        @relation(fields: [discussionId], references: [id], onDelete: SetNull)
+  answer            Answer?            @relation(fields: [answerId], references: [id], onDelete: SetNull)
+  comment           Comment?           @relation(fields: [commentId], references: [id], onDelete: SetNull)
+  reviewedBy        User?              @relation("ReportReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  moderationActions ModerationAction[]
+
+  @@index([reporterId, createdAt])
+  @@index([status, createdAt])
+  @@index([targetType, createdAt])
+  @@index([reviewedById])
+}
+
+model AIAlert {
+  id           String            @id @default(cuid())
+  source       String // e.g. "integrity_shield"
+  targetType   ContentTargetType
+  discussionId String?
+  answerId     String?
+  commentId    String?
+  severity     AIAlertSeverity
+  title        String
+  description  String?
+  riskScore    Decimal?          @db.Decimal(5, 2)
+  status       AIAlertStatus     @default(OPEN)
+  reviewedById String?
+  reviewedAt   DateTime?
+  detectedAt   DateTime          @default(now())
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  discussion        Discussion?        @relation(fields: [discussionId], references: [id], onDelete: SetNull)
+  answer            Answer?            @relation(fields: [answerId], references: [id], onDelete: SetNull)
+  comment           Comment?           @relation(fields: [commentId], references: [id], onDelete: SetNull)
+  reviewedBy        User?              @relation("AIAlertReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  moderationActions ModerationAction[]
+
+  @@index([status, severity, detectedAt])
+  @@index([targetType, detectedAt])
+  @@index([reviewedById])
+}
+
+model ModerationAction {
+  id           String               @id @default(cuid())
+  moderatorId  String
+  targetUserId String?
+  discussionId String?
+  answerId     String?
+  commentId    String?
+  reportId     String?
+  aiAlertId    String?
+  actionType   ModerationActionType
+  reason       String?
+  note         String?
+  createdAt    DateTime             @default(now())
+
+  moderator  User           @relation("ModerationActor", fields: [moderatorId], references: [id], onDelete: Restrict)
+  targetUser User?          @relation("ModerationTargetUser", fields: [targetUserId], references: [id], onDelete: SetNull)
+  discussion Discussion?    @relation(fields: [discussionId], references: [id], onDelete: SetNull)
+  answer     Answer?        @relation(fields: [answerId], references: [id], onDelete: SetNull)
+  comment    Comment?       @relation(fields: [commentId], references: [id], onDelete: SetNull)
+  report     ContentReport? @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  aiAlert    AIAlert?       @relation(fields: [aiAlertId], references: [id], onDelete: SetNull)
+
+  @@index([moderatorId, createdAt])
+  @@index([actionType, createdAt])
+  @@index([targetUserId])
+}
+
+// --------------------
+// Notifications
+// --------------------
+model Notification {
+  id           String           @id @default(cuid())
+  userId       String
+  actorId      String?
+  discussionId String?
+  answerId     String?
+  type         NotificationType
+  title        String
+  message      String?
+  data         Json?
+  isRead       Boolean          @default(false)
+  readAt       DateTime?
+  createdAt    DateTime         @default(now())
+
+  user       User        @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actor      User?       @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  discussion Discussion? @relation(fields: [discussionId], references: [id], onDelete: SetNull)
+  answer     Answer?     @relation(fields: [answerId], references: [id], onDelete: SetNull)
+
+  @@index([userId, isRead, createdAt])
+  @@index([type, createdAt])
 }
