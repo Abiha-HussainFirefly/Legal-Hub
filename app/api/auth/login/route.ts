@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { verifyPassword } from '@/lib/auth/password';
-import { createSession } from '@/lib/auth/session';
+import { prisma }                    from '@/lib/prisma';
+import { verifyPassword }            from '@/lib/auth/password';
+import { createSession }             from '@/lib/auth/session';
+
 
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get('x-forwarded-for') ?? req.headers.get('x-real-ip') ?? null;
+  const ip        = req.headers.get('x-forwarded-for') ?? req.headers.get('x-real-ip') ?? null;
   const userAgent = req.headers.get('user-agent') ?? null;
 
   try {
     const body = await req.json();
-    const { email, password, loginType } = body; 
+    const { email, password, loginType } = body;
 
     if (!email || !password) {
       return NextResponse.json(
@@ -20,28 +21,37 @@ export async function POST(req: NextRequest) {
 
     const normalizedEmail = email.trim().toLowerCase();
 
+    // READ UserIdentifier + User + Credential + Roles ──────────────
     const identifier = await prisma.userIdentifier.findUnique({
       where: {
-        type_value: {
-          type: 'EMAIL',
-          value: normalizedEmail,
-        },
+        type_value: { type: 'EMAIL', value: normalizedEmail },
       },
       include: {
         user: {
-          include: { 
+          include: {
             credential: true,
             roles: {
-              include: {
-                role: true
-              }
-            }
+              include: { role: true },
+            },
           },
         },
       },
     });
 
+    //  Email not found ───────────────────────────────────────────────
+    // Write audit log first, then return the SAME message as wrong password
+   
     if (!identifier || !identifier.user) {
+      await prisma.auditLog.create({
+        data: {
+          action:       'LOGIN_FAILED',
+          actorId:      null,
+          targetUserId: null,
+          ip,
+          userAgent,
+          meta: { reason: 'invalid_credentials', email: normalizedEmail },
+        },
+      });
       return NextResponse.json(
         { error: 'LOGIN_FAILED', message: 'Invalid email or password.' },
         { status: 401 }
@@ -49,23 +59,30 @@ export async function POST(req: NextRequest) {
     }
 
     const { user } = identifier;
+    const isDeleted   = user.deletedAt !== null;
+    const isInactive  = user.status !== 'ACTIVE';
 
-    // Status Check (ACTIVE/SUSPENDED/DISABLED)
-    if (user.status !== 'ACTIVE') {
+    if (isInactive || isDeleted) {
+      const reason = user.status === 'SUSPENDED'
+        ? 'ACCOUNT_SUSPENDED'
+        : isDeleted
+          ? 'ACCOUNT_DELETED'
+          : 'ACCOUNT_DISABLED';
+
       await prisma.auditLog.create({
         data: {
-          action: 'LOGIN_FAILED',
-          actorId: user.id,
+          action:       'LOGIN_FAILED',
+          actorId:      user.id,
           targetUserId: user.id,
           ip,
           userAgent,
-          meta: { reason: user.status === 'SUSPENDED' ? 'ACCOUNT_SUSPENDED' : 'ACCOUNT_DISABLED' },
+          meta: { reason, email: normalizedEmail },
         },
       });
 
       return NextResponse.json(
         {
-          error: user.status === 'SUSPENDED' ? 'ACCOUNT_SUSPENDED' : 'ACCOUNT_DISABLED',
+          error:   reason,
           message: user.status === 'SUSPENDED'
             ? 'Your account has been suspended. Please contact support.'
             : 'Your account has been disabled.',
@@ -74,36 +91,52 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Credential Check
+    // Credential check — Google-only accounts have no Credential ───
+    
     if (!user.credential) {
+      await prisma.auditLog.create({
+        data: {
+          action:       'LOGIN_FAILED',
+          actorId:      user.id,
+          targetUserId: user.id,
+          ip,
+          userAgent,
+          meta: { reason: 'google_only_account', email: normalizedEmail },
+        },
+      });
       return NextResponse.json(
-        { error: 'OAUTH_ONLY', message: 'This account uses social login. Please sign in with Google or Facebook.' },
+        {
+          error:   'OAUTH_ONLY',
+          message: 'This account was created with Google Auth. Please login with Google Auth.',
+        },
         { status: 401 }
       );
     }
 
-    // Password Verification
+    // Verify password 
+    // verifyPassword signature: (plaintext, hash)
     const passwordValid = await verifyPassword(password, user.credential.passwordHash);
+
     if (!passwordValid) {
       await prisma.auditLog.create({
         data: {
-          action: 'LOGIN_FAILED',
-          actorId: user.id,
+          action:       'LOGIN_FAILED',
+          actorId:      user.id,
           targetUserId: user.id,
           ip,
           userAgent,
-          meta: { reason: 'INVALID_PASSWORD' },
+          meta: { reason: 'invalid_credentials', email: normalizedEmail },
         },
       });
-
       return NextResponse.json(
         { error: 'LOGIN_FAILED', message: 'Invalid email or password.' },
         { status: 401 }
       );
     }
 
+    // Role check for portal-specific login (admin / lawyer portals)
     const assignedRoles = user.roles.map(r => r.role.name.toUpperCase());
-    
+
     if (loginType === 'ADMIN' && !assignedRoles.includes('ADMIN')) {
       return NextResponse.json(
         { error: 'UNAUTHORIZED', message: 'Access denied. You do not have Administrator privileges.' },
@@ -118,53 +151,58 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const userRole = loginType || (assignedRoles.length > 0 ? assignedRoles[0] : 'USER');
+    const userRole = loginType || (assignedRoles.length > 0 ? assignedRoles[0] : 'MEMBER');
 
-    // Session Creation & Audit Log
+    // TX — Session + lastLoginAt + AuditLog LOGIN_SUCCESS 
     const session = await prisma.$transaction(async (tx) => {
       const newSession = await createSession(tx, { userId: user.id, ip, userAgent });
 
       await tx.user.update({
         where: { id: user.id },
         data: {
-          lastLoginAt: new Date(),
-          lastLoginIp: ip,
+          lastLoginAt:   new Date(),
+          lastLoginIp:   ip,
           lastUserAgent: userAgent,
         },
       });
 
       await tx.auditLog.create({
         data: {
-          action: 'LOGIN_SUCCESS',
-          actorId: user.id,
+          action:       'LOGIN_SUCCESS',
+          actorId:      user.id,
           targetUserId: user.id,
           ip,
           userAgent,
-          meta: { email: normalizedEmail, role: userRole, portal: loginType },
+          meta: {
+            authMethod: 'manual',
+            email:      normalizedEmail,
+            role:       userRole,
+            portal:     loginType ?? null,
+            sessionId:  newSession.id,
+          },
         },
       });
 
       return newSession;
     });
 
-    // Final Response with Cookie
     const response = NextResponse.json({
       success: true,
       message: 'Login successful.',
       user: {
-        id: user.id,
+        id:          user.id,
         displayName: user.displayName || normalizedEmail,
-        email: normalizedEmail,
-        role: userRole, 
+        email:       normalizedEmail,
+        role:        userRole,
       },
     });
 
     response.cookies.set('session_token', session.sessionToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure:   process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      path: '/',
-      expires: session.expiresAt,
+      path:     '/',
+      expires:  session.expiresAt,
     });
 
     return response;

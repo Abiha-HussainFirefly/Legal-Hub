@@ -5,44 +5,14 @@ import { generateToken } from "@/lib/auth/token";
 import { sharedAuthLookup, isAdmin } from "@/lib/auth/auth-lookup";
 import { AuthError, ManualRegisterInput, RegisterResult } from "../types";
 
-/**
- * Manual Registration Flow — Public Users
- *
- * Rules (from guide):
- *  - Public users always get the 'member' role on registration
- *  - Admin accounts are never created through public signup
- *  - If email belongs to an existing admin → block
- *  - If email belongs to an existing manual/hybrid account → block duplicate signup
- *  - If email belongs to an existing Google-only account → block with Google-auth message
- *  - Do NOT create a second User record
- *
- * Flow (matches diagram exactly):
- *  1. Normalize email
- *  2. READ UserIdentifier EMAIL
- *  3a. If found → READ User + Role + Credential + ExternalAccount
- *      - Role admin? → STOP (reject public signup for admin email)
- *      - Credential exists? → STOP (account already exists)
- *      - No credential + Google account exists? → STOP (Google-auth-only message)
- *      - No credential + No Google account? → STOP (inconsistent identity state)
- *  3b. If not found → TX BEGIN
- *  4.  INSERT User
- *  5.  INSERT UserIdentifier (verifiedAt=null — not verified until email token consumed)
- *  6.  INSERT Credential
- *  7.  READ Role(member)
- *  8.  INSERT UserRole(member)
- *  9.  INSERT VerificationToken (purpose=email_verify)
- * 10.  INSERT AuditLog USER_CREATED
- * 11.  TX COMMIT
- * 12.  [Caller] Send verification email
- * 13.  Return signup success: verify email
- */
+
 export async function manualRegister(
   prisma: PrismaClient,
   input: ManualRegisterInput
 ): Promise<RegisterResult & { verificationToken: string }> {
   const normalizedEmail = normalizeEmail(input.email);
 
-  // Step 2 — READ UserIdentifier EMAIL
+  // READ UserIdentifier EMAIL
   const lookup = await sharedAuthLookup(prisma, normalizedEmail);
 
   if (lookup.userIdentifier !== null) {
@@ -57,7 +27,6 @@ export async function manualRegister(
       );
     }
 
-    // Has a credential → manual or hybrid account already exists
     if (lookup.credential !== null) {
       throw new AuthError(
         "ACCOUNT_ALREADY_EXISTS",
@@ -75,7 +44,7 @@ export async function manualRegister(
       );
     }
 
-    // No credential, no Google account → inconsistent state (should not happen in clean DB)
+   
     throw new AuthError(
       "INCONSISTENT_IDENTITY",
       "Identifier exists but no credential or external account found",
@@ -83,15 +52,13 @@ export async function manualRegister(
     );
   }
 
-  // Hash password before entering transaction
-  // Their hashPassword returns { hash, algo } — destructure both
   const { hash: passwordHash, algo: passwordAlgo } = await hashPassword(input.password);
   const rawToken = generateToken(32);
   const tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-  // Steps 4–11 — single atomic transaction
+  
   const { userId } = await prisma.$transaction(async (tx) => {
-    // Step 4 — INSERT User
+    //  INSERT User
     const user = await tx.user.create({
       data: {
         userType: "EXTERNAL",
@@ -102,7 +69,6 @@ export async function manualRegister(
       },
     });
 
-    // Step 5 — INSERT UserIdentifier (verifiedAt=null — set only on token consumption)
     await tx.userIdentifier.create({
       data: {
         userId: user.id,
@@ -113,18 +79,18 @@ export async function manualRegister(
       },
     });
 
-    // Step 6 — INSERT Credential
+    // INSERT Credential
     await tx.credential.create({
       data: {
         userId: user.id,
         passwordHash,
-        passwordAlgo,           // 'bcrypt' — comes from hashPassword() return value
+        passwordAlgo,           
         passwordSetAt: new Date(),
         mustRotate: false,
       },
     });
 
-    // Step 7 — READ Role(member)
+    // READ Role(member)
     const memberRole = await tx.role.findUnique({ where: { name: "member" } });
     if (!memberRole) {
       throw new Error(
@@ -132,16 +98,16 @@ export async function manualRegister(
       );
     }
 
-    // Step 8 — INSERT UserRole(member)
+    // INSERT UserRole(member)
     await tx.userRole.create({
       data: {
         userId: user.id,
         roleId: memberRole.id,
-        assignedBy: null, // self-registration, no actor
+        assignedBy: null, 
       },
     });
 
-    // Step 9 — INSERT VerificationToken (purpose=email_verify, one-time-use)
+    // INSERT VerificationToken (purpose=email_verify, one-time-use)
     await tx.verificationToken.create({
       data: {
         userId: user.id,
@@ -154,7 +120,7 @@ export async function manualRegister(
       },
     });
 
-    // Step 10 — INSERT AuditLog USER_CREATED
+    // INSERT AuditLog USER_CREATED
     await tx.auditLog.create({
       data: {
         action: "USER_CREATED",
@@ -171,8 +137,7 @@ export async function manualRegister(
     return { userId: user.id };
   });
 
-  // Step 12 — Caller is responsible for sending the verification email using `verificationToken`
-  // Step 13 — Return signup success
+ 
   return {
     userId,
     verificationToken: rawToken,

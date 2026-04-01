@@ -2,12 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma }                    from '@/lib/prisma';
 import { createSession }             from '@/lib/auth/session';
 
-const AuditAction = {
-  EMAIL_VERIFIED: 'EMAIL_VERIFIED',
-  USER_CREATED:   'USER_CREATED',
-} as const;
-
-
 
 export async function GET(req: NextRequest) {
   const ip        = req.headers.get('x-forwarded-for') ?? req.headers.get('x-real-ip') ?? null;
@@ -24,7 +18,6 @@ export async function GET(req: NextRequest) {
       );
     }
 
-   
     const record = await prisma.verificationToken.findFirst({
       where: {
         token:   rawToken,
@@ -32,15 +25,17 @@ export async function GET(req: NextRequest) {
       },
     });
 
+    // Token validity checks 
     const isInvalid  = !record;
-    const isExpired  = record && record.expiresAt < new Date();
-    const isConsumed = record && record.consumedAt !== null;
+    const isExpired  = record ? record.expiresAt < new Date() : false;
+    const isConsumed = record ? record.consumedAt !== null    : false;
 
     if (isInvalid || isExpired || isConsumed) {
+      // Write audit log only when we have a userId to attach it to
       if (record?.userId) {
         await prisma.auditLog.create({
           data: {
-            action:       AuditAction.EMAIL_VERIFIED,
+            action:       'EMAIL_VERIFIED',
             actorId:      record.userId,
             targetUserId: record.userId,
             ip,
@@ -69,16 +64,17 @@ export async function GET(req: NextRequest) {
     }
 
     const { session } = await prisma.$transaction(async (tx) => {
+
       await tx.verificationToken.update({
         where: { id: record.id },
         data:  { consumedAt: new Date() },
       });
 
-      
+      // UPDATE UserIdentifier.verifiedAt
+  
       let identifierUpdated = false;
 
       if (record.identifierType && record.identifierValue) {
-        
         const identifier = await tx.userIdentifier.findUnique({
           where: {
             type_value: {
@@ -95,8 +91,10 @@ export async function GET(req: NextRequest) {
           });
           identifierUpdated = true;
         }
+      }
 
-      } else if (record.userId) {
+      // Fallback: find primary email identifier by userId
+      if (!identifierUpdated && record.userId) {
         const primaryIdentifier = await tx.userIdentifier.findFirst({
           where: {
             userId:    record.userId,
@@ -118,15 +116,19 @@ export async function GET(req: NextRequest) {
         throw new Error('Could not locate a UserIdentifier to verify.');
       }
 
-      // Audit EMAIL_VERIFIED (success)//
+      // INSERT AuditLog EMAIL_VERIFIED (success)
       await tx.auditLog.create({
         data: {
-          action:       AuditAction.EMAIL_VERIFIED,
+          action:       'EMAIL_VERIFIED',
           actorId:      record.userId,
           targetUserId: record.userId,
           ip,
           userAgent,
-          meta: { status: 'SUCCESS' },
+          meta: {
+            status:          'SUCCESS',
+            identifierType:  'EMAIL',
+            identifierValue: record.identifierValue ?? null,
+          },
         },
       });
 
@@ -139,7 +141,6 @@ export async function GET(req: NextRequest) {
       return { session };
     });
 
-    // Set HttpOnly session cookie //
     const response = NextResponse.json({
       success: true,
       message: 'Email verified successfully. Welcome to Legal Hub!',
@@ -156,7 +157,7 @@ export async function GET(req: NextRequest) {
     return response;
 
   } catch (err) {
-    console.error('[verify-email]', err);
+    console.error('[VERIFY_EMAIL_ERROR]', err);
     return NextResponse.json(
       { error: 'INTERNAL_ERROR', message: 'Something went wrong. Please try again.' },
       { status: 500 }

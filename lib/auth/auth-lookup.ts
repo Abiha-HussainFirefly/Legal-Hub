@@ -31,25 +31,12 @@ export interface AuthLookupResult {
   } | null;
 }
 
-/**
- * Shared auth lookup rule used by EVERY flow.
- *
- * Flow (matches diagram exactly):
- *   1. Normalize email (caller must pass already-normalized value)
- *   2. READ UserIdentifier where type=EMAIL and value=normalizedEmail
- *   3. If not found → return nulls (no account)
- *   4. READ User by userId
- *   5. READ UserRole + Role
- *   6. READ Credential by userId
- *   7. READ ExternalAccount(provider='google') by userId
- *   8. Check User.status and deletedAt  ← caller interprets this
- *   9. Continue into flow-specific decision ← caller handles this
- */
+
 export async function sharedAuthLookup(
   prisma: PrismaClient,
   normalizedEmail: string
 ): Promise<AuthLookupResult> {
-  // Step 2 — READ UserIdentifier
+  
   const userIdentifier = await prisma.userIdentifier.findUnique({
     where: { type_value: { type: "EMAIL", value: normalizedEmail } },
     select: {
@@ -63,7 +50,7 @@ export async function sharedAuthLookup(
   });
 
   if (!userIdentifier) {
-    // No account exists for this email
+   
     return {
       userIdentifier: null,
       user: null,
@@ -73,7 +60,7 @@ export async function sharedAuthLookup(
     };
   }
 
-  // Step 4 — READ User by userId
+  // READ User by userId
   const user = await prisma.user.findUnique({
     where: { id: userIdentifier.userId },
     select: {
@@ -96,14 +83,14 @@ export async function sharedAuthLookup(
     };
   }
 
-  // Steps 5, 6, 7 — parallel reads
+  
   const [userRoles, credential, googleAccount] = await Promise.all([
-    // Step 5 — READ UserRole + Role
+    // READ UserRole + Role
     prisma.userRole.findMany({
       where: { userId: user.id },
       include: { role: { select: { name: true } } },
     }),
-    // Step 6 — READ Credential by userId
+    // READ Credential by userId
     prisma.credential.findUnique({
       where: { userId: user.id },
       select: {
@@ -113,7 +100,7 @@ export async function sharedAuthLookup(
         mustRotate: true,
       },
     }),
-    // Step 7 — READ ExternalAccount(provider='google')
+    // READ ExternalAccount(provider='google')
     prisma.externalAccount.findFirst({
       where: { userId: user.id, provider: "google" },
       select: {
@@ -133,7 +120,7 @@ export async function sharedAuthLookup(
   };
 }
 
-/** Helper — true when the user is ACTIVE and not soft-deleted */
+
 export function isUserActive(
   user: AuthLookupResult["user"]
 ): boolean {
@@ -144,7 +131,7 @@ export function isUserActive(
   );
 }
 
-/** Helper — true when the user has the admin role */
+
 export function isAdmin(roles: string[]): boolean {
   return roles.includes("admin");
 }

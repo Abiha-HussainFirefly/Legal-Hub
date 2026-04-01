@@ -197,7 +197,7 @@ export default function LegalDiscussionsPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Filtering + sorting logic
+
   const filteredDiscussions = discussions
     .filter((d) => {
       const q = searchQuery.toLowerCase();
@@ -516,7 +516,6 @@ export default function LegalDiscussionsPage() {
       {/* Main Content */}
       <div className="w-full px-4 md:px-8 py-0">
 
-        {/* Quick Filters — full width above the two-column flex row */}
         <div className="flex items-center gap-4 py-4">
           <span className="text-xs font-bold text-gray-800 whitespace-nowrap">Quick Filters:</span>
           <div className="flex flex-wrap gap-2 md:gap-3">

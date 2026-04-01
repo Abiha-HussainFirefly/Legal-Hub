@@ -441,7 +441,7 @@ export default function LawyerRegister() {
             </div>
           )}
 
-          {/* VERIFY EMAIL STEP */}
+          {/* VERIFY EMAIL */}
           {step === 'verify_email' && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 16 }}>
               <Image src="/logo-legal-hub.png" alt="Legal Hub" width={140} height={40} style={{ margin: '0 auto' }} />
@@ -461,7 +461,6 @@ export default function LawyerRegister() {
             </div>
           )}
 
-          {/* EMAIL EXISTS STEP  */}
           {step === 'email_exists' && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 16 }}>
               <Image src="/logo-legal-hub.png" alt="Legal Hub" width={140} height={40} style={{ margin: '0 auto' }} />

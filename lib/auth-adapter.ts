@@ -1,4 +1,4 @@
-// lib/auth-adapter.ts
+
 import { prisma } from "@/lib/prisma";
 import type {
   Adapter,
@@ -6,10 +6,6 @@ import type {
   AdapterSession,
 } from "next-auth/adapters";
 
-// ─────────────────────────────────────────────────────────────
-// Helpers: map your DB User shape → NextAuth AdapterUser shape
-// Your schema stores email in UserIdentifier, not on User itself
-// ─────────────────────────────────────────────────────────────
 function toAdapterUser(
   user: any,
   overrideEmail?: string | null
@@ -35,16 +31,15 @@ function toAdapterSession(session: any): AdapterSession {
   return {
     sessionToken: session.sessionToken,
     userId: session.userId,
-    expires: session.expiresAt, // your schema: expiresAt → NextAuth: expires
+    expires: session.expiresAt, 
   };
 }
 
-// ─────────────────────────────────────────────────────────────
 // Adapter
-// ─────────────────────────────────────────────────────────────
+
 export function CustomPrismaAdapter(): Adapter {
   return {
-    // ── User ────────────────────────────────────────────────
+    // User 
 
     async createUser(data) {
       const user = await prisma.user.create({
@@ -88,7 +83,7 @@ export function CustomPrismaAdapter(): Adapter {
     },
 
     async getUserByAccount({ provider, providerAccountId }) {
-      // Your model is ExternalAccount, not Account
+      
       const account = await prisma.externalAccount.findUnique({
         where: {
           provider_providerAccountId: { provider, providerAccountId },
@@ -100,7 +95,7 @@ export function CustomPrismaAdapter(): Adapter {
     },
 
     async updateUser({ id, ...data }) {
-      // Update the User row
+      
       const user = await prisma.user.update({
         where: { id },
         data: {
@@ -110,7 +105,6 @@ export function CustomPrismaAdapter(): Adapter {
         include: { identifiers: true },
       });
 
-      // Sync emailVerified into UserIdentifier if provided
       if (data.emailVerified !== undefined && data.email) {
         await prisma.userIdentifier.updateMany({
           where: {
@@ -129,8 +123,7 @@ export function CustomPrismaAdapter(): Adapter {
       await prisma.user.delete({ where: { id } });
     },
 
-    // ── Account (ExternalAccount in your schema) ────────────
-
+    
     async linkAccount(account) {
       await prisma.externalAccount.create({
         data: {
@@ -160,15 +153,12 @@ export function CustomPrismaAdapter(): Adapter {
       });
     },
 
-    // ── Session ─────────────────────────────────────────────
-    // Your schema uses `expiresAt`; NextAuth expects `expires`
-
     async createSession({ sessionToken, userId, expires }) {
       const session = await prisma.session.create({
         data: {
           sessionToken,
           userId,
-          expiresAt: expires, // map expires → expiresAt
+          expiresAt: expires, 
         },
       });
       return toAdapterSession(session);
@@ -180,7 +170,6 @@ export function CustomPrismaAdapter(): Adapter {
         include: { user: { include: { identifiers: true } } },
       });
 
-      // Treat revoked or expired sessions as non-existent
       if (
         !session ||
         session.revokedAt !== null ||
@@ -189,7 +178,6 @@ export function CustomPrismaAdapter(): Adapter {
         return null;
       }
 
-      // Keep lastSeenAt fresh
       await prisma.session.update({
         where: { sessionToken },
         data: { lastSeenAt: new Date() },
@@ -214,13 +202,9 @@ export function CustomPrismaAdapter(): Adapter {
 
     async deleteSession(sessionToken) {
       await prisma.session.delete({ where: { sessionToken } }).catch(() => {
-        // Silently ignore if already deleted (race condition on logout)
+       
       });
     },
-
-    // ── Verification Token ──────────────────────────────────
-    // Your VerificationToken has `purpose` and `identifierValue`
-    // instead of NextAuth's `identifier` field
 
     async createVerificationToken({ identifier, token, expires }) {
       await prisma.verificationToken.create({
@@ -248,7 +232,6 @@ export function CustomPrismaAdapter(): Adapter {
 
       if (!vt) return null;
 
-      // Mark as consumed instead of deleting — keeps your audit trail
       await prisma.verificationToken.update({
         where: { id: vt.id },
         data: { consumedAt: new Date() },
