@@ -21,7 +21,7 @@ export async function loginCommand(input: LoginInput): Promise<LoginResult> {
     return { success: false, error: "VALIDATION_ERROR", message: validated.error.issues[0].message, status: 400 };
   }
 
-  const { email, password, loginType, ip, userAgent } = validated.data;
+  const { email, password, loginType, ip = null, userAgent = null } = validated.data;
   const normalizedEmail = email.trim().toLowerCase();
   
   // 1. Check Login Protector (Account Lock Rule)

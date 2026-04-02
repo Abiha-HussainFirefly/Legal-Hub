@@ -21,39 +21,41 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     updateAge: 24 * 60 * 60,
   },
 
+  cookies: {
+    sessionToken: {
+      name: `session_token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+  },
+
   callbacks: {
-    async signIn({ user }) {
+    async signIn({ user, account }) {
       if (!user?.id) return true;
 
       const dbUser = await prisma.user.findUnique({
         where: { id: user.id },
-        include: { roles: { include: { role: true } } },
-      });
-
-      if (!dbUser) return true;
-
-      if (dbUser.status === "SUSPENDED")
-        return "/adminlogin?error=ACCOUNT_SUSPENDED";
-      if (dbUser.status === "DISABLED")
-        return "/adminlogin?error=ACCOUNT_DISABLED";
-      if (dbUser.status === "DELETED")
-        return "/adminlogin?error=ACCOUNT_DELETED";
-
-      const roles = dbUser.roles.map((r) => r.role.name.toUpperCase());
-
-      await prisma.auditLog.create({
-        data: {
-          action: "LOGIN_SUCCESS",
-          actorId: dbUser.id,
-          targetUserId: dbUser.id,
-          meta: { provider: "google", roles },
+        include: { 
+          roles: { include: { role: true } },
+          identifiers: { where: { type: "EMAIL" } }
         },
       });
 
-      await prisma.user.update({
-        where: { id: dbUser.id },
-        data: { lastLoginAt: new Date() },
-      });
+      if (dbUser) {
+        if (dbUser.status === "SUSPENDED") return "/adminlogin?error=ACCOUNT_SUSPENDED";
+        
+        // Ensure Google users are marked as verified in UserIdentifier table
+        if (account?.provider === "google") {
+          await prisma.userIdentifier.updateMany({
+            where: { userId: dbUser.id, type: "EMAIL" },
+            data: { verifiedAt: new Date() }
+          });
+        }
+      }
 
       return true;
     },

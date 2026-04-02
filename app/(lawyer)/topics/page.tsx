@@ -214,7 +214,7 @@ export default function MyTopicsPage() {
             </div>
 
             <Link
-              href="/discussion/new"
+              href="/discussions/new"
               className="px-4 md:px-6 py-2 md:py-2.5 bg-[linear-gradient(90deg,#9F63C4_0%,#4C2F5E_100%)] text-white rounded-lg hover:opacity-90 transition flex items-center gap-2 md:gap-3 shadow-md flex-shrink-0"
             >
               <div className="w-5 h-5 md:w-6 md:h-6 border-[2px] border-white rounded-full flex items-center justify-center shrink-0">

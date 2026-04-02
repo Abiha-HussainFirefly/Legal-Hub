@@ -58,9 +58,9 @@ export async function getCurrentUserQuery(
     }
 
     // 2. Strict Session Binding (Anti-Hijacking)
-    // If IP or User Agent changes significantly, revoke the session.
-    // NOTE: Some mobile networks change IPs, so we usually check User Agent strictly and IP optionally or by range.
-    if (currentUserAgent && session.userAgent !== currentUserAgent) {
+    // If we HAVE metadata in the session record, enforce the check.
+    // (Manual sessions have metadata, Google sessions might not yet)
+    if (session.userAgent && currentUserAgent && session.userAgent !== currentUserAgent) {
       await prisma.session.update({
         where: { id: session.id },
         data: { revokedAt: new Date(), revokeReason: "USER_AGENT_CHANGE" },
