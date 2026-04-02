@@ -5,9 +5,7 @@ import { Bell, List, LogOut, Search, X } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { useSession, signOut } from 'next-auth/react';
 
-// ✅ Fixed: matches what AdminLayout actually sends
 interface HeaderProps {
   userData?: {
     id?:          string;
@@ -15,7 +13,6 @@ interface HeaderProps {
     email?:       string;
     image?:       string;
     roles?:       string[];
-    // legacy credentials-based fields
     displayName?: string;
     role?:        string;
   } | null;
@@ -73,8 +70,6 @@ export default function Header({ userData }: HeaderProps) {
   const dropdownRef                      = useRef<HTMLDivElement>(null);
   const router                           = useRouter();
 
-  const { data: session } = useSession();
-
   const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
   const [showNotifications, setShowNotif] = useState(false);
   const notifRef                          = useRef<HTMLDivElement>(null);
@@ -110,27 +105,23 @@ export default function Header({ userData }: HeaderProps) {
     setShowResults(false);
   };
 
-  // ✅ Fixed: covers Google login (name/email/roles) and credentials login (displayName/role)
   const user = {
-    name:  session?.user?.name
-        || userData?.name
-        || userData?.displayName
-        || 'Admin User',
-
-    email: session?.user?.email
-         || userData?.email
-         || '',
-
+    name:  userData?.name || userData?.displayName || 'Admin User',
+    email: userData?.email || '',
     role:  Array.isArray(userData?.roles) && userData.roles.length > 0
          ? userData.roles.join(', ')
-         : userData?.role
-         || 'SYSTEM_ADMIN',
+         : userData?.role || 'SYSTEM_ADMIN',
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('isLoggedIn');
-    localStorage.removeItem('user');
-    signOut({ callbackUrl: '/adminlogin' });
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      localStorage.removeItem('isLoggedIn');
+      localStorage.removeItem('user');
+      router.replace('/adminlogin');
+    } catch (err) {
+      console.error('Admin Logout Failed:', err);
+    }
   };
 
   useEffect(() => {
@@ -165,7 +156,7 @@ export default function Header({ userData }: HeaderProps) {
                   <button
                     key={item.id}
                     onClick={() => handleResultClick(item.href)}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition text-left"
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition text-left cursor-pointer"
                   >
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-800 truncate">{item.label}</p>
@@ -198,16 +189,12 @@ export default function Header({ userData }: HeaderProps) {
       className="fixed top-0 right-0 z-10 bg-[#F3F0F4] transition-all duration-300"
       style={{ left: leftOffset }}
     >
-      {/* Main bar */}
       <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
-
-        {/* Left: toggle + search */}
         <div className="flex items-center flex-1 min-w-0 gap-3 sm:gap-4">
           <button
             onClick={toggle}
-            className="flex-shrink-0 text-gray-600 hover:text-[#4C2F5E] transition-colors"
+            className="flex-shrink-0 text-gray-600 hover:text-[#4C2F5E] transition-colors cursor-pointer"
             aria-label="Toggle sidebar"
-            style={{ cursor: 'pointer' }}
           >
             <List size={24} />
           </button>
@@ -227,7 +214,7 @@ export default function Header({ userData }: HeaderProps) {
             {searchQuery && (
               <button
                 onClick={clearSearch}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 cursor-pointer"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -236,25 +223,19 @@ export default function Header({ userData }: HeaderProps) {
           </div>
         </div>
 
-        {/* Right: mobile search, notifications, user menu */}
         <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
-
-          {/* Mobile search toggle */}
           <button
-            className="sm:hidden p-2 rounded-full hover:bg-[#4C2F5E]/5 transition-colors text-[#4C2F5E]"
+            className="sm:hidden p-2 rounded-full hover:bg-[#4C2F5E]/5 transition-colors text-[#4C2F5E] cursor-pointer"
             onClick={() => setMobSearch(v => !v)}
             aria-label="Search"
-            style={{ cursor: 'pointer' }}
           >
             {showMobileSearch ? <X size={20} /> : <Search size={20} />}
           </button>
 
-          {/* Notifications */}
           <div className="relative" ref={notifRef}>
             <button
               onClick={() => setShowNotif(v => !v)}
-              className="relative p-2 rounded-full hover:bg-[#4C2F5E]/5 transition-colors"
-              style={{ cursor: 'pointer' }}
+              className="relative p-2 rounded-full hover:bg-[#4C2F5E]/5 transition-colors cursor-pointer"
               aria-label="Notifications"
             >
               <Bell size={20} className="text-[#4C2F5E] fill-[#4C2F5E]" />
@@ -277,8 +258,7 @@ export default function Header({ userData }: HeaderProps) {
                   {unreadCount > 0 && (
                     <button
                       onClick={markAllRead}
-                      className="text-[11px] font-semibold text-[#9F63C4] hover:underline"
-                      style={{ cursor: 'pointer' }}
+                      className="text-[11px] font-semibold text-[#9F63C4] hover:underline cursor-pointer"
                     >
                       Mark all read
                     </button>
@@ -308,8 +288,7 @@ export default function Header({ userData }: HeaderProps) {
                 </div>
                 <div className="px-4 py-2.5 border-t border-gray-100 bg-gray-50/50 text-center">
                   <button
-                    className="text-[11px] font-semibold text-[#9F63C4] hover:underline"
-                    style={{ cursor: 'pointer' }}
+                    className="text-[11px] font-semibold text-[#9F63C4] hover:underline cursor-pointer"
                   >
                     View all notifications
                   </button>
@@ -318,12 +297,10 @@ export default function Header({ userData }: HeaderProps) {
             )}
           </div>
 
-          {/* User menu */}
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setMenuOpen(v => !v)}
-              className="relative w-9 h-9 bg-transparent flex items-center justify-center transition-all active:scale-95 hover:opacity-80 outline-none border-none"
-              style={{ cursor: 'pointer' }}
+              className="relative w-9 h-9 bg-transparent flex items-center justify-center transition-all active:scale-95 hover:opacity-80 outline-none border-none cursor-pointer"
               aria-label="User menu"
             >
               <Image
@@ -342,11 +319,9 @@ export default function Header({ userData }: HeaderProps) {
                   <div className="flex items-center gap-3">
                     <Image src="/icons/user.png" alt="Admin" width={35} height={35} />
                     <div className="flex-1 min-w-0">
-                      {/* ✅ name always shows — Google or credentials */}
                       <p className="font-bold text-sm text-[#4C2F5E] truncate uppercase">
                         {user.name}
                       </p>
-                      {/* ✅ email always shows — Google or credentials */}
                       <p className="text-[10px] font-bold text-[#9E63C4] lowercase tracking-wider">
                         {user.email}
                       </p>
@@ -357,8 +332,7 @@ export default function Header({ userData }: HeaderProps) {
                   <div className="h-px bg-gray-100 my-1" />
                   <button
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-red-500 hover:bg-red-50 rounded-lg transition"
-                    style={{ cursor: 'pointer' }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-red-500 hover:bg-red-50 rounded-lg transition cursor-pointer"
                   >
                     <LogOut size={14} /> Sign out
                   </button>
@@ -369,7 +343,6 @@ export default function Header({ userData }: HeaderProps) {
         </div>
       </div>
 
-      {/* Mobile search bar */}
       <div
         className={`sm:hidden overflow-hidden transition-all duration-300 ${
           showMobileSearch ? 'max-h-16 opacity-100' : 'max-h-0 opacity-0'
@@ -392,7 +365,7 @@ export default function Header({ userData }: HeaderProps) {
             {searchQuery && (
               <button
                 onClick={clearSearch}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 cursor-pointer"
               >
                 <X className="h-3.5 w-3.5" />
               </button>

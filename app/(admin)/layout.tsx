@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSession }          from 'next-auth/react';
 import { useRouter }           from 'next/navigation';
 import { SidebarProvider, useSidebar } from '@/app/components/admin/sidebar/SidebarContext';
 import Sidebar from '@/app/components/admin/sidebar/Sidebar';
@@ -31,71 +30,48 @@ function AdminShell({
 }
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { data: session, status } = useSession();
   const router = useRouter();
   const [userData, setUserData] = useState<any>(null);
+  const [status, setStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
 
   useEffect(() => {
-    if (status === 'loading') return;
-
-    if (status === 'authenticated' && session?.user) {
-      const roles = (session.user as any).roles ?? [];
-      const isAdmin = Array.isArray(roles)
-        ? roles.includes('ADMIN')
-        : roles === 'ADMIN';
-
-      if (!isAdmin) {
-        router.replace('/lawyerlogin');
-        return;
-      }
-
-      // Persist for other uses
-      localStorage.setItem('isLoggedIn', 'true');
-      localStorage.setItem('user', JSON.stringify({
-        id:    (session.user as any).id    ?? '',
-        name:  session.user.name           ?? '',
-        email: session.user.email          ?? '',
-        image: session.user.image          ?? '',
-        roles,
-      }));
-
-      setUserData({
-        id:    (session.user as any).id,
-        name:  session.user.name,
-        email: session.user.email,
-        image: session.user.image,
-        roles,
-      });
-      return;
-    }
-
-    if (status === 'unauthenticated') {
-      // Fallback: check localStorage for credentials-based users
+    async function checkAdminAuth() {
       try {
-        const loggedIn   = localStorage.getItem('isLoggedIn');
-        const storedUser = localStorage.getItem('user');
+        const res = await fetch('/api/auth/me');
+        const data = await res.json();
 
-        if (loggedIn === 'true' && storedUser) {
-          const user = JSON.parse(storedUser);
-          const isAdmin = Array.isArray(user.roles)
-            ? user.roles.includes('ADMIN')
-            : user.role === 'ADMIN';
+        if (data.authenticated && data.user) {
+          const roles = data.user.roles ?? [];
+          const isAdmin = Array.isArray(roles)
+            ? roles.some((r: string) => r.toUpperCase() === 'ADMIN')
+            : roles.toUpperCase() === 'ADMIN';
 
           if (!isAdmin) {
+            setStatus('unauthenticated');
             router.replace('/lawyerlogin');
             return;
           }
-          setUserData(user);
+
+          setUserData(data.user);
+          setStatus('authenticated');
+          
+          // Sync legacy storage
+          localStorage.setItem('isLoggedIn', 'true');
+          localStorage.setItem('user', JSON.stringify(data.user));
         } else {
+          setStatus('unauthenticated');
           router.replace('/adminlogin');
         }
-      } catch {
+      } catch (err) {
+        console.error('Admin Auth Check Failed:', err);
+        setStatus('unauthenticated');
         router.replace('/adminlogin');
       }
     }
-  }, [status, session, router]);
 
-  
+    checkAdminAuth();
+  }, [router]);
+
   if (status === 'loading' || !userData) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#F9FAFB]">
