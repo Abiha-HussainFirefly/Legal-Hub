@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // READ UserIdentifier + User + Credential + Roles ──────────────
+    // READ UserIdentifier + User + Credential + Roles + ExternalAccount(google)
     const identifier = await prisma.userIdentifier.findUnique({
       where: {
         type_value: { type: 'EMAIL', value: normalizedEmail },
@@ -33,14 +33,17 @@ export async function POST(req: NextRequest) {
             roles: {
               include: { role: true },
             },
+            // ✅ correct relation name from schema: User.accounts
+            accounts: {
+              where:  { provider: 'google' },
+              select: { id: true },
+            },
           },
         },
       },
     });
 
-    //  Email not found ───────────────────────────────────────────────
-    // Write audit log first, then return the SAME message as wrong password
-   
+    // Email not found — same message as wrong password (security)
     if (!identifier || !identifier.user) {
       await prisma.auditLog.create({
         data: {
@@ -59,8 +62,8 @@ export async function POST(req: NextRequest) {
     }
 
     const { user } = identifier;
-    const isDeleted   = user.deletedAt !== null;
-    const isInactive  = user.status !== 'ACTIVE';
+    const isDeleted  = user.deletedAt !== null;
+    const isInactive = user.status !== 'ACTIVE';
 
     if (isInactive || isDeleted) {
       const reason = user.status === 'SUSPENDED'
@@ -91,9 +94,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Credential check — Google-only accounts have no Credential ───
-    
-    if (!user.credential) {
+    // Credential check — per flow diagram:
+    // only show Google message when credential=null AND Google account exists
+    const hasGoogleAccount = user.accounts.length > 0;
+
+    if (!user.credential && hasGoogleAccount) {
       await prisma.auditLog.create({
         data: {
           action:       'LOGIN_FAILED',
@@ -113,8 +118,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verify password 
-    // verifyPassword signature: (plaintext, hash)
+    // No credential and no Google account — inconsistent state
+    if (!user.credential) {
+      await prisma.auditLog.create({
+        data: {
+          action:       'LOGIN_FAILED',
+          actorId:      user.id,
+          targetUserId: user.id,
+          ip,
+          userAgent,
+          meta: { reason: 'invalid_credentials', email: normalizedEmail },
+        },
+      });
+      return NextResponse.json(
+        { error: 'LOGIN_FAILED', message: 'Invalid email or password.' },
+        { status: 401 }
+      );
+    }
+
+    // Verify password — verifyPassword(plaintext, hash)
     const passwordValid = await verifyPassword(password, user.credential.passwordHash);
 
     if (!passwordValid) {
@@ -153,7 +175,7 @@ export async function POST(req: NextRequest) {
 
     const userRole = loginType || (assignedRoles.length > 0 ? assignedRoles[0] : 'MEMBER');
 
-    // TX — Session + lastLoginAt + AuditLog LOGIN_SUCCESS 
+    // TX — Session + lastLoginAt + AuditLog LOGIN_SUCCESS
     const session = await prisma.$transaction(async (tx) => {
       const newSession = await createSession(tx, { userId: user.id, ip, userAgent });
 
