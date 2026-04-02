@@ -12,20 +12,16 @@ export interface RequestPasswordResetInput {
 export interface RequestPasswordResetResult {
   success: boolean;
   message: string;
+  status?: number;
+  error?: string;
 }
 
 const AuditAction = {
   PASSWORD_RESET_REQUESTED: "PASSWORD_RESET_REQUESTED",
 } as const;
 
-const GENERIC_RESPONSE: RequestPasswordResetResult = {
-  success: true,
-  message: "If an account with that email exists, a password reset link has been sent.",
-};
-
 /**
  * Industry Standard Command for Requesting a Password Reset.
- * Separates API concerns from Business Logic.
  */
 export async function requestPasswordResetCommand(
   input: RequestPasswordResetInput
@@ -34,6 +30,8 @@ export async function requestPasswordResetCommand(
   const normalizedEmail = email.trim().toLowerCase();
 
   try {
+    console.log(`[ForgotPassword] Starting request for: ${normalizedEmail}`);
+
     // 1. Find the user by email identifier //
     const identifier = await prisma.userIdentifier.findUnique({
       where: {
@@ -55,8 +53,9 @@ export async function requestPasswordResetCommand(
       },
     });
 
-    // 2. Security Check: If user doesn't exist, log audit and return error //
+    // 2. Security Check: If user doesn't exist, return error //
     if (!identifier) {
+      console.log(`[ForgotPassword] FAIL: Email not found in database.`);
       await prisma.auditLog.create({
         data: {
           action: AuditAction.PASSWORD_RESET_REQUESTED,
@@ -64,11 +63,7 @@ export async function requestPasswordResetCommand(
           targetUserId: null,
           ip,
           userAgent,
-          meta: {
-            status: "FAILED",
-            reason: "IDENTIFIER_NOT_FOUND",
-            email: normalizedEmail,
-          },
+          meta: { status: "FAILED", reason: "IDENTIFIER_NOT_FOUND", email: normalizedEmail },
         },
       });
       
@@ -81,9 +76,11 @@ export async function requestPasswordResetCommand(
     }
 
     const { user } = identifier;
+    console.log(`[ForgotPassword] User Found: ${user.id}, Status: ${user.status}, Verified: ${!!identifier.verifiedAt}`);
 
     // 3. Authorization Check: Only allow ACTIVE users to reset password //
     if (user.status !== "ACTIVE") {
+      console.log(`[ForgotPassword] FAIL: User account is ${user.status}`);
       await prisma.auditLog.create({
         data: {
           action: AuditAction.PASSWORD_RESET_REQUESTED,
@@ -91,11 +88,7 @@ export async function requestPasswordResetCommand(
           targetUserId: user.id,
           ip,
           userAgent,
-          meta: {
-            status: "FAILED",
-            reason: `USER_STATUS_${user.status}`,
-            email: normalizedEmail,
-          },
+          meta: { status: "FAILED", reason: `USER_STATUS_${user.status}`, email: normalizedEmail },
         },
       });
       return {
@@ -106,8 +99,9 @@ export async function requestPasswordResetCommand(
       };
     }
 
-    // Optional: Only allow if email is verified //
+    // 4. Verification Check: Only allow if email is verified //
     if (!identifier.verifiedAt) {
+      console.log(`[ForgotPassword] FAIL: Email is not verified.`);
       await prisma.auditLog.create({
         data: {
           action: AuditAction.PASSWORD_RESET_REQUESTED,
@@ -115,11 +109,7 @@ export async function requestPasswordResetCommand(
           targetUserId: user.id,
           ip,
           userAgent,
-          meta: {
-            status: "FAILED",
-            reason: "EMAIL_NOT_VERIFIED",
-            email: normalizedEmail,
-          },
+          meta: { status: "FAILED", reason: "EMAIL_NOT_VERIFIED", email: normalizedEmail },
         },
       });
       return {
@@ -130,7 +120,8 @@ export async function requestPasswordResetCommand(
       };
     }
 
-    // 4. Invalidate any existing unused password_reset tokens //
+    // 5. Invalidate any existing unused password_reset tokens //
+    console.log(`[ForgotPassword] Invalidating existing tokens...`);
     await prisma.verificationToken.updateMany({
       where: {
         userId: user.id,
@@ -140,9 +131,10 @@ export async function requestPasswordResetCommand(
       data: { consumedAt: new Date() },
     });
 
-    // 5. Generate New Token //
+    // 6. Generate New Token //
     const rawToken = generateToken();
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    console.log(`[ForgotPassword] Token generated.`);
 
     await prisma.verificationToken.create({
       data: {
@@ -155,15 +147,15 @@ export async function requestPasswordResetCommand(
       },
     });
 
-    // 6. Resolve Portal Context //
-    // If not provided, try to infer from user role //
+    // 7. Resolve Portal Context //
     const resolvedPortal =
       portal ??
       (user.roles.some((ur) => ur.role.name.toLowerCase().includes("admin"))
         ? "admin"
         : "lawyer");
 
-    // 7. Send Reset Email //
+    // 8. Send Reset Email //
+    console.log(`[ForgotPassword] Triggering email sending to: ${normalizedEmail} (${resolvedPortal})`);
     await sendPasswordResetEmail({
       to: normalizedEmail,
       name: user.displayName ?? normalizedEmail,
@@ -171,7 +163,9 @@ export async function requestPasswordResetCommand(
       portal: resolvedPortal.toLowerCase(),
     });
 
-    // 8. Log Success Audit //
+    console.log(`[ForgotPassword] SUCCESS: Email should be sent now.`);
+
+    // 9. Log Success Audit //
     await prisma.auditLog.create({
       data: {
         action: AuditAction.PASSWORD_RESET_REQUESTED,
@@ -193,8 +187,7 @@ export async function requestPasswordResetCommand(
       message: "A password reset link has been sent to your email.",
     };
   } catch (error) {
-    console.error("[requestPasswordResetCommand] Error:", error);
-    // Rethrow to let the API handle 500s, or return a failure result //
+    console.error("[ForgotPassword] CRITICAL ERROR:", error);
     throw error;
   }
 }

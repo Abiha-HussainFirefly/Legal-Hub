@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requestPasswordResetCommand } from "@/lib/actions/auth";
-import { applyRateLimit } from "@/lib/auth/rate-limit";
+import { applyGlobalLimit } from "@/lib/auth/rate-limit";
 
 /**
  * API Route: Forgot Password
@@ -9,14 +9,10 @@ export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? "unknown_ip";
   const userAgent = req.headers.get("user-agent") ?? null;
 
-  // 1. Industry Standard: Rate Limiting (Spam Protection)
-  // Max 3 forgot password requests per 30 minutes per IP
-  const rateLimitResult = applyRateLimit(`forgot_password_${ip}`, 3, 30 * 60 * 1000);
-  if (!rateLimitResult.success) {
-    return NextResponse.json(
-      { error: "TOO_MANY_REQUESTS", message: "Too many requests. Please try again later." },
-      { status: 429 }
-    );
+  // 1. Apply Global Rate Limit (10 req/min/IP)
+  const rateLimit = applyGlobalLimit(ip);
+  if (!rateLimit.success) {
+    return NextResponse.json({ error: "RATE_LIMIT", message: rateLimit.message }, { status: rateLimit.status });
   }
 
   try {

@@ -44,15 +44,18 @@ export function resetRateLimit(key: string) {
  */
 export function applyGlobalLimit(ip: string): { success: boolean; status: number; message?: string } {
   // 10 requests per 1 minute per IP
-  const limit = 10;
-  const window = 60 * 1000;
-  const key = `global_${ip}`;
+  return applyCustomLimit(`global_${ip}`, 10, 60 * 1000, "Too many requests. Please slow down.");
+}
 
+/**
+ * Custom Threshold Rate Limiter
+ */
+export function applyCustomLimit(key: string, limit: number, windowMs: number, message: string = "Too many attempts."): { success: boolean; status: number; message?: string } {
   const current = getRateLimit(key);
   if (current.count >= limit) {
-    return { success: false, status: 429, message: "Too many requests. Please slow down." };
+    return { success: false, status: 429, message };
   }
 
-  incrementRateLimit(key, window);
+  incrementRateLimit(key, windowMs);
   return { success: true, status: 200 };
 }

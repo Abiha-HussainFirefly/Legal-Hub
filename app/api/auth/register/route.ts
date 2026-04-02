@@ -1,19 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { registerCommand } from "@/lib/actions/auth";
-import { applyRateLimit } from "@/lib/auth/rate-limit";
+import { applyGlobalLimit, applyCustomLimit } from "@/lib/auth/rate-limit";
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? "unknown_ip";
   const userAgent = req.headers.get("user-agent") ?? null;
 
-  // 1. Industry Standard: Rate Limiting (Spam/Bot Protection)
-  // Max 3 registrations per hour per IP
-  const rateLimitResult = applyRateLimit(`register_${ip}`, 3, 60 * 60 * 1000);
-  if (!rateLimitResult.success) {
-    return NextResponse.json(
-      { error: "TOO_MANY_REQUESTS", message: "Too many registration attempts. Please try again later.", step: "server" },
-      { status: 429 }
-    );
+  // 1. Apply Global Rate Limit (10 req/min/IP)
+  const globalLimit = applyGlobalLimit(ip);
+  if (!globalLimit.success) {
+    return NextResponse.json({ error: "RATE_LIMIT", message: globalLimit.message }, { status: globalLimit.status });
+  }
+
+  // 2. Apply Registration Specific Limit (3 per hour)
+  const regLimit = applyCustomLimit(`register_${ip}`, 3, 60 * 60 * 1000, "Too many registration attempts. Please try again later.");
+  if (!regLimit.success) {
+    return NextResponse.json({ error: "TOO_MANY_REQUESTS", message: regLimit.message, step: "server" }, { status: 429 });
   }
 
   try {

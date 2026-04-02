@@ -1,19 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyEmailCommand } from "@/lib/actions/auth";
-import { applyRateLimit } from "@/lib/auth/rate-limit";
+import { applyGlobalLimit, applyCustomLimit } from "@/lib/auth/rate-limit";
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? "unknown_ip";
   const userAgent = req.headers.get("user-agent") ?? null;
 
-  // 1. Industry Standard: Rate Limiting (Brute Force Protection for Verification Codes)
-  // Max 10 verification attempts per hour per IP
-  const rateLimitResult = applyRateLimit(`verify_email_${ip}`, 10, 60 * 60 * 1000);
-  if (!rateLimitResult.success) {
-    return NextResponse.json(
-      { error: "TOO_MANY_REQUESTS", message: "Too many verification attempts. Please try again later." },
-      { status: 429 }
-    );
+  // 1. Apply Global Rate Limit (10 req/min/IP)
+  const globalLimit = applyGlobalLimit(ip);
+  if (!globalLimit.success) {
+    return NextResponse.json({ error: "RATE_LIMIT", message: globalLimit.message }, { status: globalLimit.status });
+  }
+
+  // 2. Apply Verification Specific Limit (10 per hour)
+  const verifyLimit = applyCustomLimit(`verify_email_${ip}`, 10, 60 * 60 * 1000, "Too many verification attempts. Please try again later.");
+  if (!verifyLimit.success) {
+    return NextResponse.json({ error: "TOO_MANY_REQUESTS", message: verifyLimit.message }, { status: 429 });
   }
 
   try {
