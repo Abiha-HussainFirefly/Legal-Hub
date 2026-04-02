@@ -1,6 +1,109 @@
 @import "tailwindcss";
 
+@variant dark (&:where(.dark, .dark *));
+
+/* =========================================
+   1. TAILWIND CONFIGURATION
+   ========================================= */
+@theme {
+  --font-sans: var(--font-geist-sans), sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
+
+  /* --- Semantic Colors --- */
+  --color-page: var(--background-page);
+  --color-surface: var(--background-surface);
+
+  --color-card: var(--background-card);
+  --color-card-nested: var(--background-card-nested);
+
+  --color-foreground: var(--foreground);
+  --color-heading: var(--heading);
+  --color-muted: var(--text-muted);
+  --color-border-subtle: var(--border-subtle);
+  --color-icon: var(--icon-muted);
+  --color-primary: var(--primary);
+  --color-accent: var(--accent);
+  --color-light-text: var(--light-text);
+  --color-input-border: var(--input-border);
+  --color-dark-sidebar: var(--dark-sidebar-color);
+  
+  --color-pending: var(--pending);
+  --color-success: var(--success);
+  --color-error: var(--error);
+
+  /* --- Gradient Config --- */
+  --background-image-gradient: linear-gradient(to right,
+      var(--gradient-start),
+      var(--gradient-end));
+  --color-gradient-start: var(--gradient-start);
+  --color-gradient-end: var(--gradient-end);
+}
+
+/* =========================================
+   2. COLOR VALUES (The Source of Truth)
+   ========================================= */
+:root {
+  /* ====== LIGHT MODE (Only Mode Supported for now) ====== */
+  --background-page: #F3F0F4;
+  /* Main BG (Greyish Purple common in project) */
+  --background-surface: #ffffff;
+  /* Sidebar/Nav */
+
+  /* Card System */
+  --background-card: #ffffff;
+  /* Main Card (White) */
+  --background-card-nested: #F9FAFB;
+  /* Nested Card (Lightest Grey) */
+
+  --heading: #4C2F5E;
+  /* Main Deep Purple brand color */
+  --foreground: #374151;
+  /* Standard Dark text */
+  --text-muted: #6E7D7D;
+  /* Muted text used extensively in lawyer/admin dash */
+  --icon-muted: #adadad80;
+  --light-text: #979797;
+  --input-border: #D1D5DB;
+  --dark-sidebar-color: #000000;
+
+  --primary: #4C2F5E;
+  /* Primary Deep Purple */
+  --accent: #9F63C4;
+  /* Secondary Lighter Purple */
+  --border-subtle: #E2E8F0;
+
+  --gradient-start: #4C2F5E;
+  /* Brand Deep Purple */
+  --gradient-end: #9F63C4;
+  /* Brand Light Purple */
+
+  /* Status Colors identified in project */
+  --pending: #EEA62B;
+  --success: #16A34A;
+  --error: #EF4444;
+}
+
+/* =========================================
+   3. GLOBAL DEFAULTS
+   ========================================= */
+@layer base {
+  body {
+    background-color: var(--background-page);
+    color: var(--foreground);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
 @layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
   .animate-in {
     animation-duration: 300ms;
     animation-fill-mode: forwards;
@@ -14,31 +117,15 @@
   .slide-in-from-right-8 {
     animation-name: slideInFromRight;
   }
-
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-
-  .no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 @keyframes slideInFromRight {
-  from {
-    transform: translateX(2rem);
-  }
-  to {
-    transform: translateX(0);
-  }
+  from { transform: translateX(2rem); }
+  to   { transform: translateX(0); }
 }
+
