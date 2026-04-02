@@ -3,12 +3,6 @@ const APP_URL  = process.env.NEXT_PUBLIC_APP_URL  ?? 'http://localhost:3000';
 
 // Interfaces //
 
-interface VerificationEmailInput {
-  to:    string;
-  name:  string;
-  token: string;
-}
-
 interface PasswordResetEmailInput {
   to:     string;
   name:   string;
@@ -23,20 +17,18 @@ interface SendEmailInput {
   text:    string;
 }
 
-//verification email//
+//verification code email//
 
-export async function sendVerificationEmail({
+export async function sendVerificationCode({
   to,
   name,
-  token,
-}: VerificationEmailInput): Promise<void> {
-  const verifyUrl = `${APP_URL}/api/auth/verify-email?token=${token}`;
-
+  code,
+}: { to: string; name: string; code: string }): Promise<void> {
   await sendEmail({
     to,
-    subject: `Verify your ${APP_NAME} account`,
-    html:    buildVerificationHtml({ name, verifyUrl }),
-    text:    buildVerificationText({ name, verifyUrl }),
+    subject: `${code} is your ${APP_NAME} verification code`,
+    html:    buildVerificationHtml({ name, code }),
+    text:    buildVerificationText({ name, code }),
   });
 }
 
@@ -60,8 +52,6 @@ export async function sendPasswordResetEmail({
 
 //  Core send function //
 async function sendEmail({ to, subject, html, text }: SendEmailInput) {
-
-  
   if (process.env.NODE_ENV !== 'production') {
     console.log('\n──────── EMAIL (dev) ────────');
     console.log(`To:      ${to}`);
@@ -93,7 +83,7 @@ async function sendEmail({ to, subject, html, text }: SendEmailInput) {
 
 // Verification email templates //
 
-function buildVerificationHtml({ name, verifyUrl }: { name: string; verifyUrl: string }): string {
+function buildVerificationHtml({ name, code }: { name: string; code: string }): string {
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -108,16 +98,14 @@ function buildVerificationHtml({ name, verifyUrl }: { name: string; verifyUrl: s
         <tr><td style="padding:40px">
           <p style="margin:0 0 16px;font-size:16px;color:#374151">Hi <strong>${name}</strong>,</p>
           <p style="margin:0 0 24px;font-size:15px;color:#6b7280;line-height:1.6">
-            Thanks for signing up as a lawyer on ${APP_NAME}. Please verify your email address to activate your account.
+            Thanks for joining ${APP_NAME}. Please use the code below to verify your email address.
           </p>
           <div style="text-align:center;margin-bottom:32px">
-            <a href="${verifyUrl}" style="display:inline-block;padding:14px 32px;background:#9F63C4;color:#fff;font-size:16px;font-weight:600;text-decoration:none;border-radius:8px">
-              Verify Email Address
-            </a>
+            <div style="display:inline-block;padding:16px 32px;background:#f8f4ff;color:#9F63C4;font-size:32px;font-weight:700;letter-spacing:8px;border:2px dashed #9F63C4;border-radius:12px">
+              ${code}
+            </div>
           </div>
-          <p style="margin:0 0 8px;font-size:13px;color:#9ca3af">Or copy this link into your browser:</p>
-          <p style="margin:0 0 24px;font-size:12px;color:#9F63C4;word-break:break-all">${verifyUrl}</p>
-          <p style="margin:0;font-size:13px;color:#9ca3af">This link expires in <strong>24 hours</strong>. If you didn't sign up, you can safely ignore this email.</p>
+          <p style="margin:0;font-size:13px;color:#9ca3af;text-align:center">This code expires in <strong>10 minutes</strong>. If you didn't request this, ignore this email.</p>
         </td></tr>
         <tr><td style="padding:20px 40px;border-top:1px solid #f3f4f6;text-align:center">
           <p style="margin:0;font-size:12px;color:#d1d5db">© ${new Date().getFullYear()} ${APP_NAME}. All rights reserved.</p>
@@ -129,14 +117,12 @@ function buildVerificationHtml({ name, verifyUrl }: { name: string; verifyUrl: s
 </html>`;
 }
 
-function buildVerificationText({ name, verifyUrl }: { name: string; verifyUrl: string }): string {
+function buildVerificationText({ name, code }: { name: string; code: string }): string {
   return `Hi ${name},
 
-Verify your ${APP_NAME} account by clicking the link below:
+Your ${APP_NAME} verification code is: ${code}
 
-${verifyUrl}
-
-This link expires in 24 hours. If you didn't sign up, ignore this email.
+This code expires in 10 minutes. If you didn't sign up, ignore this email.
 
 — The ${APP_NAME} Team`;
 }

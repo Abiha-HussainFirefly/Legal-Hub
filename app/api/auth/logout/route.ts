@@ -1,23 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from "next/server";
+import { logoutCommand } from "@/lib/actions/auth";
 
 export async function POST(req: NextRequest) {
-  const token = req.cookies.get('session_token')?.value;
+  const token = req.cookies.get("session_token")?.value;
+  await logoutCommand(token);
 
-  if (token) {
-    
-    await prisma.session.deleteMany({
-      where: { sessionToken: token },
-    }).catch(() => {});
-  }
+  const res = NextResponse.json({ success: true, message: "Logged out successfully." });
 
-  const res = NextResponse.json({ success: true });
-
-  res.cookies.set('session_token', '', {
+  res.cookies.set("session_token", "", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
     expires: new Date(0),
   });
 

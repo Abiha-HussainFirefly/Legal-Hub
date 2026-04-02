@@ -6,7 +6,6 @@ import { ChevronDown, Eye, Search, LogOut, Menu, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useSession, signOut } from 'next-auth/react';
 
 const discussions = [
   {
@@ -126,8 +125,8 @@ export default function LegalDiscussionsPage() {
   const categoryRef     = useRef<HTMLDivElement>(null);
   const regionRef       = useRef<HTMLDivElement>(null);
 
-  const { data: session, status } = useSession();
-
+  const [user, setUser] = useState<any>(null);
+  const [status, setStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
   const [isReady,          setIsReady]         = useState(false);
   const [searchQuery,      setSearchQuery]      = useState('');
   const [isModalOpen,      setIsModalOpen]      = useState(false);
@@ -145,38 +144,33 @@ export default function LegalDiscussionsPage() {
   const [activeQuickFilter, setActiveQuickFilter] = useState<string | null>(null);
   const [showFullLeaderboard, setShowFullLeaderboard] = useState(false);
 
-  
   useEffect(() => {
-    if (status === 'loading') return;
-
-    if (status === 'authenticated') {
-      
-      if (session?.user) {
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('user', JSON.stringify({
-          id:    (session.user as any).id    ?? '',
-          name:  session.user.name           ?? '',
-          email: session.user.email          ?? '',
-          image: session.user.image          ?? '',
-          roles: (session.user as any).roles ?? [],
-        }));
-      }
-      setIsReady(true);
-      return;
-    }
-
-    try {
-      const loggedIn   = localStorage.getItem('isLoggedIn');
-      const storedUser = localStorage.getItem('user');
-      if (loggedIn === 'true' && storedUser) {
-        setIsReady(true);
-      } else {
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/auth/me');
+        const data = await res.json();
+        
+        if (data.authenticated) {
+          setUser(data.user);
+          setStatus('authenticated');
+          setIsReady(true);
+          
+          // Sync with localStorage for legacy components
+          localStorage.setItem('isLoggedIn', 'true');
+          localStorage.setItem('user', JSON.stringify(data.user));
+        } else {
+          setStatus('unauthenticated');
+          router.replace('/lawyerlogin');
+        }
+      } catch (err) {
+        console.error('Auth check failed:', err);
+        setStatus('unauthenticated');
         router.replace('/lawyerlogin');
       }
-    } catch {
-      router.replace('/lawyerlogin');
     }
-  }, [status, session, router]);
+    
+    checkAuth();
+  }, [router]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -216,9 +210,14 @@ export default function LegalDiscussionsPage() {
     });
 
   const handleLogout = async () => {
-    localStorage.removeItem('isLoggedIn');
-    localStorage.removeItem('user');
-    await signOut({ callbackUrl: '/lawyerlogin' });
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      localStorage.removeItem('isLoggedIn');
+      localStorage.removeItem('user');
+      router.replace('/lawyerlogin');
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
   };
 
   if (status === 'loading' || !isReady) {
@@ -229,8 +228,8 @@ export default function LegalDiscussionsPage() {
     );
   }
 
-  const displayName  = session?.user?.name  ?? (() => { try { return JSON.parse(localStorage.getItem('user') ?? '{}')?.name; } catch { return null; } })() ?? 'User';
-  const displayEmail = session?.user?.email ?? (() => { try { return JSON.parse(localStorage.getItem('user') ?? '{}')?.email; } catch { return null; } })() ?? '';
+  const displayName  = user?.name || user?.displayName || 'User';
+  const displayEmail = user?.email || '';
 
   return (
     <div className="min-h-screen bg-gray-50">

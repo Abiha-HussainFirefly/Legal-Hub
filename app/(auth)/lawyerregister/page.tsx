@@ -112,32 +112,16 @@ export default function LawyerRegister() {
         return;
       }
 
-      // Success - show success toast and stay on page
+      // Success - show success toast
       addToast(
         "success",
         "Registration Successful!",
-        "Your account has been created. Redirecting to login...",
+        "Please check your email for the verification code.",
       );
 
-      // Send welcome email in background
-      try {
-        await fetch("/api/email/welcome", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: formData.email, name: formData.name }),
-        });
-      } catch {
-        // Suppress errors for welcome email
-      }
-
-      // Reset form state
-      setFormData({ name: "", email: "", password: "" });
-      setStep("form");
-
-      // Redirect to login after 3 seconds
-      setTimeout(() => {
-        router.push("/lawyerlogin");
-      }, 3000);
+      // Redirect to verification page with email in query
+      const emailParam = encodeURIComponent(formData.email);
+      router.push(`/verify-email?email=${emailParam}`);
     } catch {
       setStep("form");
       addToast("error", "Network Error", "Please check your connection.");

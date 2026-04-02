@@ -82,12 +82,13 @@ function ForgotPasswordForm() {
       });
 
       const data = await res.json();
+      console.log("Forgot Password API Response:", data);
 
       if (!res.ok) {
         addToast(
           "error",
           "Request Failed",
-          data.message || "Something went wrong.",
+          data.message || "An unexpected error occurred.",
         );
         setStep("form");
         return;
@@ -96,8 +97,8 @@ function ForgotPasswordForm() {
       setStep("sent");
       addToast(
         "success",
-        "Email Sent",
-        "Kindly check your inbox for the reset link.",
+        "Success",
+        data.message || "A password reset link has been sent to your email.",
       );
 
       // Optional: Auto-redirect after a few seconds like your login page
@@ -172,7 +173,7 @@ function ForgotPasswordForm() {
                 />
               </div>
 
-              <h2 className="text-center text-[22px] font-bold text-[#4C2F5E] mb-2">
+              <h2 className="text-center text-[22px] font-bold text-[#9F63C4] mb-2">
                 Forgot Password?
               </h2>
               <p className="text-center text-sm text-[#9F63C4] mb-7">
@@ -203,6 +204,15 @@ function ForgotPasswordForm() {
                   Send
                 </Button>
               </form>
+
+              <div className="text-center mt-4">
+                <Link
+                  href={loginPath}
+                  className="text-base text-[#9F63C4] font-semibold"
+                >
+                  Back to Login
+                </Link>
+              </div>
             </>
           )}
 
@@ -215,9 +225,9 @@ function ForgotPasswordForm() {
                 Check Your Email
               </h2>
               <p className="text-[#4C2F5E] mb-8 leading-relaxed">
-                We&apos;ve processed your request. If{" "}
-                <strong className="lowercase">{formData.email}</strong> is
-                registered, you&apos;ll receive a link shortly.
+                We have sent a password reset link to <br />
+                <strong className="lowercase text-[#9F63C4]">{formData.email}</strong>. <br />
+                Please check your inbox and follow the instructions.
               </p>
 
               <Link href={loginPath} className="w-full">
