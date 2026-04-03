@@ -4,8 +4,8 @@ import { Eye, EyeOff, CheckSquare, XCircle, CheckCircle2 } from "lucide-react";
 import Image from "next/image";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { z } from "zod";
 import { EmailSchema, PasswordSchema } from "@/utils/validation";
 import { Button } from "@/app/components/ui/button";
@@ -68,6 +68,7 @@ const getPasswordStrength = (pwd: string) => {
 
 export default function LawyerLogin() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { addToast } = useToast();
 
   const [showPassword, setShowPassword] = useState(false);
@@ -88,6 +89,21 @@ export default function LawyerLogin() {
     typeof window !== "undefined" &&
       !!localStorage.getItem("lawyer_remembered_email"),
   );
+
+  useEffect(() => {
+    const error = searchParams.get("error");
+    if (error === "ADMIN_SOCIAL_BLOCKED") {
+      addToast(
+        "error",
+        "Security Restriction",
+        "This is an Admin account. Please use the dedicated Admin Portal to log in securely using your email and password.",
+      );
+      router.replace("/lawyerlogin");
+    } else if (error === "ACCOUNT_SUSPENDED") {
+      addToast("error", "Access Denied", "Your account has been suspended.");
+      router.replace("/lawyerlogin");
+    }
+  }, [searchParams, addToast, router]);
 
   const pwStrength = formData.password
     ? getPasswordStrength(formData.password)

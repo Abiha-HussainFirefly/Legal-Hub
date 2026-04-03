@@ -32,14 +32,33 @@ export async function resetPasswordCommand(input: ResetPasswordInput): Promise<A
     const { hash, algo } = await hashPassword(newPassword);
 
     await prisma.$transaction(async (tx) => {
-      await tx.credential.update({
+      // Use upsert to handle cases where a user might not have an existing password record (e.g., social login users)
+      await tx.credential.upsert({
         where: { userId: user.id },
-        data: { passwordHash: hash, passwordAlgo: algo, passwordSetAt: new Date(), mustRotate: false },
+        update: { 
+          passwordHash: hash, 
+          passwordAlgo: algo, 
+          passwordSetAt: new Date(), 
+          mustRotate: false 
+        },
+        create: {
+          userId: user.id,
+          passwordHash: hash,
+          passwordAlgo: algo,
+          passwordSetAt: new Date(),
+          mustRotate: false
+        }
       });
 
       await tx.verificationToken.update({
         where: { token },
         data: { consumedAt: new Date() },
+      });
+
+      // Industry Standard: If they successfully reset their password via email, the email is verified
+      await tx.userIdentifier.updateMany({
+        where: { userId: user.id, type: "EMAIL", verifiedAt: null },
+        data: { verifiedAt: new Date() },
       });
 
       await tx.session.updateMany({

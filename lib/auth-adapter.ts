@@ -59,6 +59,18 @@ export function CustomPrismaAdapter(): Adapter {
         },
         include: { identifiers: true },
       });
+
+      // Assign default 'member' role
+      const memberRole = await prisma.role.findUnique({ where: { name: "member" } });
+      if (memberRole) {
+        await prisma.userRole.create({
+          data: {
+            userId: user.id,
+            roleId: memberRole.id,
+          },
+        });
+      }
+
       return toAdapterUser(user, data.email);
     },
 

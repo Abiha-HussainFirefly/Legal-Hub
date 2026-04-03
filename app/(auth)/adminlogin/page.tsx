@@ -6,11 +6,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { z } from "zod";
-import { signIn } from "next-auth/react";
+// import { signIn } from "next-auth/react";
 import { EmailSchema, PasswordSchema } from "@/utils/validation";
 import { Button } from "@/app/components/ui/button";
 import { useToast } from "@/app/components/ui/toast/toast-context";
-import { FacebookIcon, GoogleIcon } from "@/public/icons/google-facebook-icon";
+// import { FacebookIcon, GoogleIcon } from "@/public/icons/google-facebook-icon";
 import {
   commonInputClass,
   commonLabelClass,
@@ -74,7 +74,7 @@ export default function AdminLogin() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
+  // const [googleLoading, setGoogleLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [touched, setTouched] = useState<
     Partial<Record<keyof LoginFormData, boolean>>
@@ -118,20 +118,6 @@ export default function AdminLogin() {
       ...prev,
       [field]: validateField(field, formData[field]),
     }));
-  };
-
-  const handleGoogleSignIn = async () => {
-    try {
-      setGoogleLoading(true);
-      await signIn("google", { callbackUrl: "/dashboard" });
-    } catch {
-      addToast(
-        "error",
-        "Login Failed",
-        "Google sign-in failed. Please try again.",
-      );
-      setGoogleLoading(false);
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -263,10 +249,10 @@ export default function AdminLogin() {
             />
           </div>
           <h2 className="text-center text-xl xl:text-[22px] font-bold mb-6 text-[#9F63C4]">
-            Login
+            Admin Login
           </h2>
 
-          <div className="flex gap-3 mb-5">
+          {/* <div className="flex gap-3 mb-5">
             <button
               onClick={handleGoogleSignIn}
               disabled={googleLoading}
@@ -281,14 +267,14 @@ export default function AdminLogin() {
             <button className="flex-1 flex items-center justify-center p-3 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition-colors cursor-pointer">
               <FacebookIcon />
             </button>
-          </div>
+          </div> */}
 
-          <div className="relative mb-5">
+          {/* <div className="relative mb-5">
             <div className="border-t border-gray-200 absolute top-1/2 w-full" />
             <div className="relative flex justify-center text-[15px]">
               <span className="bg-[#FCFCFF] px-3 text-gray-400">or</span>
             </div>
-          </div>
+          </div> */}
 
           <form
             onSubmit={handleSubmit}

@@ -84,8 +84,23 @@ export async function loginCommand(input: LoginInput): Promise<LoginResult> {
     resetRateLimit(failKey);
 
     const assignedRoles = user.roles.map((r) => r.role.name.toUpperCase());
+    
+    // 1. Admin Portal Restriction
     if (loginType === "ADMIN" && !assignedRoles.includes("ADMIN")) {
       return { success: false, error: "UNAUTHORIZED", message: "Admin access required.", status: 403 };
+    }
+
+    // 2. Lawyer Portal Restriction
+    if (loginType === "LAWYER" && !assignedRoles.includes("LAWYER")) {
+      if (assignedRoles.includes("ADMIN")) {
+        return { 
+          success: false, 
+          error: "UNAUTHORIZED", 
+          message: "This is an Administrator account. Please use the Admin Portal to login.", 
+          status: 403 
+        };
+      }
+      return { success: false, error: "UNAUTHORIZED", message: "Lawyer access required.", status: 403 };
     }
 
     const userRole = loginType || (assignedRoles.length > 0 ? assignedRoles[0] : "MEMBER");
