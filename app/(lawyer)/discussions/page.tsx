@@ -1,11 +1,11 @@
 'use client';
 
 import StartDiscussionModal from '@/app/components/StartDiscussionModal';
-import { useState, useEffect, useRef } from 'react';
-import { ChevronDown, Eye, Search, LogOut, Menu, X } from 'lucide-react';
+import { ChevronDown, Eye, LogOut, Menu, Search, User, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 
 const discussions = [
   {
@@ -77,34 +77,34 @@ const discussions = [
 ];
 
 const topLawyers = [
-  { name: 'Adv. Nimra Khan',   cases: 'Criminal Law',  count: 2450 },
-  { name: 'Adv. Shahid Khan',  cases: 'Contract Law',  count: 2180 },
-  { name: 'Adv. Fatima Noor',  cases: 'Tax Law',       count: 1950 },
-  { name: 'Adv. Hassan Raza',  cases: 'Labor Law',     count: 1820 },
-  { name: 'Adv. Zainab Malik', cases: 'Property Law',  count: 1650 },
-  { name: 'Adv. Ahmed Siddiqui', cases: 'Family Law', count: 1580 },
-  { name: 'Adv. Sana Ahmed', cases: 'Corporate Law', count: 1520 },
-  { name: 'Adv. Omar Farooq', cases: 'Cyber Law', count: 1480 },
-  { name: 'Adv. Aisha Rahman', cases: 'Tax Law', count: 1420 },
-  { name: 'Adv. Bilal Mustafa', cases: 'Property Law', count: 1380 },
-  { name: 'Adv. Mariam Khan', cases: 'Labor Law', count: 1350 },
-  { name: 'Adv. Faisal Ali', cases: 'Criminal Law', count: 1320 },
-  { name: 'Adv. Hina Butt', cases: 'Family Law', count: 1280 },
-  { name: 'Adv. Saad Malik', cases: 'Contract Law', count: 1250 },
-  { name: 'Adv. Nadia Shah', cases: 'Corporate Law', count: 1220 },
-  { name: 'Adv. Tariq Mehmood', cases: 'Cyber Law', count: 1190 },
-  { name: 'Adv. Sara Khanum', cases: 'Tax Law', count: 1160 },
-  { name: 'Adv. Usman Qureshi', cases: 'Property Law', count: 1130 },
-  { name: 'Adv. Rabia Naheed', cases: 'Labor Law', count: 1100 },
-  { name: 'Adv. Kamran Butt', cases: 'Criminal Law', count: 1070 },
+  { name: 'Adv. Nimra Khan',     cases: 'Criminal Law',  count: 2450 },
+  { name: 'Adv. Shahid Khan',    cases: 'Contract Law',  count: 2180 },
+  { name: 'Adv. Fatima Noor',    cases: 'Tax Law',       count: 1950 },
+  { name: 'Adv. Hassan Raza',    cases: 'Labor Law',     count: 1820 },
+  { name: 'Adv. Zainab Malik',   cases: 'Property Law',  count: 1650 },
+  { name: 'Adv. Ahmed Siddiqui', cases: 'Family Law',    count: 1580 },
+  { name: 'Adv. Sana Ahmed',     cases: 'Corporate Law', count: 1520 },
+  { name: 'Adv. Omar Farooq',    cases: 'Cyber Law',     count: 1480 },
+  { name: 'Adv. Aisha Rahman',   cases: 'Tax Law',       count: 1420 },
+  { name: 'Adv. Bilal Mustafa',  cases: 'Property Law',  count: 1380 },
+  { name: 'Adv. Mariam Khan',    cases: 'Labor Law',     count: 1350 },
+  { name: 'Adv. Faisal Ali',     cases: 'Criminal Law',  count: 1320 },
+  { name: 'Adv. Hina Butt',      cases: 'Family Law',    count: 1280 },
+  { name: 'Adv. Saad Malik',     cases: 'Contract Law',  count: 1250 },
+  { name: 'Adv. Nadia Shah',     cases: 'Corporate Law', count: 1220 },
+  { name: 'Adv. Tariq Mehmood',  cases: 'Cyber Law',     count: 1190 },
+  { name: 'Adv. Sara Khanum',    cases: 'Tax Law',       count: 1160 },
+  { name: 'Adv. Usman Qureshi',  cases: 'Property Law',  count: 1130 },
+  { name: 'Adv. Rabia Naheed',   cases: 'Labor Law',     count: 1100 },
+  { name: 'Adv. Kamran Butt',    cases: 'Criminal Law',  count: 1070 },
 ];
 
 const trendingTopics = [
-  { name: 'Contract Law',       trend: '↑ +23%thisweek' },
-  { name: 'Property Disputes',  trend: '↑ +18%thisweek' },
-  { name: 'Tax Fraud',          trend: '↑ +15%thisweek' },
-  { name: 'Cybercrime',         trend: '↑ +12%thisweek' },
-  { name: 'Labor Rights',       trend: '↑ +8%thisweek'  },
+  { name: 'Contract Law',      trend: '↑ +23%thisweek' },
+  { name: 'Property Disputes', trend: '↑ +18%thisweek' },
+  { name: 'Tax Fraud',         trend: '↑ +15%thisweek' },
+  { name: 'Cybercrime',        trend: '↑ +12%thisweek' },
+  { name: 'Labor Rights',      trend: '↑ +8%thisweek'  },
 ];
 
 const registeredTopics = [
@@ -113,17 +113,17 @@ const registeredTopics = [
   { name: 'Property', count: 'Tax Law'           },
 ];
 
-const SORT_OPTIONS    = ['Latest Activity', 'Most Viewed', 'Most Liked', 'Oldest First'];
+const SORT_OPTIONS     = ['Latest Activity', 'Most Viewed', 'Most Liked', 'Oldest First'];
 const CATEGORY_OPTIONS = ['All Categories', 'Corporate Law', 'Family Law', 'Labor Law', 'Property Law'];
 const REGION_OPTIONS   = ['All Regions', 'Islamabad', 'Karachi', 'Lahore', 'Multan', 'Punjab'];
 const QUICK_FILTERS    = ['Tax Fraud', 'Property Law', 'Cybercrime', 'Contract Disputes', 'Family Law'];
 
 export default function LegalDiscussionsPage() {
   const router = useRouter();
-  const dropdownRef     = useRef<HTMLDivElement>(null);
-  const sortRef         = useRef<HTMLDivElement>(null);
-  const categoryRef     = useRef<HTMLDivElement>(null);
-  const regionRef       = useRef<HTMLDivElement>(null);
+  const dropdownRef  = useRef<HTMLDivElement>(null);
+  const sortRef      = useRef<HTMLDivElement>(null);
+  const categoryRef  = useRef<HTMLDivElement>(null);
+  const regionRef    = useRef<HTMLDivElement>(null);
 
   const [user, setUser] = useState<any>(null);
   const [status, setStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
@@ -134,28 +134,25 @@ export default function LegalDiscussionsPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Filter states
-  const [sortOpen,        setSortOpen]        = useState(false);
-  const [categoryOpen,    setCategoryOpen]    = useState(false);
-  const [regionOpen,      setRegionOpen]      = useState(false);
-  const [selectedSort,    setSelectedSort]    = useState('Latest Activity');
-  const [selectedCategory,setSelectedCategory]= useState('All Categories');
-  const [selectedRegion,  setSelectedRegion]  = useState('All Regions');
-  const [aiSummarized,    setAiSummarized]    = useState(false);
+  const [sortOpen,          setSortOpen]          = useState(false);
+  const [categoryOpen,      setCategoryOpen]      = useState(false);
+  const [regionOpen,        setRegionOpen]        = useState(false);
+  const [selectedSort,      setSelectedSort]      = useState('Latest Activity');
+  const [selectedCategory,  setSelectedCategory]  = useState('All Categories');
+  const [selectedRegion,    setSelectedRegion]    = useState('All Regions');
+  const [aiSummarized,      setAiSummarized]      = useState(false);
   const [activeQuickFilter, setActiveQuickFilter] = useState<string | null>(null);
   const [showFullLeaderboard, setShowFullLeaderboard] = useState(false);
 
   useEffect(() => {
     async function checkAuth() {
       try {
-        const res = await fetch('/api/auth/me');
+        const res  = await fetch('/api/auth/me');
         const data = await res.json();
-        
         if (data.authenticated) {
           setUser(data.user);
           setStatus('authenticated');
           setIsReady(true);
-          
-          // Sync with localStorage for legacy components
           localStorage.setItem('isLoggedIn', 'true');
           localStorage.setItem('user', JSON.stringify(data.user));
         } else {
@@ -168,34 +165,28 @@ export default function LegalDiscussionsPage() {
         router.replace('/lawyerlogin');
       }
     }
-    
     checkAuth();
   }, [router]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node))
         setIsUserMenuOpen(false);
-      }
-      if (sortRef.current && !sortRef.current.contains(event.target as Node)) {
+      if (sortRef.current && !sortRef.current.contains(event.target as Node))
         setSortOpen(false);
-      }
-      if (categoryRef.current && !categoryRef.current.contains(event.target as Node)) {
+      if (categoryRef.current && !categoryRef.current.contains(event.target as Node))
         setCategoryOpen(false);
-      }
-      if (regionRef.current && !regionRef.current.contains(event.target as Node)) {
+      if (regionRef.current && !regionRef.current.contains(event.target as Node))
         setRegionOpen(false);
-      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-
   const filteredDiscussions = discussions
     .filter((d) => {
       const q = searchQuery.toLowerCase();
-      const matchesSearch = !q || d.title.toLowerCase().includes(q) || d.excerpt.toLowerCase().includes(q) || d.category.toLowerCase().includes(q);
+      const matchesSearch   = !q || d.title.toLowerCase().includes(q) || d.excerpt.toLowerCase().includes(q) || d.category.toLowerCase().includes(q);
       const matchesCategory = selectedCategory === 'All Categories' || d.category === selectedCategory;
       const matchesRegion   = selectedRegion   === 'All Regions'    || d.tags.includes(selectedRegion);
       const matchesAI       = !aiSummarized    || d.tags.includes('AI Summary');
@@ -203,10 +194,10 @@ export default function LegalDiscussionsPage() {
       return matchesSearch && matchesCategory && matchesRegion && matchesAI && matchesQuick;
     })
     .sort((a, b) => {
-      if (selectedSort === 'Most Viewed') return b.views - a.views;
-      if (selectedSort === 'Most Liked')  return b.likes - a.likes;
+      if (selectedSort === 'Most Viewed')  return b.views - a.views;
+      if (selectedSort === 'Most Liked')   return b.likes - a.likes;
       if (selectedSort === 'Oldest First') return b.id - a.id;
-      return a.id - b.id; // Latest Activity (default)
+      return a.id - b.id;
     });
 
   const handleLogout = async () => {
@@ -228,12 +219,13 @@ export default function LegalDiscussionsPage() {
     );
   }
 
-  const displayName  = user?.name || user?.displayName || 'User';
+  const displayName  = user?.name  || user?.displayName || 'User';
   const displayEmail = user?.email || '';
 
   return (
     <div className="min-h-screen bg-gray-50">
 
+      {/* ── Navbar ── */}
       <nav className="bg-[linear-gradient(135deg,#4C2F5E_0%,#9E63C4_100%)] text-white px-4 md:px-8 py-4">
         <div className="container mx-auto flex items-center justify-between gap-4">
 
@@ -256,6 +248,7 @@ export default function LegalDiscussionsPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* User menu */}
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
@@ -266,19 +259,39 @@ export default function LegalDiscussionsPage() {
 
               {isUserMenuOpen && (
                 <div className="absolute right-0 mt-3 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden text-gray-800 z-50">
-                  <div className="p-4 border-b border-gray-50 bg-gray-50/50">
+
+                  {/* User info */}
+                  <div className="p-4 border-b border-gray-100 bg-gray-50/50">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-transparent flex items-center justify-center">
                         <Image src="/icons/user.png" alt="User" width={35} height={35} unoptimized />
                       </div>
                       <div className="flex-1 min-w-0">
-                        
                         <p className="font-bold text-sm text-[#4C2F5E] truncate">{displayName}</p>
-                        <p className="text-[11px] font-bold text-[#9E63C4] tracking-wider lowercase">{displayEmail}</p>
+                        <p className="text-[10px] font-semibold text-[#9E63C4] tracking-wider lowercase truncate">{displayEmail}</p>
+                        {/* Role badge — always LAWYER on this side */}
+                        <span className="inline-block mt-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide bg-purple-100 text-purple-700">
+                          Lawyer
+                        </span>
                       </div>
                     </div>
                   </div>
+
                   <div className="p-2">
+                    {/* View Profile */}
+                    <button
+                      onClick={() => {
+                        router.push('/profile');
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-[#4C2F5E] hover:bg-[#4C2F5E]/5 rounded-lg transition cursor-pointer"
+                    >
+                      <User size={14} /> View Profile
+                    </button>
+
+                    <div className="h-px bg-gray-100 my-1" />
+
+                    {/* Sign out */}
                     <button
                       onClick={handleLogout}
                       className="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-red-500 hover:bg-red-50 rounded-lg transition cursor-pointer"
@@ -308,7 +321,7 @@ export default function LegalDiscussionsPage() {
         )}
       </nav>
 
-      {/* Hero Section */}
+      {/* ── Hero Section ── */}
       <div className="bg-gray-50">
         <div className="w-full px-4 md:px-8 py-2">
           <h1 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-[#4C2F5E] to-[#9E62C4] bg-clip-text text-transparent mb-1">
@@ -419,8 +432,6 @@ export default function LegalDiscussionsPage() {
 
           {/* Filters Row */}
           <div className="flex items-center gap-3 mb-4 overflow-x-auto pb-1 scrollbar-hide">
-
-            {/* Sort Dropdown */}
             <div className="relative flex-shrink-0" ref={sortRef}>
               <button
                 onClick={() => { setSortOpen(!sortOpen); setCategoryOpen(false); setRegionOpen(false); }}
@@ -433,11 +444,8 @@ export default function LegalDiscussionsPage() {
               {sortOpen && (
                 <div className="absolute left-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
                   {SORT_OPTIONS.map((opt) => (
-                    <button
-                      key={opt}
-                      onClick={() => { setSelectedSort(opt); setSortOpen(false); }}
-                      className={`w-full text-left px-4 py-2.5 text-sm transition hover:bg-purple-50 hover:text-[#4C2F5E] ${selectedSort === opt ? 'bg-[#F4EBF9] text-[#4C2F5E] font-semibold' : 'text-gray-700'}`}
-                    >
+                    <button key={opt} onClick={() => { setSelectedSort(opt); setSortOpen(false); }}
+                      className={`w-full text-left px-4 py-2.5 text-sm transition hover:bg-purple-50 hover:text-[#4C2F5E] ${selectedSort === opt ? 'bg-[#F4EBF9] text-[#4C2F5E] font-semibold' : 'text-gray-700'}`}>
                       {opt}
                     </button>
                   ))}
@@ -445,7 +453,6 @@ export default function LegalDiscussionsPage() {
               )}
             </div>
 
-            {/* Category Dropdown */}
             <div className="relative flex-shrink-0" ref={categoryRef}>
               <button
                 onClick={() => { setCategoryOpen(!categoryOpen); setSortOpen(false); setRegionOpen(false); }}
@@ -457,11 +464,8 @@ export default function LegalDiscussionsPage() {
               {categoryOpen && (
                 <div className="absolute left-0 top-full mt-1 w-52 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
                   {CATEGORY_OPTIONS.map((opt) => (
-                    <button
-                      key={opt}
-                      onClick={() => { setSelectedCategory(opt); setCategoryOpen(false); }}
-                      className={`w-full text-left px-4 py-2.5 text-sm transition hover:bg-purple-50 hover:text-[#4C2F5E] ${selectedCategory === opt ? 'bg-[#F4EBF9] text-[#4C2F5E] font-semibold' : 'text-gray-700'}`}
-                    >
+                    <button key={opt} onClick={() => { setSelectedCategory(opt); setCategoryOpen(false); }}
+                      className={`w-full text-left px-4 py-2.5 text-sm transition hover:bg-purple-50 hover:text-[#4C2F5E] ${selectedCategory === opt ? 'bg-[#F4EBF9] text-[#4C2F5E] font-semibold' : 'text-gray-700'}`}>
                       {opt}
                     </button>
                   ))}
@@ -469,7 +473,6 @@ export default function LegalDiscussionsPage() {
               )}
             </div>
 
-            {/* Region Dropdown */}
             <div className="relative flex-shrink-0" ref={regionRef}>
               <button
                 onClick={() => { setRegionOpen(!regionOpen); setSortOpen(false); setCategoryOpen(false); }}
@@ -482,11 +485,8 @@ export default function LegalDiscussionsPage() {
               {regionOpen && (
                 <div className="absolute left-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
                   {REGION_OPTIONS.map((opt) => (
-                    <button
-                      key={opt}
-                      onClick={() => { setSelectedRegion(opt); setRegionOpen(false); }}
-                      className={`w-full text-left px-4 py-2.5 text-sm transition hover:bg-purple-50 hover:text-[#4C2F5E] ${selectedRegion === opt ? 'bg-[#F4EBF9] text-[#4C2F5E] font-semibold' : 'text-gray-700'}`}
-                    >
+                    <button key={opt} onClick={() => { setSelectedRegion(opt); setRegionOpen(false); }}
+                      className={`w-full text-left px-4 py-2.5 text-sm transition hover:bg-purple-50 hover:text-[#4C2F5E] ${selectedRegion === opt ? 'bg-[#F4EBF9] text-[#4C2F5E] font-semibold' : 'text-gray-700'}`}>
                       {opt}
                     </button>
                   ))}
@@ -494,7 +494,6 @@ export default function LegalDiscussionsPage() {
               )}
             </div>
 
-            {/* AI Summarized Toggle */}
             <button
               onClick={() => setAiSummarized(!aiSummarized)}
               className={`flex items-center gap-2 px-3 md:px-4 py-2 border rounded-lg transition text-sm cursor-pointer flex-shrink-0 whitespace-nowrap ${aiSummarized ? 'bg-[#9F63C4] border-[#9F63C4] text-white' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
@@ -512,9 +511,8 @@ export default function LegalDiscussionsPage() {
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* ── Main Content ── */}
       <div className="w-full px-4 md:px-8 py-0">
-
         <div className="flex items-center gap-4 py-4">
           <span className="text-xs font-bold text-gray-800 whitespace-nowrap">Quick Filters:</span>
           <div className="flex flex-wrap gap-2 md:gap-3">
@@ -556,71 +554,71 @@ export default function LegalDiscussionsPage() {
                   </button>
                 </div>
               ) : (
-              filteredDiscussions.map((discussion) => (
-                <div key={discussion.id} className="bg-white rounded-lg p-4 md:p-5 border border-gray-100 shadow-sm hover:shadow-md transition group">
-                  <div className="flex items-start gap-2 mb-2">
-                    <Image
-                      src="/icons/vector.png"
-                      alt="Up"
-                      width={18}
-                      height={18}
-                      className="mt-1 shrink-0 opacity-100"
-                      style={{ filter: 'brightness(0) saturate(100%) invert(20%) sepia(21%) saturate(1450%) hue-rotate(228deg) brightness(95%) contrast(92%)' }}
-                      unoptimized
-                    />
-                    <h3 className="font-semibold text-black leading-tight hover:text-[#4C2F5E] cursor-pointer text-[14px] md:text-[16px]">
-                      {discussion.title}
-                    </h3>
-                  </div>
-                  <p className="text-[#6E7D7D] text-sm mb-3 line-clamp-2">{discussion.excerpt}</p>
-                  <div className="flex flex-wrap items-center gap-2 mb-4">
-                    <span className="px-3 py-1 bg-gray-100 text-black rounded-full text-xs md:text-sm font-bold border border-gray-200">{discussion.category}</span>
-                    {discussion.tags.map((tag) => {
-                      if (['Islamabad','Karachi','Punjab','Lahore','Multan'].includes(tag)) {
-                        return (
-                          <span key={tag} className="flex items-center gap-1.5 px-3 py-1 border border-gray-200 text-gray-600 rounded-full text-xs md:text-sm bg-white">
-                            <Image src="/icons/location.png" alt="Loc" width={10} height={10} className="shrink-0 opacity-70" unoptimized />
-                            {tag}
-                          </span>
-                        );
-                      }
-                      if (tag === 'AI Summary') {
-                        return (
-                          <span key={tag} className="flex items-center gap-1.5 px-3 py-1 bg-[#9F63C4] text-white rounded-full text-xs md:text-sm font-medium shadow-sm">
-                            <Image src="/icons/ai.png" alt="AI" width={12} height={12} className="brightness-0 invert shrink-0" unoptimized />
-                            {tag}
-                          </span>
-                        );
-                      }
-                      if (tag === 'Answered') {
-                        return (
-                          <span key={tag} className="flex items-center gap-1.5 px-3 py-1 text-[#4C2F5E] text-xs md:text-sm font-medium">
-                            <div className="w-3.5 h-3.5 border border-[#4C2F5E] rounded-full flex items-center justify-center shrink-0">
-                              <svg viewBox="0 0 24 24" fill="none" stroke="#4C2F5E" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="w-2 h-2">
-                                <polyline points="20 6 9 17 4 12" />
-                              </svg>
-                            </div>
-                            {tag}
-                          </span>
-                        );
-                      }
-                      return null;
-                    })}
-                  </div>
-                  <hr className="border-gray-100 mb-4" />
-                  <div className="flex items-center justify-between text-xs text-gray-500 flex-wrap gap-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 bg-[#9F63C4] rounded-full flex items-center justify-center text-white text-[10px] font-bold">{discussion.author.charAt(0)}</div>
-                      <span className="text-xs md:text-sm text-gray-500 font-medium">{discussion.author}</span>
+                filteredDiscussions.map((discussion) => (
+                  <div key={discussion.id} className="bg-white rounded-lg p-4 md:p-5 border border-gray-100 shadow-sm hover:shadow-md transition group">
+                    <div className="flex items-start gap-2 mb-2">
+                      <Image
+                        src="/icons/vector.png"
+                        alt="Up"
+                        width={18}
+                        height={18}
+                        className="mt-1 shrink-0 opacity-100"
+                        style={{ filter: 'brightness(0) saturate(100%) invert(20%) sepia(21%) saturate(1450%) hue-rotate(228deg) brightness(95%) contrast(92%)' }}
+                        unoptimized
+                      />
+                      <h3 className="font-semibold text-black leading-tight hover:text-[#4C2F5E] cursor-pointer text-[14px] md:text-[16px]">
+                        {discussion.title}
+                      </h3>
                     </div>
-                    <div className="flex items-center gap-3 md:gap-4">
-                      <span className="flex items-center gap-1"><Image src="/icons/message.png" alt="Mes" width={10} height={10} unoptimized />{discussion.likes}</span>
-                      <span className="flex items-center gap-1 text-[#4C2F5E]"><Eye className="w-3 h-3" />{discussion.views}</span>
-                      <span className="hidden sm:inline">{discussion.timeAgo}</span>
+                    <p className="text-[#6E7D7D] text-sm mb-3 line-clamp-2">{discussion.excerpt}</p>
+                    <div className="flex flex-wrap items-center gap-2 mb-4">
+                      <span className="px-3 py-1 bg-gray-100 text-black rounded-full text-xs md:text-sm font-bold border border-gray-200">{discussion.category}</span>
+                      {discussion.tags.map((tag) => {
+                        if (['Islamabad','Karachi','Punjab','Lahore','Multan'].includes(tag)) {
+                          return (
+                            <span key={tag} className="flex items-center gap-1.5 px-3 py-1 border border-gray-200 text-gray-600 rounded-full text-xs md:text-sm bg-white">
+                              <Image src="/icons/location.png" alt="Loc" width={10} height={10} className="shrink-0 opacity-70" unoptimized />
+                              {tag}
+                            </span>
+                          );
+                        }
+                        if (tag === 'AI Summary') {
+                          return (
+                            <span key={tag} className="flex items-center gap-1.5 px-3 py-1 bg-[#9F63C4] text-white rounded-full text-xs md:text-sm font-medium shadow-sm">
+                              <Image src="/icons/ai.png" alt="AI" width={12} height={12} className="brightness-0 invert shrink-0" unoptimized />
+                              {tag}
+                            </span>
+                          );
+                        }
+                        if (tag === 'Answered') {
+                          return (
+                            <span key={tag} className="flex items-center gap-1.5 px-3 py-1 text-[#4C2F5E] text-xs md:text-sm font-medium">
+                              <div className="w-3.5 h-3.5 border border-[#4C2F5E] rounded-full flex items-center justify-center shrink-0">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="#4C2F5E" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="w-2 h-2">
+                                  <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                              </div>
+                              {tag}
+                            </span>
+                          );
+                        }
+                        return null;
+                      })}
+                    </div>
+                    <hr className="border-gray-100 mb-4" />
+                    <div className="flex items-center justify-between text-xs text-gray-500 flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 bg-[#9F63C4] rounded-full flex items-center justify-center text-white text-[10px] font-bold">{discussion.author.charAt(0)}</div>
+                        <span className="text-xs md:text-sm text-gray-500 font-medium">{discussion.author}</span>
+                      </div>
+                      <div className="flex items-center gap-3 md:gap-4">
+                        <span className="flex items-center gap-1"><Image src="/icons/message.png" alt="Mes" width={10} height={10} unoptimized />{discussion.likes}</span>
+                        <span className="flex items-center gap-1 text-[#4C2F5E]"><Eye className="w-3 h-3" />{discussion.views}</span>
+                        <span className="hidden sm:inline">{discussion.timeAgo}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                ))
               )}
             </div>
           </main>
@@ -661,7 +659,7 @@ export default function LegalDiscussionsPage() {
                 ))}
               </div>
               <div className="mt-4 text-center">
-                <button 
+                <button
                   onClick={() => setShowFullLeaderboard(!showFullLeaderboard)}
                   className="text-[11px] font-bold text-[#9E63C4] hover:opacity-70 flex items-center justify-center gap-1 w-full transition-opacity cursor-pointer"
                 >
@@ -707,6 +705,7 @@ export default function LegalDiscussionsPage() {
           </aside>
         </div>
 
+        {/* Mobile sidebar */}
         <div className="xl:hidden mt-6 space-y-4 pb-6">
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <div className="flex items-center gap-2 mb-4">
@@ -715,7 +714,7 @@ export default function LegalDiscussionsPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {topLawyers.slice(0, showFullLeaderboard ? topLawyers.length : 5).map((lawyer, index) => (
-                <div key={lawyer.name} className="flex items-center justify-between gap-2">  
+                <div key={lawyer.name} className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2.5">
                     <div className="relative shrink-0">
                       <div className="w-9 h-9 rounded-full overflow-hidden border border-gray-100">
@@ -736,13 +735,13 @@ export default function LegalDiscussionsPage() {
               ))}
             </div>
             <div className="mt-4 text-center">
-              <button 
-                  onClick={() => setShowFullLeaderboard(!showFullLeaderboard)}
-                  className="text-[11px] font-bold text-[#9E63C4] hover:opacity-70 flex items-center justify-center gap-1 w-full transition-opacity cursor-pointer"
-                >
-                  {showFullLeaderboard ? 'Show Less Lawyers ' : 'View Full Leaderboard '}
-                  <span className="text-xs">{showFullLeaderboard ? '↑' : '→'}</span>
-                </button>
+              <button
+                onClick={() => setShowFullLeaderboard(!showFullLeaderboard)}
+                className="text-[11px] font-bold text-[#9E63C4] hover:opacity-70 flex items-center justify-center gap-1 w-full transition-opacity cursor-pointer"
+              >
+                {showFullLeaderboard ? 'Show Less Lawyers ' : 'View Full Leaderboard '}
+                <span className="text-xs">{showFullLeaderboard ? '↑' : '→'}</span>
+              </button>
             </div>
           </div>
 

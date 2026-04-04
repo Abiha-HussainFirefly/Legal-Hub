@@ -4,9 +4,10 @@ import { BarChart3, Home, Settings, FileSearch, ShieldCheck, Users } from 'lucid
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSidebar } from '@/app/components/admin/sidebar/SidebarContext';
+import { useSession } from 'next-auth/react';
 
 const menuItems = [
-  { icon: Home,        label: 'Dashboard',    href: '/dashboard'    },
+  { icon: Home,         label: 'Dashboard',    href: '/dashboard'    },
   { icon: ShieldCheck, label: 'Verification', href: '/verification' },
   { icon: FileSearch,  label: 'Moderation',   href: '/moderation'   },
   { icon: Users,       label: 'User',         href: '/user'         },
@@ -15,120 +16,71 @@ const menuItems = [
 ];
 
 export default function Sidebar() {
-  const pathname            = usePathname();
+  const pathname = usePathname();
   const { isOpen, isMobile, close } = useSidebar();
+  const { data: session } = useSession();
 
+  const sidebarWidth = isMobile ? (isOpen ? '256px' : '0px') : (isOpen ? '256px' : '72px');
+  const showLabels = isOpen;
 
-  const sidebarWidth = isMobile
-    ? (isOpen ? '256px' : '0px')
-    : (isOpen ? '256px' : '72px');
-
-  const showLabels = isOpen; 
+  const getInitials = (name?: string | null) => {
+    if (!name) return "??";
+    return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+  };
 
   return (
-    <>
-      {/*  Mobile overlay backdrop */}
-      {isMobile && isOpen && (
-        <div
-          className="fixed inset-0 bg-black/40 z-10 backdrop-blur-sm"
-          onClick={close}
-          aria-hidden="true"
-        />
-      )}
-
-      {/* Sidebar  */}
-      <aside
-        className="min-h-screen fixed left-0 top-0 flex flex-col bg-[#F3F0F4] transition-all duration-300 overflow-hidden z-20"
-        style={{ width: sidebarWidth }}
-      >
-        {/* Logo */}
-        <div
-          className="flex items-center transition-all duration-300 flex-shrink-0"
-          style={{
-            height:          '80px',
-            padding:         showLabels ? '0 24px' : '0',
-            justifyContent:  showLabels ? 'flex-start' : 'center',
-          }}
-        >
-          {showLabels ? (
-            <Link href="/" onClick={isMobile ? close : undefined} style={{ cursor: 'pointer' }}>
-              <img src="/logo-legal-hub.png" alt="Legal Hub" className="h-12 w-auto" />
-            </Link>
-          ) : (
-            <Link
-              href="/"
-              title="Legal Hub"
-              style={{
-                cursor:          'pointer',
-                width:           '40px',
-                height:          '40px',
-                borderRadius:    '10px',
-                background:      'linear-gradient(135deg, #9F63C4 0%, #7E4FA1 100%)',
-                display:         'flex',
-                alignItems:      'center',
-                justifyContent:  'center',
-                flexShrink:      0,
-              }}
-            >
-              <span style={{ color: '#fff', fontWeight: 700, fontSize: '16px', userSelect: 'none' }}>
-                LH
-              </span>
-            </Link>
-          )}
-        </div>
-
-        {/* Nav items  */}
-        <nav className="flex-1 px-2 overflow-y-auto mt-5">
-          <ul className="space-y-1">
-            {menuItems.map((item) => {
-              const Icon     = item.icon;
-              const isActive = pathname === item.href;
-
-              return (
-                <li key={item.href}>
-                  <Link
-  href={item.href}
-  title={!showLabels ? item.label : undefined}
-  onClick={isMobile ? close : undefined}
-  className={`flex items-center transition-all duration-200
-    ${showLabels 
-      ? 'gap-4 py-3 px-4 rounded-xl text-sm font-semibold' 
-      : 'justify-center p-0 mx-auto rounded-xl w-[44px] h-[44px]' 
-    }
-    ${isActive ? 'text-white shadow-md' : 'hover:bg-purple-50'}`}
-  style={{
-    cursor: 'pointer',
-    ...(isActive
-      ? { background: 'linear-gradient(135deg, #9F63C4 0%, #7E4FA1 100%)' }
-      : { color: '#4C2F5E' }),
-  }}
->
-  <Icon
-    className="w-6 h-6 flex-shrink-0"
-    style={{ color: isActive ? '#fff' : '#4C2F5E' }}
-  />
-  
-  {showLabels && (
-    <span
-      className="whitespace-nowrap transition-all duration-300 overflow-hidden"
-      style={{
-        opacity: 1,
-        width: 'auto',
-        maxWidth: '200px',
-        lineHeight: '24px',
-        fontSize: '16px'
-      }}
+    <aside
+      className="min-h-screen fixed left-0 top-0 flex flex-col bg-[#F3F0F4] transition-all duration-300 z-20 border-r border-gray-200"
+      style={{ width: sidebarWidth }}
     >
-      {item.label}
-    </span>
-  )}
-</Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-      </aside>
-    </>
+      {/* Logo Section */}
+      <div className="flex items-center h-[80px] px-6">
+        {showLabels ? (
+          <img src="/logo-legal-hub.png" alt="Legal Hub" className="h-12 w-auto" />
+        ) : (
+          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#9F63C4] to-[#7E4FA1] flex items-center justify-center text-white font-bold">LH</div>
+        )}
+      </div>
+
+      {/* Nav items */}
+      <nav className="flex-1 px-2 mt-5">
+        <ul className="space-y-1">
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = pathname === item.href;
+            return (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  className={`flex items-center gap-4 py-3 px-4 rounded-xl transition-all ${isActive ? 'text-white bg-gradient-to-r from-[#9F63C4] to-[#7E4FA1]' : 'text-[#4C2F5E] hover:bg-purple-50'}`}
+                >
+                  <Icon className="w-6 h-6 shrink-0" />
+                  {showLabels && <span className="font-semibold">{item.label}</span>}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+
+      {/* Profile Section - Clicking the icon opens settings */}
+      <div className={`mt-auto border-t border-gray-200 p-4 ${!showLabels ? 'flex justify-center' : ''}`}>
+        <Link 
+          href="/adminprofile" 
+          title={session?.user?.name || "Profile Settings"} 
+          className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+        >
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#4C2F5E] text-white font-bold text-sm shadow-sm">
+            {getInitials(session?.user?.name)}
+          </div>
+          {showLabels && (
+            <div className="flex flex-col min-w-0">
+              <span className="truncate text-sm font-bold text-[#4C2F5E]">{session?.user?.name}</span>
+              <span className="text-[10px] text-gray-400 font-medium">ADMIN</span>
+            </div>
+          )}
+        </Link>
+      </div>
+    </aside>
   );
 }

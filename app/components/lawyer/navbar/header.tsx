@@ -1,7 +1,7 @@
 'use client';
 
 import { useSidebar } from '@/app/components/admin/sidebar/SidebarContext';
-import { Bell, List, LogOut, Search, X } from 'lucide-react';
+import { Bell, List, LogOut, Search, User, X } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
@@ -63,6 +63,13 @@ const TYPE_COLORS: Record<string, string> = {
   'Admin Log': 'bg-gray-100 text-gray-600',
 };
 
+const ROLE_BADGE_STYLES: Record<string, string> = {
+  'SYSTEM_ADMIN': 'bg-[#EBDEF0] text-[#4C2F5E]',
+  'ADMIN':        'bg-[#EBDEF0] text-[#4C2F5E]',
+  'LAWYER':       'bg-purple-100 text-purple-700',
+  'USER':         'bg-blue-50 text-blue-600',
+};
+
 export default function Header({ userData }: HeaderProps) {
   const { isOpen, isMobile, toggle }     = useSidebar();
   const [isUserMenuOpen, setMenuOpen]    = useState(false);
@@ -109,9 +116,15 @@ export default function Header({ userData }: HeaderProps) {
     name:  userData?.name || userData?.displayName || 'Admin User',
     email: userData?.email || '',
     role:  Array.isArray(userData?.roles) && userData.roles.length > 0
-         ? userData.roles.join(', ')
+         ? userData.roles[0]
          : userData?.role || 'SYSTEM_ADMIN',
   };
+
+  const roleKey        = user.role.toUpperCase();
+  const isAdmin        = ['ADMIN', 'SYSTEM_ADMIN'].includes(roleKey);
+  const profileRoute   = isAdmin ? '/adminprofile' : '/profile';
+  const roleLabel      = user.role.replace(/_/g, ' ');
+  const roleBadgeClass = ROLE_BADGE_STYLES[roleKey] ?? 'bg-gray-100 text-gray-600';
 
   const handleLogout = async () => {
     try {
@@ -232,6 +245,7 @@ export default function Header({ userData }: HeaderProps) {
             {showMobileSearch ? <X size={20} /> : <Search size={20} />}
           </button>
 
+          {/* Notifications */}
           <div className="relative" ref={notifRef}>
             <button
               onClick={() => setShowNotif(v => !v)}
@@ -287,9 +301,7 @@ export default function Header({ userData }: HeaderProps) {
                   ))}
                 </div>
                 <div className="px-4 py-2.5 border-t border-gray-100 bg-gray-50/50 text-center">
-                  <button
-                    className="text-[11px] font-semibold text-[#9F63C4] hover:underline cursor-pointer"
-                  >
+                  <button className="text-[11px] font-semibold text-[#9F63C4] hover:underline cursor-pointer">
                     View all notifications
                   </button>
                 </div>
@@ -297,6 +309,7 @@ export default function Header({ userData }: HeaderProps) {
             )}
           </div>
 
+          {/* User Menu */}
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setMenuOpen(v => !v)}
@@ -315,21 +328,41 @@ export default function Header({ userData }: HeaderProps) {
 
             {isUserMenuOpen && (
               <div className="absolute right-0 mt-3 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden text-gray-800 z-50">
-                <div className="p-4 border-b border-gray-50 bg-gray-50/50">
+
+                {/* User info + role badge */}
+                <div className="p-4 border-b border-gray-100 bg-gray-50/50">
                   <div className="flex items-center gap-3">
                     <Image src="/icons/user.png" alt="Admin" width={35} height={35} />
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-sm text-[#4C2F5E] truncate uppercase">
                         {user.name}
                       </p>
-                      <p className="text-[10px] font-bold text-[#9E63C4] lowercase tracking-wider">
+                      <p className="text-[10px] font-semibold text-[#9E63C4] lowercase tracking-wider truncate">
                         {user.email}
                       </p>
+                      {/* Role badge — shows ADMIN / LAWYER / USER etc. */}
+                      <span className={`inline-block mt-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide ${roleBadgeClass}`}>
+                        {roleLabel}
+                      </span>
                     </div>
                   </div>
                 </div>
+
                 <div className="p-2">
+                  {/* View Profile — routes to /admin-profile or /profile based on role */}
+                  <button
+                    onClick={() => {
+                      router.push(profileRoute);
+                      setMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-[#4C2F5E] hover:bg-[#4C2F5E]/5 rounded-lg transition cursor-pointer"
+                  >
+                    <User size={14} /> View Profile
+                  </button>
+
                   <div className="h-px bg-gray-100 my-1" />
+
+                  {/* Sign out */}
                   <button
                     onClick={handleLogout}
                     className="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-red-500 hover:bg-red-50 rounded-lg transition cursor-pointer"
@@ -343,6 +376,7 @@ export default function Header({ userData }: HeaderProps) {
         </div>
       </div>
 
+      {/* Mobile Search */}
       <div
         className={`sm:hidden overflow-hidden transition-all duration-300 ${
           showMobileSearch ? 'max-h-16 opacity-100' : 'max-h-0 opacity-0'
