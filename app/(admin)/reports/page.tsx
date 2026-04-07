@@ -1,9 +1,9 @@
 'use client';
 
-import { Download } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { Download } from 'lucide-react';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 const newUserData = [
   { month: 'Jan', users: 4000 },
@@ -112,7 +112,7 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="bg-[#F9FAFB] rounded-2xl shadow-sm p-4 md:p-6">
+    <div className="bg-[#FFFFFF] rounded-2xl shadow-sm p-4 md:p-6">
 
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-5 sm:mb-8">

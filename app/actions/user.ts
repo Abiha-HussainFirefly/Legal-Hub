@@ -1,20 +1,18 @@
 "use server";
 
 import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma"; 
-import { hash } from "bcryptjs";
+import { prisma } from "@/lib/prisma";
+import { compare, hash } from "bcryptjs";
 import { revalidatePath } from "next/cache";
 
 export async function updateUserDetails(formData: any) {
   const session = await auth();
-  
-  // 1. Safety Check
+
   if (!session?.user?.email) {
     throw new Error("Unauthorized: No session found");
   }
 
   try {
-    // 2. Find the User ID via the UserIdentifier table
     const identifier = await prisma.userIdentifier.findUnique({
       where: {
         type_value: {
@@ -25,44 +23,52 @@ export async function updateUserDetails(formData: any) {
       select: { userId: true },
     });
 
-    if (!identifier) {
-      throw new Error("User identifier not found");
-    }
-
+    if (!identifier) throw new Error("User identifier not found");
     const userId = identifier.userId;
 
-    // 3. Prepare Updates
-    // Update Display Name in User table
-    const userUpdate = prisma.user.update({
-      where: { id: userId },
-      data: { displayName: formData.name },
-    });
+    const operations: any[] = [];
 
-    // Update Occupation in UserProfile table (where it lives in your schema)
-    const profileUpdate = prisma.userProfile.upsert({
-      where: { userId: userId },
-      update: { bio: formData.occupation }, // Or create a new field in schema for occupation
-      create: { userId: userId, bio: formData.occupation },
-    });
-
-    const operations: any[] = [userUpdate, profileUpdate];
-
-    // 4. Handle Password Update (Credential table)
-    if (formData.password && formData.password.trim() !== "") {
-      const passwordHash = await hash(formData.password, 10);
+    // Handle name update
+    if (formData.name && formData.name.trim() !== "") {
       operations.push(
-        prisma.credential.upsert({
-          where: { userId: userId },
-          update: { passwordHash },
-          create: { userId: userId, passwordHash },
+        prisma.user.update({
+          where: { id: userId },
+          data: { displayName: formData.name },
         })
       );
     }
 
-    // 5. Execute all updates in a transaction
-    await prisma.$transaction(operations);
+    // Handle password update
+    if (formData.newPassword && formData.currentPassword) {
+      const credential = await prisma.credential.findUnique({
+        where: { userId },
+        select: { passwordHash: true },
+      });
 
-    revalidatePath("/", "layout"); 
+      if (!credential) {
+        throw new Error("No password credential found for this account");
+      }
+
+      const isValid = await compare(formData.currentPassword, credential.passwordHash);
+      if (!isValid) {
+        throw new Error("Current password is incorrect");
+      }
+
+      const newHash = await hash(formData.newPassword, 10);
+      operations.push(
+        prisma.credential.update({
+          where: { userId },
+          data: { passwordHash: newHash },
+        })
+      );
+    }
+
+    if (operations.length === 0) {
+      throw new Error("No valid fields to update");
+    }
+
+    await prisma.$transaction(operations);
+    revalidatePath("/", "layout");
     return { success: true };
 
   } catch (error: any) {

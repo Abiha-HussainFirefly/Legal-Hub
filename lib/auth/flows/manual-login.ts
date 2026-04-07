@@ -1,9 +1,9 @@
-import { PrismaClient }                              from "@prisma/client";
-import { normalizeEmail }                            from "@/lib/auth/normalize";
-import { verifyPassword }                            from "@/lib/auth/password";
-import { sharedAuthLookup, isUserActive }            from "@/lib/auth/auth-lookup";
-import { createSession }                             from "@/lib/auth/session";
+import { isUserActive, sharedAuthLookup } from "@/lib/auth/auth-lookup";
+import { normalizeEmail } from "@/lib/auth/normalize";
+import { verifyPassword } from "@/lib/auth/password";
+import { createSession } from "@/lib/auth/session";
 import { AuthError, ManualLoginInput, SessionResult } from "@/lib/auth/types";
+import { PrismaClient } from "@prisma/client";
 
 export async function manualLogin(
   prisma: PrismaClient,
@@ -11,10 +11,10 @@ export async function manualLogin(
 ): Promise<SessionResult> {
   const normalizedEmail = normalizeEmail(input.email);
 
-  // ── STEP 1: READ UserIdentifier + User + Roles + Credential + ExternalAccount ──
+ 
   const lookup = await sharedAuthLookup(prisma, normalizedEmail);
 
-  // ── STEP 2: Identifier not found → same message as wrong password (security) ──
+ 
   if (lookup.userIdentifier === null || lookup.user === null) {
     await prisma.auditLog.create({
       data: {
@@ -40,7 +40,7 @@ export async function manualLogin(
 
   const { user, credential, googleAccount } = lookup;
 
-  // ── STEP 3: User must be ACTIVE and not deleted ──
+ 
   if (!isUserActive(user)) {
     await prisma.auditLog.create({
       data: {
@@ -64,8 +64,7 @@ export async function manualLogin(
     );
   }
 
-  // ── STEP 4: Credential missing AND Google account exists → Google-only account ──
-  // Per diagram: both conditions must be true to show this specific message
+
   if (credential === null && googleAccount !== null) {
     await prisma.auditLog.create({
       data: {
@@ -89,7 +88,7 @@ export async function manualLogin(
     );
   }
 
-  // ── STEP 5: credential=null but no Google account either → inconsistent state ──
+ 
   if (credential === null) {
     await prisma.auditLog.create({
       data: {
@@ -113,14 +112,14 @@ export async function manualLogin(
     );
   }
 
-  // ── STEP 6: Verify password hash ──
+  
   const passwordValid = await verifyPassword(input.password, credential.passwordHash);
 
   if (!passwordValid) {
     await prisma.auditLog.create({
       data: {
         action:       "LOGIN_FAILED",
-        actorId:      user.id,   // user was found — log their id
+        actorId:      user.id,   
         targetUserId: user.id,
         ip:           input.ip        ?? null,
         userAgent:    input.userAgent ?? null,
@@ -139,7 +138,7 @@ export async function manualLogin(
     );
   }
 
-  // ── STEP 7: TX — INSERT Session + UPDATE User + INSERT AuditLog ──
+  
   const sessionResult = await prisma.$transaction(async (tx) => {
     const session = await createSession(tx as any, {
       userId:      user.id,

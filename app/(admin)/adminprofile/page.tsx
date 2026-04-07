@@ -1,7 +1,7 @@
+import { updateUserDetails } from "@/app/actions/user";
 import ProfilePage from "@/app/components/profile/ProfilePage";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { updateUserDetails } from "@/app/actions/user";
 
 export default async function AdminProfilePage() {
   const session = await auth();
@@ -15,7 +15,7 @@ export default async function AdminProfilePage() {
         email:      session.user.email ?? "",
         occupation: (session.user as any).occupation ?? "Other",
       }}
-      onSave={updateUserDetails} 
+      onSave={updateUserDetails}
     />
   );
 }

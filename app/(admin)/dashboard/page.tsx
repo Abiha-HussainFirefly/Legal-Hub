@@ -1,12 +1,12 @@
 'use client';
 
+import AIAlerts from '@/app/components/AIAlerts';
+import CaseDistributionChart from '@/app/components/CaseDistributionChart';
+import StatCard from '@/app/components/StatCard';
+import UserGrowthChart from '@/app/components/UserGrowthChart';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { useSession }          from 'next-auth/react';
-import { useRouter }           from 'next/navigation';
-import AIAlerts                from '@/app/components/AIAlerts';
-import CaseDistributionChart   from '@/app/components/CaseDistributionChart';
-import StatCard                from '@/app/components/StatCard';
-import UserGrowthChart         from '@/app/components/UserGrowthChart';
 
 export default function Dashboard() {
   const { data: session, status } = useSession();
@@ -56,7 +56,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="bg-[#F9FAFB] rounded-2xl border border-gray-100 shadow-sm p-4 md:p-6">
+    <div className="bg-[#FFFFFF] rounded-2xl border border-gray-100 shadow-sm p-4 md:p-6">
       <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-4 md:mb-6">
         Dashboard Overview
       </h1>

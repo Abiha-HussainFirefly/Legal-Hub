@@ -26,7 +26,7 @@ export default function Settings() {
   };
 
   return (
-    <div className="bg-[#F9FAFB] rounded-2xl shadow-sm p-4 md:p-6">
+    <div className="bg-[#FFFFFF] rounded-2xl shadow-sm p-4 md:p-6">
 
       {/* Page Header */}
       <div className="mb-5 sm:mb-8">

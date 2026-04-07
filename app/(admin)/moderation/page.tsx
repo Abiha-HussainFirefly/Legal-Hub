@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
 import { Eye, Flag, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 
 const aiFlaggedContent = [
   { id: 1,  postId: '1',  type: 'discussion', user: 'user_123', reason: 'Contains sensitive PII',    confidence: '97%' },
@@ -98,7 +98,7 @@ export default function ModerationPage() {
     data.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   return (
-    <div className="bg-[#F9FAFB] rounded-2xl p-4 md:p-6">
+    <div className="bg-[#FFFFFF] rounded-2xl p-4 md:p-6">
 
       <div className="mb-4 sm:mb-5">
         <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">Moderation</h1>
@@ -125,7 +125,7 @@ export default function ModerationPage() {
         ))}
       </div>
 
-      <div className="bg-white rounded-2xl p-4 md:p-6">
+      <div className="bg-white rounded-2xl p-4 shadow-sm md:p-6">
 
         {/* AI-Flagged Content Tab */}
         {activeTab === 'ai-flagged' && (

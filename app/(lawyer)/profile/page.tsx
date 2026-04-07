@@ -1,4 +1,4 @@
-// app/(lawyer)/profile/page.tsx
+import { updateUserDetails } from "@/app/actions/user";
 import ProfilePage from "@/app/components/profile/ProfilePage";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
@@ -16,10 +16,7 @@ export default async function LawyerProfilePage() {
         occupation: (session.user as any).occupation ?? "Other",
         avatarUrl:  session.user.image ?? undefined,
       }}
-      onSave={async (data) => {
-        "use server";
-        // await fetch("/api/user/update", { method: "PUT", body: JSON.stringify(data) });
-      }}
+      onSave={updateUserDetails}
     />
   );
 }

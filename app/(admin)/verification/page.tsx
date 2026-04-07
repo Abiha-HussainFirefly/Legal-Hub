@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from 'react'; 
 import LawyerVerificationModal from '@/app/components/LawyerVerificationModal';
-import { Search, FileTextIcon } from 'lucide-react';
+import { FileTextIcon, Search } from 'lucide-react';
+import { useState } from 'react';
 
 const lawyers = [
   { id: 1,  name: 'Mohsin Khan',    barNumber: 'BAR-12345', region: 'Islamabad', status: 'pending',  submitted: '2024-01-19' },
@@ -53,7 +53,7 @@ export default function Verification() {
 
   return (
     
-    <div className="bg-[#F9FAFB] rounded-2xl p-4 md:p-6">
+    <div className="bg-[#FFFFFF] rounded-2xl p-4 md:p-6">
 
       {/* Page Header */}
       <div className="mb-5 sm:mb-6">
@@ -61,7 +61,7 @@ export default function Verification() {
         <p className="text-xs sm:text-sm text-gray-500">Manage verification workflow</p>
       </div>
 
-      <div className="bg-white rounded-2xl p-4 md:p-6">
+      <div className="bg-white rounded-2xl shadow-sm p-4 md:p-6">
 
         {/* Search Bar */}
         <div className="mb-4 sm:mb-6">

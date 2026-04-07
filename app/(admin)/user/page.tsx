@@ -1,7 +1,7 @@
 'use client';
 
+import { ChevronDown, Eye, Search } from 'lucide-react';
 import { useState } from 'react';
-import { Search, Eye, ChevronDown } from 'lucide-react';
 
 const users = [
   { id: 1,  name: 'Ali Hassan',     email: 'ali@example.com',     role: 'client', region: 'Islamabad',  cases: 3,  lastActive: '2024-01-20' },
@@ -59,7 +59,7 @@ export default function UserPage() {
   const end        = Math.min(currentPage * ITEMS_PER_PAGE, filtered.length);
 
   return (
-    <div className="bg-[#F9FAFB] rounded-2xl p-4 md:p-6">
+    <div className="bg-[#FFFFFF] rounded-2xl p-4 md:p-6">
 
       {/* Page Header */}
       <div className="mb-5 sm:mb-6">
@@ -98,7 +98,8 @@ export default function UserPage() {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto">
+        
+          <div className="bg-white rounded-2xl p-4 shadow-sm md:p-6 overflow-x-auto ">
           <table className="w-full min-w-[560px]">
             <thead>
               <tr className="bg-gradient-to-r from-[#9F63C4] to-[#7E4FA1] text-white">
