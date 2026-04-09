@@ -296,7 +296,7 @@ export default function LegalDiscussionsPage() {
                       onClick={handleLogout}
                       className="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-red-500 hover:bg-red-50 rounded-lg transition cursor-pointer"
                     >
-                      <LogOut size={14} /> Sign out
+                      <LogOut size={14} /> Logout
                     </button>
                   </div>
                 </div>
