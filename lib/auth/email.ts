@@ -24,6 +24,12 @@ export async function sendVerificationCode({
   name,
   code,
 }: { to: string; name: string; code: string }): Promise<void> {
+  console.log("\n" + "=".repeat(40));
+  console.log("VERIFICATION CODE");
+  console.log(`Email: ${to}`);
+  console.log(`Code:  ${code}`);
+  console.log("=".repeat(40) + "\n");
+
   await sendEmail({
     to,
     subject: `${code} is your ${APP_NAME} verification code`,
@@ -52,7 +58,10 @@ export async function sendPasswordResetEmail({
 
 //  Core send function //
 async function sendEmail({ to, subject, html, text }: SendEmailInput) {
-  if (process.env.NODE_ENV !== 'production') {
+  const emailFrom = process.env.EMAIL_FROM;
+  const emailPassword = process.env.EMAIL_PASSWORD;
+
+  if (!emailFrom || !emailPassword) {
     console.log('\n──────── EMAIL (dev) ────────');
     console.log(`To:      ${to}`);
     console.log(`Subject: ${subject}`);
@@ -67,13 +76,13 @@ async function sendEmail({ to, subject, html, text }: SendEmailInput) {
   const transporter = nodemailer.default.createTransport({
     service: 'gmail',
     auth: {
-      user: process.env.EMAIL_FROM,
-      pass: process.env.EMAIL_PASSWORD,
+      user: emailFrom,
+      pass: emailPassword,
     },
   });
 
   await transporter.sendMail({
-    from: `"${APP_NAME}" <${process.env.EMAIL_FROM}>`,
+    from: `"${APP_NAME}" <${emailFrom}>`,
     to,
     subject,
     html,

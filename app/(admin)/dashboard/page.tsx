@@ -56,13 +56,18 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="bg-[#FFFFFF] rounded-2xl border border-gray-100 shadow-sm p-4 md:p-6">
-      <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-4 md:mb-6">
-        Dashboard Overview
-      </h1>
+    <div className="space-y-6">
+      <section className="legal-panel px-6 py-7 md:px-8">
+        <p className="legal-kicker">Admin overview</p>
+        <h1 className="mt-4 text-4xl font-semibold tracking-[-0.05em] text-[#102033]">
+          Platform control with clearer operational insight.
+        </h1>
+        <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 md:text-base">
+          The dashboard now uses stronger grouping, calmer spacing, and more legible data surfaces so moderation, trust, and growth signals are easier to prioritize.
+        </p>
+      </section>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Total User"
           value="12,431"
@@ -93,13 +98,11 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* AI Alerts */}
-      <div className="mb-4 md:mb-6">
+      <div>
         <AIAlerts />
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <UserGrowthChart />
         <CaseDistributionChart />
       </div>

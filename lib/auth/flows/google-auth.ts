@@ -28,7 +28,12 @@ export async function googleAuth(
   }
  
   const userIdentifier = await prisma.userIdentifier.findUnique({
-    where: { type_value: { type: "EMAIL", value: normalizedEmail } },
+    where: {
+      type_normalizedValue: {
+        type: "EMAIL",
+        normalizedValue: normalizedEmail,
+      },
+    },
     select: { userId: true },
   });
  
@@ -395,13 +400,23 @@ async function handleBranchC(
  
     // UPDATE UserIdentifier.verifiedAt if null — Google confirms email ownership
     const existingIdentifier = await tx.userIdentifier.findUnique({
-      where:  { type_value: { type: "EMAIL", value: normalizedEmail } },
+      where: {
+        type_normalizedValue: {
+          type: "EMAIL",
+          normalizedValue: normalizedEmail,
+        },
+      },
       select: { verifiedAt: true },
     });
  
     if (!existingIdentifier?.verifiedAt) {
       await tx.userIdentifier.update({
-        where: { type_value: { type: "EMAIL", value: normalizedEmail } },
+        where: {
+          type_normalizedValue: {
+            type: "EMAIL",
+            normalizedValue: normalizedEmail,
+          },
+        },
         data:  { verifiedAt: new Date() },
       });
     }

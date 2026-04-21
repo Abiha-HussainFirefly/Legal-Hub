@@ -59,15 +59,17 @@ export default function UserPage() {
   const end        = Math.min(currentPage * ITEMS_PER_PAGE, filtered.length);
 
   return (
-    <div className="bg-[#FFFFFF] rounded-2xl p-4 md:p-6">
+    <div className="space-y-6">
 
-      {/* Page Header */}
-      <div className="mb-5 sm:mb-6">
-        <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">User Management</h1>
-        <p className="text-xs sm:text-sm text-gray-500">Manage registered users and roles</p>
-      </div>
+      <section className="legal-panel px-6 py-7 md:px-8">
+        <p className="legal-kicker">User management</p>
+        <h1 className="mt-4 text-4xl font-semibold tracking-[-0.05em] text-[#102033]">Review users with less clutter.</h1>
+        <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 md:text-base">
+          Search, filter, and inspect user records inside a denser but calmer admin table designed for legal platform operations.
+        </p>
+      </section>
 
-      <div className="bg-white rounded-2xl p-4 md:p-6">
+      <div className="legal-panel p-4 md:p-6">
 
         {/* Search and Filter Bar */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
@@ -78,7 +80,7 @@ export default function UserPage() {
               value={searchQuery}
               onChange={handleSearch}
               placeholder="Search by name or email..."
-              className="w-full pl-9 sm:pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+              className="legal-field w-full pl-9 sm:pl-10 pr-4 py-3 text-sm"
             />
           </div>
 
@@ -86,7 +88,7 @@ export default function UserPage() {
             <select
               value={roleFilter}
               onChange={handleRoleFilter}
-              className="appearance-none w-full sm:w-auto px-4 py-2 pr-10 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent cursor-pointer text-sm"
+              className="legal-field appearance-none w-full sm:w-auto px-4 py-3 pr-10 cursor-pointer text-sm"
             >
               <option>All Roles</option>
               <option>Client</option>
@@ -99,10 +101,10 @@ export default function UserPage() {
 
         {/* Table */}
         
-          <div className="bg-white rounded-2xl p-4 shadow-sm md:p-6 overflow-x-auto ">
-          <table className="w-full min-w-[560px]">
+          <div className="legal-table-wrap p-0 overflow-x-auto">
+          <table className="legal-table w-full min-w-[560px]">
             <thead>
-              <tr className="bg-gradient-to-r from-[#9F63C4] to-[#7E4FA1] text-white">
+              <tr>
                 <th className="px-4 md:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold">Name</th>
                 <th className="hidden sm:table-cell px-4 md:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold">Email</th>
                 <th className="px-4 md:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold">Role</th>
@@ -114,7 +116,7 @@ export default function UserPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {paginated.length > 0 ? paginated.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50 transition">
+                <tr key={user.id} className="transition">
                   <td className="px-4 md:px-6 py-3 sm:py-4 text-sm font-medium text-gray-900">
                     <div className="flex flex-col gap-0.5">
                       <span>{user.name}</span>
@@ -139,8 +141,8 @@ export default function UserPage() {
                     {user.lastActive}
                   </td>
                   <td className="px-4 md:px-6 py-3 sm:py-4">
-                    <button className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 text-xs sm:text-sm text-black hover:text-[#9F63C4] hover:border-[#9F63C4] font-medium rounded-full border border-gray-200 transition-all bg-white">
-                      <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-black" />
+                    <button className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm text-black hover:text-[#8A6C3F] hover:border-[#8A6C3F]/30 font-medium rounded-full border border-gray-200 transition-all bg-white">
+                      <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#102033]" />
                       View
                     </button>
                   </td>
@@ -158,14 +160,14 @@ export default function UserPage() {
 
         {/* Pagination */}
         <div className="pt-4 mt-2 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-xs sm:text-sm text-gray-500">
+          <p className="text-xs sm:text-sm text-slate-500">
             Showing {start} to {end} of {filtered.length} results
           </p>
           <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="px-3 md:px-4 py-1.5 text-xs md:text-sm text-gray-600 hover:bg-gray-100 rounded-full border border-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
+              className="legal-button-secondary disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Previous
             </button>
@@ -173,10 +175,10 @@ export default function UserPage() {
               <button
                 key={n}
                 onClick={() => setCurrentPage(n)}
-                className={`w-8 h-7 md:w-9 md:h-8 flex items-center justify-center text-xs md:text-sm rounded-xl shadow-sm transition ${
+                className={`w-8 h-7 md:w-10 md:h-10 flex items-center justify-center text-xs md:text-sm rounded-full shadow-sm transition ${
                   n === currentPage
-                    ? 'bg-gradient-to-r from-[#9F63C4] to-[#7E4FA1] text-white'
-                    : 'text-gray-600 hover:bg-gray-100'
+                    ? 'bg-[#102033] text-white'
+                    : 'text-gray-600 hover:bg-[#F8F4EE]'
                 }`}
               >
                 {n}
@@ -185,7 +187,7 @@ export default function UserPage() {
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages || totalPages === 0}
-              className="px-3 md:px-4 py-1.5 text-xs md:text-sm text-gray-600 hover:bg-gray-100 rounded-full border border-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
+              className="legal-button-secondary disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Next
             </button>

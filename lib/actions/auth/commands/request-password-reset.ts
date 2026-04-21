@@ -35,9 +35,9 @@ export async function requestPasswordResetCommand(
     // 1. Find the user by email identifier //
     const identifier = await prisma.userIdentifier.findUnique({
       where: {
-        type_value: {
+        type_normalizedValue: {
           type: "EMAIL",
-          value: normalizedEmail,
+          normalizedValue: normalizedEmail,
         },
       },
       include: {

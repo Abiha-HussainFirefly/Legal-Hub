@@ -6,15 +6,16 @@ import { redirect } from "next/navigation";
 export default async function LawyerProfilePage() {
   const session = await auth();
   if (!session?.user) redirect("/lawyerlogin");
+  const sessionUser = session.user as typeof session.user & { occupation?: string };
 
   return (
     <ProfilePage
       variant="lawyer"
       user={{
-        name:       session.user.name  ?? "",
-        email:      session.user.email ?? "",
-        occupation: (session.user as any).occupation ?? "Other",
-        avatarUrl:  session.user.image ?? undefined,
+        name:       sessionUser.name  ?? "",
+        email:      sessionUser.email ?? "",
+        occupation: sessionUser.occupation ?? "Other",
+        avatarUrl:  sessionUser.image ?? undefined,
       }}
       onSave={updateUserDetails}
     />

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { createHash } from "crypto";
 
 export interface GetCurrentUserResult {
   authenticated: boolean;
@@ -23,8 +24,14 @@ export async function getCurrentUserQuery(
   if (!sessionToken) return { authenticated: false };
 
   try {
+    // 1. Hash the incoming token to match the database column
+    const sessionTokenHash = createHash("sha256")
+      .update(sessionToken)
+      .digest("hex");
+
+    // 2. Query using sessionTokenHash instead of sessionToken
     const session = await prisma.session.findUnique({
-      where: { sessionToken },
+      where: { sessionTokenHash }, // ✅ Corrected field name
       select: {
         id: true,
         expiresAt: true,
@@ -52,14 +59,12 @@ export async function getCurrentUserQuery(
 
     const now = new Date();
     
-    // 1. Basic Validity Checks
+    // 3. Basic Validity Checks
     if (!session || session.expiresAt < now || session.revokedAt || session.user?.status !== "ACTIVE" || session.user?.deletedAt) {
       return { authenticated: false };
     }
 
-    // 2. Strict Session Binding (Anti-Hijacking)
-    // If we HAVE metadata in the session record, enforce the check.
-    // (Manual sessions have metadata, Google sessions might not yet)
+    // 4. Strict Session Binding (Anti-Hijacking)
     if (session.userAgent && currentUserAgent && session.userAgent !== currentUserAgent) {
       await prisma.session.update({
         where: { id: session.id },

@@ -160,6 +160,9 @@ enum ReactionType {
   DOWNVOTE
   HELPFUL
   INSIGHTFUL
+  LOVE        
+  HAPPY       
+  UNHAPPY     
 }
 
 enum TagType {
@@ -1181,6 +1184,7 @@ model DiscussionReaction {
   discussionId String
   userId       String
   reactionType ReactionType
+  emoji        String?
   createdAt    DateTime     @default(now())
 
   discussion Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)

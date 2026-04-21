@@ -24,7 +24,12 @@ function ForgotPasswordForm() {
   const { addToast } = useToast();
   const searchParams = useSearchParams();
   const portal = searchParams.get("portal") || "lawyer";
-  const loginPath = portal === "admin" ? "/adminlogin" : "/lawyerlogin";
+  const loginPath =
+    portal === "admin"
+      ? "/adminlogin"
+      : portal === "client"
+        ? "/clientlogin"
+        : "/lawyerlogin";
 
   const [formData, setFormData] = useState<ForgotFormData>({ email: "" });
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});

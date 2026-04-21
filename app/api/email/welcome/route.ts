@@ -3,6 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { sendVerificationCode } from "@/lib/auth/email";
 import { applyGlobalLimit, applyCustomLimit } from "@/lib/auth/rate-limit";
 
+function generateVerificationCode() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
 /**
  * API: Welcome / Resend Verification Code
  * 
@@ -28,9 +32,39 @@ export async function POST(req: NextRequest) {
     if (!email) return NextResponse.json({ error: "MISSING_EMAIL" }, { status: 400 });
 
     const normalizedEmail = email.trim().toLowerCase();
+    const identifier = await prisma.userIdentifier.findUnique({
+      where: {
+        type_normalizedValue: {
+          type: "EMAIL",
+          normalizedValue: normalizedEmail,
+        },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            displayName: true,
+          },
+        },
+      },
+    });
+
+    if (!identifier?.user) {
+      return NextResponse.json(
+        { error: "ACCOUNT_NOT_FOUND", message: "No account was found for this email." },
+        { status: 404 }
+      );
+    }
+
+    if (identifier.verifiedAt) {
+      return NextResponse.json(
+        { error: "ALREADY_VERIFIED", message: "This email is already verified. Please log in." },
+        { status: 409 }
+      );
+    }
 
     // Find the latest active verification code //
-    const token = await prisma.verificationToken.findFirst({
+    let token = await prisma.verificationToken.findFirst({
       where: {
         identifierValue: normalizedEmail,
         purpose: "email_verify",
@@ -40,15 +74,27 @@ export async function POST(req: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    if (token) {
-      // Background Job Processing Strategy: 
-      // Do not await the email sending. Let it process in the background.
-      sendVerificationCode({
-        to: normalizedEmail,
-        name: name ?? normalizedEmail,
-        code: token.token,
-      }).catch((err) => console.error("[Background Email Error]", err));
+    if (!token) {
+      const code = generateVerificationCode();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+      token = await prisma.verificationToken.create({
+        data: {
+          userId: identifier.user.id,
+          purpose: "email_verify",
+          tokenHash: code,
+          expiresAt,
+          identifierType: "EMAIL",
+          identifierValue: normalizedEmail,
+        },
+      });
     }
+
+    await sendVerificationCode({
+      to: normalizedEmail,
+      name: name ?? identifier.user.displayName ?? normalizedEmail,
+      code: token.tokenHash,
+    });
 
     return NextResponse.json({ success: true });
   } catch (err) {

@@ -1,786 +1,1038 @@
 'use client';
 
 import StartDiscussionModal from '@/app/components/StartDiscussionModal';
-import { ChevronDown, Eye, LogOut, Menu, Search, User, X } from 'lucide-react';
-import Image from 'next/image';
+import DiscussionCard from '@/app/components/lawyer/discussions/discussioncard';
+import NotificationBell from '@/app/components/lawyer/discussions/notificationbell';
+import LawyerTopbar from '@/app/components/lawyer/lawyer-topbar';
+import { BriefcaseBusiness, ChevronDown, MapPin, Medal, Search, ShieldCheck, Sparkles, TrendingUp, Trophy, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-const discussions = [
-  {
-    id: 1,
-    title: 'Legal Framework for Digital Arrests in Pakistan - Need Clarification',
-    excerpt: '43  I am trying to understand the legal status of cryptocurrency and NFTs under pakistani law.Recent amendments seem contradictory.. ',
-    author: 'Muhammad Raza',
-    category: 'Corporate Law',
-    tags: ['Islamabad', 'AI Summary', 'Answered'],
-    views: 31,
-    likes: 132,
-    timeAgo: '3 hours ago',
-  },
-  {
-    id: 2,
-    title: "Inheritance Rights: Father's Property Distribution Among Sons and Daughters",
-    excerpt: '67  My father recently passed away without a will.According to Islamic law and Pakistani civil law,how should the property be distributed?',
-    author: 'Ayesha Saleem',
-    category: 'Family Law',
-    tags: ['Lahore', 'AI Summary', 'Answered'],
-    views: 23,
-    likes: 45,
-    timeAgo: '5 hours ago',
-  },
-  {
-    id: 3,
-    title: 'Employer Refusing to Pay Dues After Termination - Legal Options?',
-    excerpt: '43  I was terminated from my job after 3 years without proper notice. The company is refusing to pay my pending salary and dues. What are my legal options under labor law?',
-    author: 'Ali Khan',
-    category: 'Labor Law',
-    tags: ['Karachi', 'AI Summary', 'Answered'],
-    views: 12,
-    likes: 23,
-    timeAgo: '1 day ago',
-  },
-  {
-    id: 4,
-    title: 'Property Dispute: Builder Not Delivering Possession as Per Agreement',
-    excerpt: '43  Paid full amount for an apartment 2 years ago.Builder keeps delaying possession despite agreement. What legal action can I take?',
-    author: 'Sarah Ahmed',
-    category: 'Property Law',
-    tags: ['Multan', 'AI Summary', 'Answered'],
-    views: 8,
-    likes: 14,
-    timeAgo: '2 days ago',
-  },
-  {
-    id: 5,
-    title: 'Tax Notice from FBR: Understanding Section 114 Implications',
-    excerpt: '43  Received a notice under Section 114 regarding tax year 2023. The demands seem excessive. Need guidance on response strategy...',
-    author: 'Imran Shah',
-    category: 'Corporate Law',
-    tags: ['Islamabad', 'AI Summary', 'Answered'],
-    views: 4,
-    likes: 8,
-    timeAgo: '3 days ago',
-  },
-  {
-    id: 6,
-    title: 'Defamation Case: Social Media Posts About Business - Legal Standing?',
-    excerpt: '43  A competitor is posting false information about my business on social media. Can I file a defamation case? What evidence is required?',
-    author: 'Bilal Khan',
-    category: 'Corporate Law',
-    tags: ['Islamabad', 'AI Summary', 'Answered'],
-    views: 11,
-    likes: 27,
-    timeAgo: '4 days ago',
-  },
+const FALLBACK_GRADIENTS = [
+  'linear-gradient(135deg, #4C2F5E 0%, #6F5484 100%)',
+  'linear-gradient(135deg, #5C3A70 0%, #8D74A3 100%)',
+  'linear-gradient(135deg, #432853 0%, #6F5484 100%)',
+  'linear-gradient(135deg, #4C2F5E 0%, #8D74A3 100%)',
 ];
 
-const topLawyers = [
-  { name: 'Adv. Nimra Khan',     cases: 'Criminal Law',  count: 2450 },
-  { name: 'Adv. Shahid Khan',    cases: 'Contract Law',  count: 2180 },
-  { name: 'Adv. Fatima Noor',    cases: 'Tax Law',       count: 1950 },
-  { name: 'Adv. Hassan Raza',    cases: 'Labor Law',     count: 1820 },
-  { name: 'Adv. Zainab Malik',   cases: 'Property Law',  count: 1650 },
-  { name: 'Adv. Ahmed Siddiqui', cases: 'Family Law',    count: 1580 },
-  { name: 'Adv. Sana Ahmed',     cases: 'Corporate Law', count: 1520 },
-  { name: 'Adv. Omar Farooq',    cases: 'Cyber Law',     count: 1480 },
-  { name: 'Adv. Aisha Rahman',   cases: 'Tax Law',       count: 1420 },
-  { name: 'Adv. Bilal Mustafa',  cases: 'Property Law',  count: 1380 },
-  { name: 'Adv. Mariam Khan',    cases: 'Labor Law',     count: 1350 },
-  { name: 'Adv. Faisal Ali',     cases: 'Criminal Law',  count: 1320 },
-  { name: 'Adv. Hina Butt',      cases: 'Family Law',    count: 1280 },
-  { name: 'Adv. Saad Malik',     cases: 'Contract Law',  count: 1250 },
-  { name: 'Adv. Nadia Shah',     cases: 'Corporate Law', count: 1220 },
-  { name: 'Adv. Tariq Mehmood',  cases: 'Cyber Law',     count: 1190 },
-  { name: 'Adv. Sara Khanum',    cases: 'Tax Law',       count: 1160 },
-  { name: 'Adv. Usman Qureshi',  cases: 'Property Law',  count: 1130 },
-  { name: 'Adv. Rabia Naheed',   cases: 'Labor Law',     count: 1100 },
-  { name: 'Adv. Kamran Butt',    cases: 'Criminal Law',  count: 1070 },
-];
+const SORT_OPTIONS = ['Latest Activity', 'Most Viewed', 'Most Liked', 'Oldest First'];
+const SORT_MAP: Record<string, string> = {
+  'Latest Activity': 'latest',
+  'Most Viewed': 'popular',
+  'Most Liked': 'trending',
+  'Oldest First': 'latest',
+};
 
-const trendingTopics = [
-  { name: 'Contract Law',      trend: '↑ +23%thisweek' },
-  { name: 'Property Disputes', trend: '↑ +18%thisweek' },
-  { name: 'Tax Fraud',         trend: '↑ +15%thisweek' },
-  { name: 'Cybercrime',        trend: '↑ +12%thisweek' },
-  { name: 'Labor Rights',      trend: '↑ +8%thisweek'  },
-];
+interface DiscussionRow {
+  id: string;
+  slug: string;
+  kind: string;
+  title: string;
+  excerpt: string | null;
+  status: string;
+  score: number;
+  reactionCount: number;
+  answerCount: number;
+  viewCount: number;
+  isPinned: boolean;
+  isAiSummaryReady: boolean;
+  createdAt: string;
+  author: {
+    id: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+    profile: { isLawyer: boolean } | null;
+    lawyerProfile: { verificationStatus: string } | null;
+  };
+  category: { name: string; colorHex: string | null };
+  region: { name: string } | null;
+  tags: { tag: { id: string; name: string } }[];
+  // Reactions now always fetched with full data for persistence
+  reactions?: { reactionType: string; emoji: string | null; userId: string; user?: { displayName: string | null } }[];
+  bookmarks?: { id: string }[];
+}
 
-const registeredTopics = [
-  { name: 'Family',   count: 'Property Law'      },
-  { name: 'Criminal', count: 'Contract Disputes' },
-  { name: 'Property', count: 'Tax Law'           },
-];
+interface MetaOpt {
+  id: string;
+  name: string;
+}
 
-const SORT_OPTIONS     = ['Latest Activity', 'Most Viewed', 'Most Liked', 'Oldest First'];
-const CATEGORY_OPTIONS = ['All Categories', 'Corporate Law', 'Family Law', 'Labor Law', 'Property Law'];
-const REGION_OPTIONS   = ['All Regions', 'Islamabad', 'Karachi', 'Lahore', 'Multan', 'Punjab'];
-const QUICK_FILTERS    = ['Tax Fraud', 'Property Law', 'Cybercrime', 'Contract Disputes', 'Family Law'];
+interface FeaturedDiscussion {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string | null;
+  kind: string;
+  answerCount: number;
+  reactionCount: number;
+  viewCount: number;
+  isAiSummaryReady: boolean;
+  createdAt: string;
+  gradient: string;
+  categoryName: string;
+  authorName: string;
+  authorInitials: string;
+  authorAvatarUrl: string | null;
+  isVerified: boolean;
+  regionName: string | null;
+}
+
+interface TopLawyer {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+  practiceArea: string;
+  firmName: string | null;
+  region: string | null;
+  score: number;
+  monthlyCount: number;
+  isVerified: boolean;
+}
+
+interface TrendingTopic {
+  id: string;
+  name: string;
+  slug: string;
+  thisWeek: number;
+  pctChange: number;
+  trend: string;
+  isPositive: boolean;
+}
+
+interface RegionalHotTopic {
+  id: string;
+  name: string;
+  slug: string;
+  type: string;
+  discussionCount: number;
+  topCategory: string;
+}
+
+interface SidebarData {
+  topLawyers: TopLawyer[];
+  trendingTopics: TrendingTopic[];
+  regionalHotTopics: RegionalHotTopic[];
+  featuredDiscussions: FeaturedDiscussion[];
+  focusCategories?: {
+    id: string;
+    name: string;
+    discussionCount: number;
+  }[];
+}
+
+interface CurrentUser {
+  id?: string;
+  name?: string;
+  displayName?: string;
+  email?: string;
+}
+
+interface QuickFilterOption {
+  key: string;
+  label: string;
+  kind: 'category' | 'search';
+  value: string;
+}
+
+
+function buildEmojiStats(
+  reactions: DiscussionRow['reactions']
+): Record<string, { count: number; reactors: string[] }> {
+  const stats: Record<string, { count: number; reactors: string[] }> = {};
+  for (const r of reactions ?? []) {
+    if (!r.emoji) continue;
+    const existing = stats[r.emoji] ?? { count: 0, reactors: [] };
+    existing.count++;
+    existing.reactors.push(r.user?.displayName ?? 'Someone');
+    stats[r.emoji] = existing;
+  }
+  return stats;
+}
+
+function initials(name: string | null | undefined) {
+  if (!name) return 'LH';
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('');
+}
+
+function FeaturedSkeleton() {
+  return (
+    <div className="rounded-[18px] border border-[#4C2F5E]/10 bg-white">
+      <div className="h-20 animate-pulse rounded-t-[18px] bg-[#F1EAF6]" />
+      <div className="space-y-3 p-4">
+        <div className="h-3 rounded bg-[#F5F1F8]" />
+        <div className="h-3 w-2/3 rounded bg-[#F5F1F8]" />
+        <div className="h-3 w-1/2 rounded bg-[#F5F1F8]" />
+      </div>
+    </div>
+  );
+}
+
+function LawyerSkeleton() {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center gap-3">
+        <div className="h-10 w-10 animate-pulse rounded-full bg-[#F1EAF6]" />
+        <div className="space-y-2">
+          <div className="h-3 w-24 animate-pulse rounded bg-[#F5F1F8]" />
+          <div className="h-3 w-16 animate-pulse rounded bg-[#F5F1F8]" />
+        </div>
+      </div>
+      <div className="h-3 w-12 animate-pulse rounded bg-[#F5F1F8]" />
+    </div>
+  );
+}
+
+function leaderboardAccent(index: number) {
+  if (index === 0) return { badge: 'border-amber-200 bg-amber-50 text-amber-700', ring: 'ring-2 ring-amber-200/70', dot: '#D97706' };
+  if (index === 1) return { badge: 'border-slate-200 bg-slate-50 text-slate-700', ring: 'ring-2 ring-slate-200/80', dot: '#64748B' };
+  if (index === 2) return { badge: 'border-orange-200 bg-orange-50 text-orange-700', ring: 'ring-2 ring-orange-200/80', dot: '#C2410C' };
+  return { badge: 'border-[#4C2F5E]/10 bg-white text-[#4C2F5E]', ring: '', dot: '#4C2F5E' };
+}
+
+
+function buildDynamicLawyers(
+  topLawyers: TopLawyer[],
+  currentUser: CurrentUser | null,
+  discussions: DiscussionRow[]
+): TopLawyer[] {
+  if (!currentUser) return topLawyers;
+
+  const authoredDiscussions = discussions.filter((discussion) => discussion.author.id === currentUser.id);
+  const fallbackName =
+    authoredDiscussions[0]?.author.displayName ??
+    currentUser.displayName ??
+    currentUser.name ??
+    'You';
+  const fallbackPracticeArea = authoredDiscussions[0]?.category.name ?? 'General Practice';
+  const fallbackRegion = authoredDiscussions[0]?.region?.name ?? null;
+  const fallbackScore = authoredDiscussions.reduce((sum, discussion) => sum + Math.max(0, discussion.score), 0);
+  const fallbackMonthlyCount = authoredDiscussions.length;
+
+  if (topLawyers.length === 0) {
+    return [{
+      id: currentUser.id ?? 'current-user',
+      name: fallbackName,
+      avatarUrl: authoredDiscussions[0]?.author.avatarUrl ?? null,
+      practiceArea: fallbackPracticeArea,
+      firmName: null,
+      region: fallbackRegion,
+      score: fallbackScore,
+      monthlyCount: fallbackMonthlyCount,
+      isVerified: false,
+    }];
+  }
+
+  // If the current user isn't listed yet, append them at the bottom
+  const alreadyListed = topLawyers.some((l) => l.id === currentUser.id);
+  if (!alreadyListed) {
+    return [
+      ...topLawyers,
+      {
+        id: currentUser.id ?? 'current-user',
+        name: fallbackName,
+        avatarUrl: authoredDiscussions[0]?.author.avatarUrl ?? null,
+        practiceArea: fallbackPracticeArea,
+        firmName: null,
+        region: fallbackRegion,
+        score: fallbackScore,
+        monthlyCount: fallbackMonthlyCount,
+        isVerified: false,
+      },
+    ];
+  }
+
+  return topLawyers;
+}
 
 export default function LegalDiscussionsPage() {
   const router = useRouter();
-  const dropdownRef  = useRef<HTMLDivElement>(null);
-  const sortRef      = useRef<HTMLDivElement>(null);
-  const categoryRef  = useRef<HTMLDivElement>(null);
-  const regionRef    = useRef<HTMLDivElement>(null);
+  const [user, setUser] = useState<CurrentUser | null>(null);
+  const [isReady, setIsReady] = useState(false);
 
-  const [user, setUser] = useState<any>(null);
-  const [status, setStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
-  const [isReady,          setIsReady]         = useState(false);
-  const [searchQuery,      setSearchQuery]      = useState('');
-  const [isModalOpen,      setIsModalOpen]      = useState(false);
-  const [isUserMenuOpen,   setIsUserMenuOpen]   = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [discussions, setDiscussions] = useState<DiscussionRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [categories, setCategories] = useState<MetaOpt[]>([]);
+  const [regions, setRegions] = useState<MetaOpt[]>([]);
 
-  // Filter states
-  const [sortOpen,          setSortOpen]          = useState(false);
-  const [categoryOpen,      setCategoryOpen]      = useState(false);
-  const [regionOpen,        setRegionOpen]        = useState(false);
-  const [selectedSort,      setSelectedSort]      = useState('Latest Activity');
-  const [selectedCategory,  setSelectedCategory]  = useState('All Categories');
-  const [selectedRegion,    setSelectedRegion]    = useState('All Regions');
-  const [aiSummarized,      setAiSummarized]      = useState(false);
-  const [activeQuickFilter, setActiveQuickFilter] = useState<string | null>(null);
+  const [sidebar, setSidebar] = useState<SidebarData | null>(null);
+  const [sidebarLoading, setSidebarLoading] = useState(true);
   const [showFullLeaderboard, setShowFullLeaderboard] = useState(false);
 
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedSort, setSelectedSort] = useState('Latest Activity');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedRegion, setSelectedRegion] = useState('');
+  const [aiSummarized, setAiSummarized] = useState(false);
+  const [activeQuickFilter, setActiveQuickFilter] = useState<string | null>(null);
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [regionOpen, setRegionOpen] = useState(false);
+
+  const sortRef = useRef<HTMLDivElement>(null);
+  const categoryRef = useRef<HTMLDivElement>(null);
+  const regionRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    async function checkAuth() {
-      try {
-        const res  = await fetch('/api/auth/me');
-        const data = await res.json();
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((data) => {
         if (data.authenticated) {
           setUser(data.user);
-          setStatus('authenticated');
           setIsReady(true);
-          localStorage.setItem('isLoggedIn', 'true');
-          localStorage.setItem('user', JSON.stringify(data.user));
         } else {
-          setStatus('unauthenticated');
           router.replace('/lawyerlogin');
         }
-      } catch (err) {
-        console.error('Auth check failed:', err);
-        setStatus('unauthenticated');
-        router.replace('/lawyerlogin');
-      }
-    }
-    checkAuth();
+      })
+      .catch(() => router.replace('/lawyerlogin'));
   }, [router]);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node))
-        setIsUserMenuOpen(false);
-      if (sortRef.current && !sortRef.current.contains(event.target as Node))
-        setSortOpen(false);
-      if (categoryRef.current && !categoryRef.current.contains(event.target as Node))
-        setCategoryOpen(false);
-      if (regionRef.current && !regionRef.current.contains(event.target as Node))
-        setRegionOpen(false);
-    };
+    setSidebarLoading(true);
+    fetch('/api/discussions/sidebar')
+      .then((r) => r.json())
+      .then((data) => setSidebar(data))
+      .catch(() => {})
+      .finally(() => setSidebarLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/discussions/meta')
+      .then((r) => r.json())
+      .then((d) => {
+        setCategories(d.categories ?? []);
+        setRegions(d.regions ?? []);
+      })
+      .catch(() => {});
+  }, []);
+
+  const load = useCallback(async (resetToPage1 = false) => {
+    setLoading(true);
+    const currentPage = resetToPage1 ? 1 : page;
+    if (resetToPage1) setPage(1);
+
+    const params = new URLSearchParams({
+      page: String(currentPage),
+      limit: '15',
+      sort: SORT_MAP[selectedSort] ?? 'latest',
+      // Always include reactions and bookmarks so scores/emojis are persistent
+      includeReactions: 'true',
+      includeBookmarks: 'true',
+    });
+
+    if (selectedCategory) params.set('categoryId', selectedCategory);
+    if (selectedRegion) params.set('regionId', selectedRegion);
+    if (aiSummarized) params.set('aiSummaryOnly', 'true');
+    if (searchQuery.trim()) params.set('search', searchQuery.trim());
+
+    try {
+      const res = await fetch(`/api/discussions?${params}`);
+      const data = await res.json();
+      setDiscussions(data.data ?? []);
+      setTotalPages(data.meta?.totalPages ?? 1);
+    } finally {
+      setLoading(false);
+    }
+  }, [aiSummarized, page, searchQuery, selectedCategory, selectedRegion, selectedSort]);
+
+  useEffect(() => {
+    if (isReady) load(true);
+  }, [aiSummarized, activeQuickFilter, isReady, load, selectedCategory, selectedRegion, selectedSort]);
+
+  useEffect(() => {
+    if (isReady && page > 1) load();
+  }, [isReady, load, page]);
+
+  useEffect(() => {
+    if (!isReady) return;
+    const t = setTimeout(() => load(true), 400);
+    return () => clearTimeout(t);
+  }, [isReady, load, searchQuery]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) setSortOpen(false);
+      if (categoryRef.current && !categoryRef.current.contains(e.target as Node)) setCategoryOpen(false);
+      if (regionRef.current && !regionRef.current.contains(e.target as Node)) setRegionOpen(false);
+    }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const filteredDiscussions = discussions
-    .filter((d) => {
-      const q = searchQuery.toLowerCase();
-      const matchesSearch   = !q || d.title.toLowerCase().includes(q) || d.excerpt.toLowerCase().includes(q) || d.category.toLowerCase().includes(q);
-      const matchesCategory = selectedCategory === 'All Categories' || d.category === selectedCategory;
-      const matchesRegion   = selectedRegion   === 'All Regions'    || d.tags.includes(selectedRegion);
-      const matchesAI       = !aiSummarized    || d.tags.includes('AI Summary');
-      const matchesQuick    = !activeQuickFilter || d.category.toLowerCase().includes(activeQuickFilter.toLowerCase()) || d.title.toLowerCase().includes(activeQuickFilter.toLowerCase());
-      return matchesSearch && matchesCategory && matchesRegion && matchesAI && matchesQuick;
-    })
-    .sort((a, b) => {
-      if (selectedSort === 'Most Viewed')  return b.views - a.views;
-      if (selectedSort === 'Most Liked')   return b.likes - a.likes;
-      if (selectedSort === 'Oldest First') return b.id - a.id;
-      return a.id - b.id;
-    });
 
-  const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      localStorage.removeItem('isLoggedIn');
-      localStorage.removeItem('user');
-      router.replace('/lawyerlogin');
-    } catch (err) {
-      console.error('Logout failed:', err);
+  async function handleLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.replace('/lawyerlogin');
+  }
+
+  const quickFilters = useMemo<QuickFilterOption[]>(() => {
+    const filters: QuickFilterOption[] = [];
+    const seen = new Set<string>();
+
+    for (const category of sidebar?.focusCategories ?? []) {
+      const key = `category:${category.id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      filters.push({
+        key,
+        label: category.name,
+        kind: 'category',
+        value: category.id,
+      });
+      if (filters.length >= 5) return filters;
+    }
+
+    const tagCounts = new Map<string, number>();
+    for (const discussion of discussions) {
+      for (const tag of discussion.tags) {
+        tagCounts.set(tag.tag.name, (tagCounts.get(tag.tag.name) ?? 0) + 1);
+      }
+    }
+
+    for (const [tagName] of [...tagCounts.entries()].sort((left, right) => right[1] - left[1])) {
+      const key = `search:${tagName}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      filters.push({
+        key,
+        label: tagName,
+        kind: 'search',
+        value: tagName,
+      });
+      if (filters.length >= 5) break;
+    }
+
+    return filters;
+  }, [discussions, sidebar?.focusCategories]);
+
+  const applyQuickFilter = (filter: QuickFilterOption) => {
+    const isActive = activeQuickFilter === filter.key;
+
+    if (isActive) {
+      setActiveQuickFilter(null);
+      if (filter.kind === 'category' && selectedCategory === filter.value) setSelectedCategory('');
+      if (filter.kind === 'search' && searchQuery === filter.value) setSearchQuery('');
+      return;
+    }
+
+    setActiveQuickFilter(filter.key);
+    if (filter.kind === 'category') {
+      setSelectedCategory(filter.value);
+      if (searchQuery) setSearchQuery('');
+    } else {
+      setSearchQuery(filter.value);
+      if (selectedCategory) setSelectedCategory('');
     }
   };
 
-  if (status === 'loading' || !isReady) {
+  if (!isReady) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="w-8 h-8 border-4 border-purple-300 border-t-purple-600 rounded-full animate-spin" />
+      <div className="flex min-h-screen items-center justify-center bg-[#F8F6FB]">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#E3DBE9] border-t-[#4C2F5E]" />
       </div>
     );
   }
 
-  const displayName  = user?.name  || user?.displayName || 'User';
-  const displayEmail = user?.email || '';
+  const catLabel = categories.find((c) => c.id === selectedCategory)?.name ?? 'All Categories';
+  const regionLabel = regions.find((r) => r.id === selectedRegion)?.name ?? 'All Regions';
+  const featuredCards = sidebar?.featuredDiscussions ?? [];
+  const rawTopLawyers = sidebar?.topLawyers ?? [];
+  const topLawyers = buildDynamicLawyers(rawTopLawyers, user, discussions);
+  const trendingTopics = sidebar?.trendingTopics ?? [];
+  const regionalTopics = sidebar?.regionalHotTopics ?? [];
+  const hasFilters = !!(activeQuickFilter || selectedCategory || selectedRegion || searchQuery || aiSummarized);
+  const leaderboardLawyers = topLawyers.slice(0, showFullLeaderboard ? topLawyers.length : 5);
+  const leaderboardLeader = leaderboardLawyers[0];
+  const leaderboardFollowers = leaderboardLawyers.slice(1);
+  const isLeaderCurrentUser = leaderboardLeader?.id === user?.id;
+
+  const filterButtonClass = (active: boolean) =>
+    `inline-flex items-center gap-2 rounded-[14px] border px-4 py-2 text-sm transition ${
+      active
+        ? 'border-[#4C2F5E]/20 bg-[#F1EAF6] text-[#4C2F5E]'
+        : 'border-[#4C2F5E]/10 bg-white text-[#6B5C79] hover:bg-[#F7F3FA]'
+    }`;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#F8F6FB]">
+      <LawyerTopbar
+        activeTab="discussions"
+        user={user}
+        onLogout={handleLogout}
+        extraActions={<NotificationBell />}
+      />
 
-      {/* ── Navbar ── */}
-      <nav className="bg-[linear-gradient(135deg,#4C2F5E_0%,#9E63C4_100%)] text-white px-4 md:px-8 py-4">
-        <div className="container mx-auto flex items-center justify-between gap-4">
+      <div className="mx-auto max-w-[1440px] px-4 py-8 md:px-6 lg:px-8">
+        <section className="legal-panel px-6 py-6 md:px-8 md:py-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <p className="legal-kicker">
+                <Sparkles className="h-3.5 w-3.5" />
+                Legal community
+              </p>
+              <h1 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-[#2F1D3B] md:text-4xl">
+                Legal Discussions
+              </h1>
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-[#736683] md:text-base">
+                Join the conversation with legal experts and community members across Pakistan
+              </p>
+            </div>
 
-          <div className="flex-shrink-0">
-            <Image
-              src="/logo-legal-hub.png"
-              alt="Legal Hub"
-              width={120}
-              height={30}
-              className="brightness-0 invert cursor-pointer"
-              onClick={() => router.push('/discussions')}
-              unoptimized
-            />
+            <button onClick={() => setIsModalOpen(true)} className="legal-button-primary">
+              Start a discussion
+            </button>
           </div>
 
-          <div className="hidden md:flex gap-6 lg:gap-8 text-sm font-medium">
-            <Link href="/discussions" className="opacity-80 hover:opacity-100 transition">Discussions</Link>
-            <Link href="/topics"      className="opacity-80 hover:opacity-100 transition">My Topics</Link>
-            <Link href="/saved"       className="opacity-80 hover:opacity-100 transition">Saved</Link>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {/* User menu */}
-            <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="relative w-9 h-9 bg-transparent flex items-center justify-center transition-all active:scale-95 hover:opacity-80 outline-none border-none cursor-pointer"
-              >
-                <Image src="/icons/user.png" alt="User Profile" width={36} height={36} className="object-contain" priority unoptimized />
-              </button>
-
-              {isUserMenuOpen && (
-                <div className="absolute right-0 mt-3 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden text-gray-800 z-50">
-
-                  {/* User info */}
-                  <div className="p-4 border-b border-gray-100 bg-gray-50/50">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-transparent flex items-center justify-center">
-                        <Image src="/icons/user.png" alt="User" width={35} height={35} unoptimized />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-sm text-[#4C2F5E] truncate">{displayName}</p>
-                        <p className="text-[10px] font-semibold text-[#9E63C4] tracking-wider lowercase truncate">{displayEmail}</p>
-                        {/* Role badge — always LAWYER on this side */}
-                        <span className="inline-block mt-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide bg-purple-100 text-purple-700">
-                          Lawyer
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-2">
-                    {/* View Profile */}
-                    <button
-                      onClick={() => {
-                        router.push('/profile');
-                        setIsUserMenuOpen(false);
-                      }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-[#4C2F5E] hover:bg-[#4C2F5E]/5 rounded-lg transition cursor-pointer"
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {sidebarLoading
+              ? [1, 2, 3, 4].map((i) => <FeaturedSkeleton key={i} />)
+              : featuredCards.length > 0
+                ? featuredCards.map((card, index) => (
+                    <Link
+                      key={card.id}
+                      href={`/discussions/${card.slug}`}
+                      className="overflow-hidden rounded-[18px] border border-[#4C2F5E]/10 bg-white transition hover:border-[#4C2F5E]/20"
                     >
-                      <User size={14} /> View Profile
-                    </button>
-
-                    <div className="h-px bg-gray-100 my-1" />
-
-                    {/* Sign out */}
-                    <button
-                      onClick={handleLogout}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-red-500 hover:bg-red-50 rounded-lg transition cursor-pointer"
-                    >
-                      <LogOut size={14} /> Logout
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden w-9 h-9 flex items-center justify-center text-white hover:opacity-80 transition"
-            >
-              {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
-            </button>
-          </div>
-        </div>
-
-        {isMobileMenuOpen && (
-          <div className="md:hidden mt-3 pt-3 border-t border-white/20 flex flex-col gap-3 text-sm font-medium px-1 pb-2">
-            <Link href="/discussions" className="opacity-80 hover:opacity-100 transition py-1" onClick={() => setIsMobileMenuOpen(false)}>Discussions</Link>
-            <Link href="/topics"      className="opacity-80 hover:opacity-100 transition py-1" onClick={() => setIsMobileMenuOpen(false)}>My Topics</Link>
-            <Link href="/saved"       className="opacity-80 hover:opacity-100 transition py-1" onClick={() => setIsMobileMenuOpen(false)}>Saved</Link>
-          </div>
-        )}
-      </nav>
-
-      {/* ── Hero Section ── */}
-      <div className="bg-gray-50">
-        <div className="w-full px-4 md:px-8 py-2">
-          <h1 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-[#4C2F5E] to-[#9E62C4] bg-clip-text text-transparent mb-1">
-            Legal Discussions
-          </h1>
-          <p className="text-sm text-[#6E7D7D] mb-5">Join the conversation with legal experts and community members across Pakistan</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100">
-              <div className="h-24 bg-[linear-gradient(135deg,#63318C_0%,#EA496C_100%)] p-4 flex items-end">
-                <span className="text-[10px] text-white border border-white/40 rounded-full px-3 py-0.5 bg-black/10">Criminal Law</span>
-              </div>
-              <div className="p-4">
-                <h3 className="text-sm font-bold text-gray-800 leading-tight mb-3">Cybercrime Law Amendments 2025</h3>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-[#9F63C4] text-[10px] flex items-center justify-center text-white font-bold">AN</div>
-                    <span className="text-xs text-gray-500">Adv.Nimra Khan</span>
-                  </div>
-                  <div className="flex items-center gap-1 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
-                    <Image src="/icons/location.png" alt="Loc" width={10} height={10} className="shrink-0" unoptimized />
-                    <span className="text-[10px] text-gray-600 font-medium">Punjab</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100">
-              <div className="h-24 bg-[linear-gradient(135deg,#3984F4_0%,#06B5D4_100%)] p-4 flex items-end">
-                <span className="text-[10px] text-white border border-white/40 rounded-full px-3 py-0.5 bg-black/10">Contract Law</span>
-              </div>
-              <div className="p-4">
-                <h3 className="text-sm font-bold text-gray-800 leading-tight mb-3">Digital Contract Validity in Pakistani Courts</h3>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-[#9F63C4] text-[10px] flex items-center justify-center text-white font-bold">SK</div>
-                    <span className="text-xs text-gray-500">Adv.Shahid khan</span>
-                  </div>
-                  <div className="flex items-center gap-1 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
-                    <Image src="/icons/location.png" alt="Loc" width={10} height={10} className="shrink-0" unoptimized />
-                    <span className="text-[10px] text-gray-600 font-medium">Karachi</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100">
-              <div className="h-24 bg-[linear-gradient(135deg,#4C2F5E_0%,#9F63C4_100%)] p-4 flex items-end">
-                <span className="text-[10px] text-white border border-white/40 rounded-full px-3 py-0.5 bg-black/10">Tax Law</span>
-              </div>
-              <div className="p-4">
-                <h3 className="text-sm font-bold text-gray-800 leading-tight mb-3">Property Tax Reforms 2025: What You Need to...</h3>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-[#9F63C4] text-[10px] flex items-center justify-center text-white font-bold">FN</div>
-                    <span className="text-xs text-gray-500">Adv.Fatima Noor</span>
-                  </div>
-                  <div className="flex items-center gap-1 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
-                    <Image src="/icons/location.png" alt="Loc" width={10} height={10} className="shrink-0" unoptimized />
-                    <span className="text-[10px] text-gray-600 font-medium">Islamabad</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100">
-              <div className="h-24 bg-[linear-gradient(135deg,#005C57_0%,#00C2B7_100%)] p-4 flex items-end">
-                <span className="text-[10px] text-white border border-white/40 rounded-full px-3 py-0.5 bg-black/10">Labor Law</span>
-              </div>
-              <div className="p-4">
-                <h3 className="text-sm font-bold text-gray-800 leading-tight mb-3">Labor Rights in Remote Work Arrangements</h3>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-[#9F63C4] text-[10px] flex items-center justify-center text-white font-bold">HR</div>
-                    <span className="text-xs text-gray-500">Adv.Hassan Raza</span>
-                  </div>
-                  <div className="flex items-center gap-1 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
-                    <Image src="/icons/location.png" alt="Loc" width={10} height={10} className="shrink-0" unoptimized />
-                    <span className="text-[10px] text-gray-600 font-medium">Pakistan</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="relative mb-4">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
-            <input
-              type="text"
-              placeholder="Search legal topics, keywords, or regions..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 md:pr-48 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-sm"
-            />
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="hidden md:block absolute right-3 top-1/2 transform -translate-y-1/2 px-6 py-2 bg-[linear-gradient(135deg,#4C2F5E_0%,#9F63C4_100%)] text-white rounded-lg hover:bg-purple-700 transition font-medium text-sm cursor-pointer"
-            >
-              + Start Discussion
-            </button>
-          </div>
-
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="md:hidden w-full mb-4 py-2.5 bg-[linear-gradient(135deg,#4C2F5E_0%,#9F63C4_100%)] text-white rounded-lg font-medium text-sm cursor-pointer"
-          >
-            + Start Discussion
-          </button>
-
-          {/* Filters Row */}
-          <div className="flex items-center gap-3 mb-4 overflow-x-auto pb-1 scrollbar-hide">
-            <div className="relative flex-shrink-0" ref={sortRef}>
-              <button
-                onClick={() => { setSortOpen(!sortOpen); setCategoryOpen(false); setRegionOpen(false); }}
-                className={`flex items-center gap-2 px-3 md:px-4 py-2 border rounded-lg bg-white transition text-sm cursor-pointer whitespace-nowrap ${sortOpen ? 'border-purple-400 ring-1 ring-purple-300' : 'border-gray-300 hover:bg-gray-50'}`}
-              >
-                <Image src="/icons/settings.png" alt="Sort" width={16} height={16} className="shrink-0" unoptimized />
-                <span className="text-gray-700">{selectedSort}</span>
-                <ChevronDown className={`w-4 h-4 text-gray-600 ml-auto transition-transform ${sortOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {sortOpen && (
-                <div className="absolute left-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
-                  {SORT_OPTIONS.map((opt) => (
-                    <button key={opt} onClick={() => { setSelectedSort(opt); setSortOpen(false); }}
-                      className={`w-full text-left px-4 py-2.5 text-sm transition hover:bg-purple-50 hover:text-[#4C2F5E] ${selectedSort === opt ? 'bg-[#F4EBF9] text-[#4C2F5E] font-semibold' : 'text-gray-700'}`}>
-                      {opt}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="relative flex-shrink-0" ref={categoryRef}>
-              <button
-                onClick={() => { setCategoryOpen(!categoryOpen); setSortOpen(false); setRegionOpen(false); }}
-                className={`flex items-center gap-2 px-3 md:px-4 py-2 border rounded-lg bg-white transition text-sm cursor-pointer whitespace-nowrap ${categoryOpen ? 'border-purple-400 ring-1 ring-purple-300' : 'border-gray-300 hover:bg-gray-50'}`}
-              >
-                <span className={selectedCategory !== 'All Categories' ? 'text-[#4C2F5E] font-semibold' : 'text-gray-700'}>{selectedCategory}</span>
-                <ChevronDown className={`w-4 h-4 text-gray-600 transition-transform ${categoryOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {categoryOpen && (
-                <div className="absolute left-0 top-full mt-1 w-52 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
-                  {CATEGORY_OPTIONS.map((opt) => (
-                    <button key={opt} onClick={() => { setSelectedCategory(opt); setCategoryOpen(false); }}
-                      className={`w-full text-left px-4 py-2.5 text-sm transition hover:bg-purple-50 hover:text-[#4C2F5E] ${selectedCategory === opt ? 'bg-[#F4EBF9] text-[#4C2F5E] font-semibold' : 'text-gray-700'}`}>
-                      {opt}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="relative flex-shrink-0" ref={regionRef}>
-              <button
-                onClick={() => { setRegionOpen(!regionOpen); setSortOpen(false); setCategoryOpen(false); }}
-                className={`flex items-center gap-2 px-3 md:px-4 py-2 border rounded-lg bg-white transition text-sm cursor-pointer whitespace-nowrap ${regionOpen ? 'border-purple-400 ring-1 ring-purple-300' : 'border-gray-300 hover:bg-gray-50'}`}
-              >
-                <Image src="/icons/location.png" alt="Loc" width={16} height={16} className="shrink-0" unoptimized />
-                <span className={selectedRegion !== 'All Regions' ? 'text-[#4C2F5E] font-semibold' : 'text-gray-700'}>{selectedRegion}</span>
-                <ChevronDown className={`w-4 h-4 text-gray-600 transition-transform ${regionOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {regionOpen && (
-                <div className="absolute left-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
-                  {REGION_OPTIONS.map((opt) => (
-                    <button key={opt} onClick={() => { setSelectedRegion(opt); setRegionOpen(false); }}
-                      className={`w-full text-left px-4 py-2.5 text-sm transition hover:bg-purple-50 hover:text-[#4C2F5E] ${selectedRegion === opt ? 'bg-[#F4EBF9] text-[#4C2F5E] font-semibold' : 'text-gray-700'}`}>
-                      {opt}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <button
-              onClick={() => setAiSummarized(!aiSummarized)}
-              className={`flex items-center gap-2 px-3 md:px-4 py-2 border rounded-lg transition text-sm cursor-pointer flex-shrink-0 whitespace-nowrap ${aiSummarized ? 'bg-[#9F63C4] border-[#9F63C4] text-white' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
-            >
-              <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition ${aiSummarized ? 'bg-white border-white' : 'border-gray-400'}`}>
-                {aiSummarized && (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="#9F63C4" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" className="w-2.5 h-2.5">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                )}
-              </div>
-              AI Summarized only
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Main Content ── */}
-      <div className="w-full px-4 md:px-8 py-0">
-        <div className="flex items-center gap-4 py-4">
-          <span className="text-xs font-bold text-gray-800 whitespace-nowrap">Quick Filters:</span>
-          <div className="flex flex-wrap gap-2 md:gap-3">
-            {QUICK_FILTERS.map((filter) => (
-              <button
-                key={filter}
-                onClick={() => setActiveQuickFilter(activeQuickFilter === filter ? null : filter)}
-                className={`px-3 md:px-4 py-1.5 border rounded-full text-[12px] font-medium transition-all shadow-sm cursor-pointer whitespace-nowrap ${
-                  activeQuickFilter === filter
-                    ? 'bg-[#9F63C4] border-[#9F63C4] text-white shadow-md'
-                    : 'bg-transparent border-gray-200 text-gray-700 hover:border-purple-300 hover:text-purple-600'
-                }`}
-              >
-                {filter}
-              </button>
-            ))}
-            {activeQuickFilter && (
-              <button
-                onClick={() => setActiveQuickFilter(null)}
-                className="px-3 py-1.5 border border-red-200 text-red-400 rounded-full text-[12px] font-medium hover:bg-red-50 transition-all cursor-pointer whitespace-nowrap flex items-center gap-1"
-              >
-                <X size={10} /> Clear
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="flex gap-6">
-          <main className="flex-1 min-w-0">
-            <div className="space-y-3">
-              {filteredDiscussions.length === 0 ? (
-                <div className="bg-white rounded-lg p-10 border border-gray-100 shadow-sm text-center">
-                  <p className="text-gray-400 text-sm font-medium">No discussions match your filters.</p>
-                  <button
-                    onClick={() => { setSelectedCategory('All Categories'); setSelectedRegion('All Regions'); setAiSummarized(false); setActiveQuickFilter(null); setSearchQuery(''); }}
-                    className="mt-3 text-[#9F63C4] text-xs font-bold hover:opacity-70 transition cursor-pointer"
-                  >
-                    Clear all filters
-                  </button>
-                </div>
-              ) : (
-                filteredDiscussions.map((discussion) => (
-                  <div key={discussion.id} className="bg-white rounded-lg p-4 md:p-5 border border-gray-100 shadow-sm hover:shadow-md transition group">
-                    <div className="flex items-start gap-2 mb-2">
-                      <Image
-                        src="/icons/vector.png"
-                        alt="Up"
-                        width={18}
-                        height={18}
-                        className="mt-1 shrink-0 opacity-100"
-                        style={{ filter: 'brightness(0) saturate(100%) invert(20%) sepia(21%) saturate(1450%) hue-rotate(228deg) brightness(95%) contrast(92%)' }}
-                        unoptimized
-                      />
-                      <h3 className="font-semibold text-black leading-tight hover:text-[#4C2F5E] cursor-pointer text-[14px] md:text-[16px]">
-                        {discussion.title}
-                      </h3>
-                    </div>
-                    <p className="text-[#6E7D7D] text-sm mb-3 line-clamp-2">{discussion.excerpt}</p>
-                    <div className="flex flex-wrap items-center gap-2 mb-4">
-                      <span className="px-3 py-1 bg-gray-100 text-black rounded-full text-xs md:text-sm font-bold border border-gray-200">{discussion.category}</span>
-                      {discussion.tags.map((tag) => {
-                        if (['Islamabad','Karachi','Punjab','Lahore','Multan'].includes(tag)) {
-                          return (
-                            <span key={tag} className="flex items-center gap-1.5 px-3 py-1 border border-gray-200 text-gray-600 rounded-full text-xs md:text-sm bg-white">
-                              <Image src="/icons/location.png" alt="Loc" width={10} height={10} className="shrink-0 opacity-70" unoptimized />
-                              {tag}
-                            </span>
-                          );
-                        }
-                        if (tag === 'AI Summary') {
-                          return (
-                            <span key={tag} className="flex items-center gap-1.5 px-3 py-1 bg-[#9F63C4] text-white rounded-full text-xs md:text-sm font-medium shadow-sm">
-                              <Image src="/icons/ai.png" alt="AI" width={12} height={12} className="brightness-0 invert shrink-0" unoptimized />
-                              {tag}
-                            </span>
-                          );
-                        }
-                        if (tag === 'Answered') {
-                          return (
-                            <span key={tag} className="flex items-center gap-1.5 px-3 py-1 text-[#4C2F5E] text-xs md:text-sm font-medium">
-                              <div className="w-3.5 h-3.5 border border-[#4C2F5E] rounded-full flex items-center justify-center shrink-0">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="#4C2F5E" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="w-2 h-2">
-                                  <polyline points="20 6 9 17 4 12" />
-                                </svg>
-                              </div>
-                              {tag}
-                            </span>
-                          );
-                        }
-                        return null;
-                      })}
-                    </div>
-                    <hr className="border-gray-100 mb-4" />
-                    <div className="flex items-center justify-between text-xs text-gray-500 flex-wrap gap-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 bg-[#9F63C4] rounded-full flex items-center justify-center text-white text-[10px] font-bold">{discussion.author.charAt(0)}</div>
-                        <span className="text-xs md:text-sm text-gray-500 font-medium">{discussion.author}</span>
-                      </div>
-                      <div className="flex items-center gap-3 md:gap-4">
-                        <span className="flex items-center gap-1"><Image src="/icons/message.png" alt="Mes" width={10} height={10} unoptimized />{discussion.likes}</span>
-                        <span className="flex items-center gap-1 text-[#4C2F5E]"><Eye className="w-3 h-3" />{discussion.views}</span>
-                        <span className="hidden sm:inline">{discussion.timeAgo}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </main>
-
-          {/* Right Sidebar */}
-          <aside className="hidden xl:block w-[380px] flex-shrink-0">
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-4 w-[380px]">
-              <div className="flex items-center gap-2 mb-4">
-                <Image src="/icons/vector.png" alt="icon" width={16} height={16} className="shrink-0" style={{ filter: 'brightness(0) saturate(100%) invert(20%) sepia(21%) saturate(1450%) hue-rotate(228deg) brightness(95%) contrast(92%)' }} unoptimized />
-                <h3 className="text-[16px] font-bold text-[#4C2F5E]">Top Lawyers This Month</h3>
-              </div>
-              <div className="space-y-4">
-                {topLawyers.slice(0, showFullLeaderboard ? topLawyers.length : 5).map((lawyer, index) => (
-                  <div key={lawyer.name} className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2.5">
-                      <div className="relative shrink-0">
-                        <div className="w-9 h-9 rounded-full overflow-hidden border border-gray-100">
-                          <Image src={index % 2 === 0 ? "/icons/femalelawyer.png" : "/icons/malelawyer.png"} alt={lawyer.name} width={36} height={36} className="object-cover" unoptimized />
+                      <div className="p-4 text-white" style={{ background: FALLBACK_GRADIENTS[index % FALLBACK_GRADIENTS.length] }}>
+                        <div className="flex items-start justify-between gap-3">
+                          <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold">
+                            {card.categoryName}
+                          </span>
+                          {card.regionName ? (
+                            <span className="text-[11px] font-medium text-white/80">{card.regionName}</span>
+                          ) : null}
                         </div>
-                        <div className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-[#9E63C4] rounded-full flex items-center justify-center text-[8px] text-white font-bold border-[1.5px] border-white shadow-sm">{index + 1}</div>
+                        <h3 className="mt-8 line-clamp-2 text-sm font-semibold leading-6">{card.title}</h3>
                       </div>
-                      <div className="flex flex-col">
-                        <span className="text-[13px] font-bold text-[#4C2F5E] mb-0.5">{lawyer.name}</span>
-                        <span className="text-[11px] text-gray-400 font-medium">{lawyer.cases}</span>
+                      <div className="space-y-3 p-4">
+                        <div className="flex items-center gap-3">
+                          {card.authorAvatarUrl ? (
+                            <img src={card.authorAvatarUrl} alt="" className="h-8 w-8 rounded-full object-cover border border-[#4C2F5E]/10" />
+                          ) : (
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#4C2F5E] text-[11px] font-semibold text-white">
+                              {card.authorInitials || initials(card.authorName)}
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <p className="truncate text-[13px] font-semibold text-[#4C2F5E]">{card.authorName}</p>
+                            <p className="text-[12px] text-[#8B7D99]">{card.answerCount} answers</p>
+                          </div>
+                        </div>
                       </div>
+                    </Link>
+                  ))
+                : [1, 2, 3, 4].map((i) => (
+                    <div key={i} className="overflow-hidden rounded-[18px] border border-[#4C2F5E]/10 bg-white">
+                      <div className="h-20" style={{ background: FALLBACK_GRADIENTS[i - 1] }} />
+                      <div className="p-4 text-sm text-[#736683]">No featured discussions yet.</div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <div className="flex items-center gap-1 px-2 py-0.5 border border-gray-100 rounded-full bg-white shadow-sm w-[75px] justify-center">
-                        <Image src="/icons/location.png" alt="Loc" width={9} height={9} className="opacity-50" unoptimized />
-                        <span className="text-[9px] text-gray-600 font-bold uppercase tracking-tight">{index === 0 ? 'Punjab' : index === 1 ? 'Karachi' : 'Islamabad'}</span>
-                      </div>
-                      <div className="flex items-center gap-0.5 text-[#9E63C4] w-[40px] justify-end">
-                        <Image src="/icons/path.png" alt="trend" width={12} height={12} style={{ filter: 'invert(52%) sepia(35%) saturate(836%) hue-rotate(235deg) brightness(85%) contrast(89%)' }} unoptimized />
-                        <span className="text-[11px] font-bold">{lawyer.count}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+          </div>
+
+          {/* ── Search + filters ── */}
+          <div className="mt-8 rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] p-4 md:p-5">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-3 lg:flex-row">
+                <div className="relative flex-1">
+                  <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8B7D99]" />
+                  <input
+                    type="text"
+                    placeholder="Search legal topics, regions, or keywords"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="h-12 w-full rounded-[16px] border border-[#4C2F5E]/12 bg-white pl-11 pr-12 text-sm text-[#2F1D3B] shadow-[0_10px_24px_rgba(76,47,94,0.06)] outline-none transition placeholder:text-[#A395AF] focus:border-[#4C2F5E]/25 focus:bg-[#FFFEFF]"
+                  />
+                  {searchQuery ? (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-[#8B7D99] transition hover:bg-[#F3EDF8] hover:text-[#4C2F5E]"
+                      aria-label="Clear search"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  ) : null}
+                </div>
+                <button onClick={() => setIsModalOpen(true)} className="legal-button-primary">
+                  Start discussion
+                </button>
               </div>
-              <div className="mt-4 text-center">
-                <button
-                  onClick={() => setShowFullLeaderboard(!showFullLeaderboard)}
-                  className="text-[11px] font-bold text-[#9E63C4] hover:opacity-70 flex items-center justify-center gap-1 w-full transition-opacity cursor-pointer"
-                >
-                  {showFullLeaderboard ? 'Show Less Lawyers ' : 'View Full Leaderboard '}
-                  <span className="text-xs">{showFullLeaderboard ? '↑' : '→'}</span>
+
+              <div className="flex flex-wrap gap-3">
+                <div className="relative" ref={sortRef}>
+                  <button
+                    onClick={() => { setSortOpen(!sortOpen); setCategoryOpen(false); setRegionOpen(false); }}
+                    className={filterButtonClass(sortOpen)}
+                  >
+                    {selectedSort}
+                    <ChevronDown className={`h-4 w-4 transition-transform ${sortOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {sortOpen ? (
+                    <div className="absolute left-0 top-full z-50 mt-2 w-48 rounded-[16px] border border-[#4C2F5E]/10 bg-white p-2">
+                      {SORT_OPTIONS.map((opt) => (
+                        <button
+                          key={opt}
+                          onClick={() => { setSelectedSort(opt); setSortOpen(false); }}
+                          className={`w-full rounded-[12px] px-3 py-2 text-left text-sm transition ${
+                            selectedSort === opt ? 'bg-[#F1EAF6] font-semibold text-[#4C2F5E]' : 'text-[#6B5C79] hover:bg-[#F7F3FA]'
+                          }`}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="relative" ref={categoryRef}>
+                  <button
+                    onClick={() => { setCategoryOpen(!categoryOpen); setSortOpen(false); setRegionOpen(false); }}
+                    className={filterButtonClass(categoryOpen || !!selectedCategory)}
+                  >
+                    {catLabel}
+                    <ChevronDown className={`h-4 w-4 transition-transform ${categoryOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {categoryOpen ? (
+                    <div className="absolute left-0 top-full z-50 mt-2 max-h-72 w-56 overflow-y-auto rounded-[16px] border border-[#4C2F5E]/10 bg-white p-2">
+                      <button
+                        onClick={() => { setSelectedCategory(''); setCategoryOpen(false); }}
+                        className={`w-full rounded-[12px] px-3 py-2 text-left text-sm transition ${!selectedCategory ? 'bg-[#F1EAF6] font-semibold text-[#4C2F5E]' : 'text-[#6B5C79] hover:bg-[#F7F3FA]'}`}
+                      >
+                        All Categories
+                      </button>
+                      {categories.map((c) => (
+                        <button
+                          key={c.id}
+                          onClick={() => { setSelectedCategory(c.id); setCategoryOpen(false); }}
+                          className={`w-full rounded-[12px] px-3 py-2 text-left text-sm transition ${selectedCategory === c.id ? 'bg-[#F1EAF6] font-semibold text-[#4C2F5E]' : 'text-[#6B5C79] hover:bg-[#F7F3FA]'}`}
+                        >
+                          {c.name}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="relative" ref={regionRef}>
+                  <button
+                    onClick={() => { setRegionOpen(!regionOpen); setSortOpen(false); setCategoryOpen(false); }}
+                    className={filterButtonClass(regionOpen || !!selectedRegion)}
+                  >
+                    <MapPin className="h-4 w-4" />
+                    {regionLabel}
+                    <ChevronDown className={`h-4 w-4 transition-transform ${regionOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {regionOpen ? (
+                    <div className="absolute left-0 top-full z-50 mt-2 max-h-72 w-52 overflow-y-auto rounded-[16px] border border-[#4C2F5E]/10 bg-white p-2">
+                      <button
+                        onClick={() => { setSelectedRegion(''); setRegionOpen(false); }}
+                        className={`w-full rounded-[12px] px-3 py-2 text-left text-sm transition ${!selectedRegion ? 'bg-[#F1EAF6] font-semibold text-[#4C2F5E]' : 'text-[#6B5C79] hover:bg-[#F7F3FA]'}`}
+                      >
+                        All Regions
+                      </button>
+                      {regions.map((r) => (
+                        <button
+                          key={r.id}
+                          onClick={() => { setSelectedRegion(r.id); setRegionOpen(false); }}
+                          className={`w-full rounded-[12px] px-3 py-2 text-left text-sm transition ${selectedRegion === r.id ? 'bg-[#F1EAF6] font-semibold text-[#4C2F5E]' : 'text-[#6B5C79] hover:bg-[#F7F3FA]'}`}
+                        >
+                          {r.name}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+
+                <button onClick={() => setAiSummarized(!aiSummarized)} className={filterButtonClass(aiSummarized)}>
+                  AI summarized only
                 </button>
               </div>
             </div>
+          </div>
+        </section>
 
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-4 w-[380px]">
-              <div className="flex items-center gap-2 mb-6">
-                <Image src="/icons/path.png" alt="icon" width={18} height={18} style={{ filter: 'brightness(0) saturate(100%) invert(20%) sepia(21%) saturate(1450%) hue-rotate(228deg) brightness(95%) contrast(92%)' }} unoptimized />
-                <h3 className="text-[17px] font-bold text-[#4C2F5E]">Trending This Week</h3>
-              </div>
-              <div className="space-y-1 mb-8">
-                {trendingTopics.map((topic, index) => (
-                  <div key={topic.name} className={`flex items-start gap-4 p-3 rounded-xl transition-colors ${index === 0 ? 'bg-[#F4EBF9]' : ''}`}>
-                    <span className="text-[#9E63C4] font-bold text-[15px] mt-0.5">{index + 1}</span>
-                    <div className="flex-1">
-                      <div className="text-[#4C2F5E] font-bold text-[14px] mb-0.5">{topic.name}</div>
-                      <div className="flex items-center gap-1 text-[#9E63C4] text-[11px] font-semibold">
-                        <Image src="/icons/path.png" alt="up" width={10} height={10} style={{ filter: 'invert(52%) sepia(35%) saturate(836%) hue-rotate(235deg) brightness(85%) contrast(89%)' }} unoptimized />
-                        {topic.trend.replace('↑ ', '').replace('thisweek', ' this week')}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <hr className="border-gray-100 mb-6" />
-              <h3 className="text-[17px] font-bold text-[#4C2F5E] mb-5">Regional Hot Topics</h3>
+        <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+          {/* ── Main discussion list ── */}
+          <main className="min-w-0">
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <span className="text-sm font-semibold text-[#4C2F5E]">Quick filters</span>
+              {quickFilters.map((filter) => (
+                <button
+                  key={filter.key}
+                  onClick={() => applyQuickFilter(filter)}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                    activeQuickFilter === filter.key
+                      ? 'border-[#4C2F5E]/20 bg-[#F1EAF6] text-[#4C2F5E]'
+                      : 'border-[#4C2F5E]/10 bg-white text-[#6B5C79] hover:bg-[#F7F3FA]'
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              ))}
+              {quickFilters.length === 0 ? (
+                <span className="rounded-full border border-dashed border-[#4C2F5E]/10 bg-white px-3 py-1.5 text-xs text-[#8B7D99]">
+                  Filters will appear as discussion data comes in
+                </span>
+              ) : null}
+              {hasFilters ? (
+                <button
+                  onClick={() => { setActiveQuickFilter(null); setSelectedCategory(''); setSelectedRegion(''); setSearchQuery(''); setAiSummarized(false); }}
+                  className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-500 transition hover:bg-red-50"
+                >
+                  <X className="h-3 w-3" />
+                  Clear
+                </button>
+              ) : null}
+            </div>
+
+            {loading ? (
               <div className="space-y-4">
-                {registeredTopics.slice(0, 3).map((topic, index) => (
-                  <div key={topic.name} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Image src="/icons/location.png" alt="loc" width={12} height={12} style={{ filter: 'invert(52%) sepia(35%) saturate(836%) hue-rotate(235deg) brightness(85%) contrast(89%)' }} unoptimized />
-                      <span className="text-[14px] text-[#6E7D7D] font-medium">{index === 0 ? 'Punjab' : index === 1 ? 'Karachi' : 'Islamabad'}</span>
-                    </div>
-                    <span className="px-4 py-1.5 border border-gray-200 rounded-full text-[11px] text-[#4C2F5E] font-semibold bg-white shadow-sm min-w-[110px] text-center">{topic.count}</span>
-                  </div>
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="h-40 animate-pulse rounded-[20px] border border-[#4C2F5E]/10 bg-white" />
                 ))}
               </div>
-            </div>
-          </aside>
-        </div>
+            ) : discussions.length === 0 ? (
+              <div className="rounded-[20px] border border-[#4C2F5E]/10 bg-white px-6 py-12 text-center">
+                <p className="text-sm text-[#736683]">No discussions match the current filters.</p>
+                <button
+                  onClick={() => { setSelectedCategory(''); setSelectedRegion(''); setAiSummarized(false); setActiveQuickFilter(null); setSearchQuery(''); }}
+                  className="mt-4 text-sm font-semibold text-[#4C2F5E]"
+                >
+                  Clear all filters
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {discussions.map((d) => (
+                  <DiscussionCard
+                    key={d.id}
+                    id={d.id}
+                    slug={d.slug}
+                    kind={d.kind}
+                    title={d.title}
+                    excerpt={d.excerpt}
+                    status={d.status}
+                    score={d.score}
+                    reactionCount={d.reactionCount}
+                    answerCount={d.answerCount}
+                    viewCount={d.viewCount}
+                    isPinned={d.isPinned}
+                    isAiSummaryReady={d.isAiSummaryReady}
+                    createdAt={d.createdAt}
+                    author={d.author}
+                    category={d.category}
+                    region={d.region}
+                    tags={d.tags}
+                    isSaved={!!d.bookmarks?.length}
+                    isLoggedIn={!!user}
+                    initialEmojiStats={buildEmojiStats(d.reactions)}
+                    userReaction={(() => {
+                      const currentReaction = d.reactions?.find((reaction) => reaction.userId === user?.id);
+                      return currentReaction
+                        ? {
+                            reactionType: currentReaction.reactionType,
+                            emoji: currentReaction.emoji,
+                          }
+                        : null;
+                    })()}
+                  />
+                ))}
+              </div>
+            )}
 
-        {/* Mobile sidebar */}
-        <div className="xl:hidden mt-6 space-y-4 pb-6">
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-2 mb-4">
-              <Image src="/icons/vector.png" alt="icon" width={16} height={16} className="shrink-0" style={{ filter: 'brightness(0) saturate(100%) invert(20%) sepia(21%) saturate(1450%) hue-rotate(228deg) brightness(95%) contrast(92%)' }} unoptimized />
-              <h3 className="text-[16px] font-bold text-[#4C2F5E]">Top Lawyers This Month</h3>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {topLawyers.slice(0, showFullLeaderboard ? topLawyers.length : 5).map((lawyer, index) => (
-                <div key={lawyer.name} className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2.5">
-                    <div className="relative shrink-0">
-                      <div className="w-9 h-9 rounded-full overflow-hidden border border-gray-100">
-                        <Image src={index % 2 === 0 ? "/icons/femalelawyer.png" : "/icons/malelawyer.png"} alt={lawyer.name} width={36} height={36} className="object-cover" unoptimized />
+            {totalPages > 1 ? (
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="rounded-[14px] border border-[#4C2F5E]/10 bg-white px-4 py-2 text-sm text-[#6B5C79] transition hover:bg-[#F7F3FA] disabled:opacity-40"
+                >
+                  Previous
+                </button>
+                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={`h-10 w-10 rounded-[14px] border text-sm font-semibold transition ${
+                      page === p
+                        ? 'border-[#4C2F5E] bg-[#4C2F5E] text-white'
+                        : 'border-[#4C2F5E]/10 bg-white text-[#6B5C79] hover:bg-[#F7F3FA]'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="rounded-[14px] border border-[#4C2F5E]/10 bg-white px-4 py-2 text-sm text-[#6B5C79] transition hover:bg-[#F7F3FA] disabled:opacity-40"
+                >
+                  Next
+                </button>
+              </div>
+            ) : null}
+          </main>
+
+          {/* ── Sidebar ── */}
+          <aside className="space-y-4">
+            {/* ── Top lawyers – dynamic (always shows current user) ── */}
+            <div className="legal-soft-panel p-5">
+              <div className="mb-4 flex items-center gap-2">
+                <Trophy className="h-4 w-4 text-[#4C2F5E]" />
+                <h3 className="text-base font-semibold text-[#2F1D3B]">Top lawyers this month</h3>
+              </div>
+              <p className="mb-4 text-xs leading-6 text-[#8B7D99]">
+                Ranked from verified contribution activity, accepted answers, and overall impact score.
+              </p>
+
+              {sidebarLoading ? (
+                <div className="space-y-4">
+                  {[1, 2, 3, 4, 5].map((i) => <LawyerSkeleton key={i} />)}
+                </div>
+              ) : topLawyers.length === 0 ? (
+                <p className="text-sm text-[#736683]">No activity data yet this month.</p>
+              ) : (
+                <div className="space-y-4">
+                  {leaderboardLeader ? (
+                    <div className="overflow-hidden rounded-[20px] border border-[#4C2F5E]/10 bg-[linear-gradient(135deg,#4C2F5E_0%,#7B58A0_100%)] text-white shadow-[0_18px_32px_rgba(76,47,94,0.18)]">
+                      <div className="flex items-start justify-between gap-3 p-4">
+                        <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]">
+                          <Medal className="h-3.5 w-3.5" />
+                          {isLeaderCurrentUser ? 'Your position' : 'Leader this month'}
+                        </div>
+                        <div className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold">
+                          #1
+                        </div>
                       </div>
-                      <div className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-[#9E63C4] rounded-full flex items-center justify-center text-[8px] text-white font-bold border-[1.5px] border-white shadow-sm">{index + 1}</div>
+
+                      <div className="px-4 pb-4">
+                        <div className="flex items-center gap-3">
+                          {leaderboardLeader.avatarUrl ? (
+                            <img
+                              src={leaderboardLeader.avatarUrl}
+                              alt={leaderboardLeader.name}
+                              className="h-14 w-14 rounded-full border border-white/20 object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/12 text-sm font-semibold text-white">
+                              {initials(leaderboardLeader.name)}
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="truncate text-base font-semibold">
+                                {leaderboardLeader.name}
+                                {isLeaderCurrentUser ? ' (You)' : ''}
+                              </p>
+                              {leaderboardLeader.isVerified ? (
+                                <span className="rounded-full bg-white/14 px-2 py-0.5 text-[10px] font-semibold text-white">
+                                  Verified
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="truncate text-sm text-white/80">{leaderboardLeader.practiceArea}</p>
+                            <p className="truncate text-xs text-white/65">
+                              {leaderboardLeader.firmName || leaderboardLeader.region || 'Nationwide practice'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-2 gap-3">
+                          <div className="rounded-[16px] border border-white/10 bg-white/8 px-3 py-2.5">
+                            <p className="text-[10px] uppercase tracking-[0.12em] text-white/60">Impact score</p>
+                            <p className="mt-1 text-lg font-semibold text-white">
+                              {leaderboardLeader.score > 0 ? leaderboardLeader.score.toLocaleString() : '—'}
+                            </p>
+                          </div>
+                          <div className="rounded-[16px] border border-white/10 bg-white/8 px-3 py-2.5">
+                            <p className="text-[10px] uppercase tracking-[0.12em] text-white/60">Monthly activity</p>
+                            <p className="mt-1 text-lg font-semibold text-white">
+                              {leaderboardLeader.monthlyCount > 0 ? leaderboardLeader.monthlyCount : '—'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {isLeaderCurrentUser && leaderboardLeader.score === 0 && (
+                          <p className="mt-3 text-[11px] text-white/60">
+                            Start contributing to earn your impact score.
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex flex-col">
-                      <span className="text-[13px] font-bold text-[#4C2F5E] mb-0.5">{lawyer.name}</span>
-                      <span className="text-[11px] text-gray-400 font-medium">{lawyer.cases}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-0.5 text-[#9E63C4] shrink-0">
-                    <Image src="/icons/path.png" alt="trend" width={12} height={12} style={{ filter: 'invert(52%) sepia(35%) saturate(836%) hue-rotate(235deg) brightness(85%) contrast(89%)' }} unoptimized />
-                    <span className="text-[11px] font-bold">{lawyer.count}</span>
+                  ) : null}
+
+                  <div className="space-y-3">
+                    {leaderboardFollowers.map((lawyer, index) => {
+                      const rank = index + 2;
+                      const accent = leaderboardAccent(rank - 1);
+                      const isCurrentUser = lawyer.id === user?.id;
+
+                      return (
+                        <div
+                          key={lawyer.id}
+                          className={`flex items-center justify-between gap-3 rounded-[18px] border px-3.5 py-3 transition ${
+                            isCurrentUser
+                              ? 'border-[#4C2F5E]/20 bg-[#F7F3FA]'
+                              : 'border-[#4C2F5E]/8 bg-white hover:border-[#4C2F5E]/14 hover:bg-[#FCFAFE]'
+                          }`}
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div className={`inline-flex h-8 min-w-8 items-center justify-center rounded-full border text-[11px] font-semibold ${accent.badge}`}>
+                              #{rank}
+                            </div>
+                            <div className={`relative ${accent.ring}`}>
+                              {lawyer.avatarUrl ? (
+                                <img
+                                  src={lawyer.avatarUrl}
+                                  alt={lawyer.name}
+                                  className="h-11 w-11 rounded-full border border-[#4C2F5E]/10 object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#4C2F5E] text-xs font-semibold text-white">
+                                  {initials(lawyer.name)}
+                                </div>
+                              )}
+                              <span
+                                className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white"
+                                style={{ backgroundColor: accent.dot }}
+                              />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="truncate text-sm font-semibold text-[#4C2F5E]">
+                                  {lawyer.name}
+                                  {isCurrentUser ? ' (You)' : ''}
+                                </p>
+                                {lawyer.isVerified ? <ShieldCheck className="h-3.5 w-3.5 text-[#4C2F5E]" /> : null}
+                              </div>
+                              <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[#8B7D99]">
+                                <span className="inline-flex items-center gap-1">
+                                  <BriefcaseBusiness className="h-3.5 w-3.5" />
+                                  {lawyer.practiceArea}
+                                </span>
+                                <span className="inline-flex items-center gap-1">
+                                  <MapPin className="h-3.5 w-3.5" />
+                                  {lawyer.region || 'Nationwide'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="text-right">
+                            <p className="text-sm font-semibold text-[#4C2F5E]">
+                              {lawyer.score > 0 ? lawyer.score.toLocaleString() : '—'}
+                            </p>
+                            <p className="text-[11px] text-[#8B7D99]">{lawyer.monthlyCount} activities</p>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              ))}
+              )}
+
+              {topLawyers.length > 5 ? (
+                <button
+                  onClick={() => setShowFullLeaderboard(!showFullLeaderboard)}
+                  className="mt-4 text-sm font-semibold text-[#4C2F5E]"
+                >
+                  {showFullLeaderboard ? 'Show less' : 'View full leaderboard'}
+                </button>
+              ) : null}
             </div>
-            <div className="mt-4 text-center">
+
+            {/* ── Trending topics ── */}
+            <div className="legal-soft-panel p-5">
+              <div className="mb-4 flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-[#4C2F5E]" />
+                <h3 className="text-base font-semibold text-[#2F1D3B]">Trending this week</h3>
+              </div>
+
+              {sidebarLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="h-12 animate-pulse rounded-[14px] bg-[#F5F1F8]" />
+                  ))}
+                </div>
+              ) : trendingTopics.length === 0 ? (
+                <p className="text-sm text-[#736683]">No trending topics yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {trendingTopics.map((topic, index) => (
+                    <div
+                      key={topic.id}
+                      className={`rounded-[16px] border px-4 py-3 ${index === 0 ? 'border-[#4C2F5E]/15 bg-[#F7F3FA]' : 'border-[#4C2F5E]/8 bg-white'}`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="min-w-0 truncate text-sm font-semibold text-[#4C2F5E]">
+                          {index + 1}. {topic.name}
+                        </p>
+                        <span className={`text-xs font-semibold ${topic.isPositive ? 'text-[#4C2F5E]' : 'text-red-500'}`}>
+                          {topic.trend}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-[#8B7D99]">
+                        {topic.thisWeek} post{topic.thisWeek !== 1 ? 's' : ''} this week
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-6 border-t border-[#4C2F5E]/8 pt-5">
+                <h4 className="text-sm font-semibold text-[#2F1D3B]">Regional hot topics</h4>
+                {sidebarLoading ? (
+                  <div className="mt-3 space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="h-12 animate-pulse rounded-[14px] bg-[#F5F1F8]" />
+                    ))}
+                  </div>
+                ) : regionalTopics.length === 0 ? (
+                  <p className="mt-3 text-sm text-[#736683]">No regional activity yet.</p>
+                ) : (
+                  <div className="mt-3 space-y-3">
+                    {regionalTopics.map((topic) => (
+                      <div key={topic.id} className="rounded-[16px] border border-[#4C2F5E]/8 bg-white px-4 py-3">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-[#4C2F5E]">
+                          <MapPin className="h-4 w-4" />
+                          {topic.name}
+                        </div>
+                        <p className="mt-1 text-xs text-[#8B7D99]">
+                          {topic.discussionCount} discussions in {topic.topCategory}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ── CTA ── */}
+            <div className="rounded-[24px] border border-[#4C2F5E]/10 bg-[#4C2F5E] p-5 text-white">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <ShieldCheck className="h-4 w-4" />
+                Need legal input?
+              </div>
+              <p className="mt-3 text-sm leading-6 text-white/80">
+                Start a discussion and invite verified lawyers into the conversation.
+              </p>
               <button
-                onClick={() => setShowFullLeaderboard(!showFullLeaderboard)}
-                className="text-[11px] font-bold text-[#9E63C4] hover:opacity-70 flex items-center justify-center gap-1 w-full transition-opacity cursor-pointer"
+                onClick={() => setIsModalOpen(true)}
+                className="mt-5 rounded-[14px] bg-white px-4 py-2.5 text-sm font-semibold text-[#4C2F5E] transition hover:bg-[#F7F3FA]"
               >
-                {showFullLeaderboard ? 'Show Less Lawyers ' : 'View Full Leaderboard '}
-                <span className="text-xs">{showFullLeaderboard ? '↑' : '→'}</span>
+                Ask a question
               </button>
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-              <div className="flex items-center gap-2 mb-4">
-                <Image src="/icons/path.png" alt="icon" width={18} height={18} style={{ filter: 'brightness(0) saturate(100%) invert(20%) sepia(21%) saturate(1450%) hue-rotate(228deg) brightness(95%) contrast(92%)' }} unoptimized />
-                <h3 className="text-[15px] font-bold text-[#4C2F5E]">Trending This Week</h3>
-              </div>
-              <div className="space-y-1">
-                {trendingTopics.map((topic, index) => (
-                  <div key={topic.name} className={`flex items-start gap-3 p-2.5 rounded-xl transition-colors ${index === 0 ? 'bg-[#F4EBF9]' : ''}`}>
-                    <span className="text-[#9E63C4] font-bold text-[14px] mt-0.5">{index + 1}</span>
-                    <div className="flex-1">
-                      <div className="text-[#4C2F5E] font-bold text-[13px] mb-0.5">{topic.name}</div>
-                      <div className="flex items-center gap-1 text-[#9E63C4] text-[10px] font-semibold">
-                        <Image src="/icons/path.png" alt="up" width={10} height={10} style={{ filter: 'invert(52%) sepia(35%) saturate(836%) hue-rotate(235deg) brightness(85%) contrast(89%)' }} unoptimized />
-                        {topic.trend.replace('↑ ', '').replace('thisweek', ' this week')}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-              <h3 className="text-[15px] font-bold text-[#4C2F5E] mb-4">Regional Hot Topics</h3>
-              <div className="space-y-4">
-                {registeredTopics.slice(0, 3).map((topic, index) => (
-                  <div key={topic.name} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Image src="/icons/location.png" alt="loc" width={12} height={12} style={{ filter: 'invert(52%) sepia(35%) saturate(836%) hue-rotate(235deg) brightness(85%) contrast(89%)' }} unoptimized />
-                      <span className="text-[13px] text-[#6E7D7D] font-medium">{index === 0 ? 'Punjab' : index === 1 ? 'Karachi' : 'Islamabad'}</span>
-                    </div>
-                    <span className="px-3 py-1.5 border border-gray-200 rounded-full text-[10px] text-[#4C2F5E] font-semibold bg-white shadow-sm text-center">{topic.count}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          </aside>
         </div>
       </div>
 

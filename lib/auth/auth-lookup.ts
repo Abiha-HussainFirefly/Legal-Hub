@@ -38,7 +38,12 @@ export async function sharedAuthLookup(
 ): Promise<AuthLookupResult> {
   
   const userIdentifier = await prisma.userIdentifier.findUnique({
-    where: { type_value: { type: "EMAIL", value: normalizedEmail } },
+    where: {
+      type_normalizedValue: {
+        type: "EMAIL",
+        normalizedValue: normalizedEmail,
+      },
+    },
     select: {
       id: true,
       userId: true,

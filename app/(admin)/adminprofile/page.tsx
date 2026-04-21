@@ -6,14 +6,15 @@ import { redirect } from "next/navigation";
 export default async function AdminProfilePage() {
   const session = await auth();
   if (!session?.user) redirect("/adminlogin");
+  const sessionUser = session.user as typeof session.user & { occupation?: string };
 
   return (
     <ProfilePage
       variant="admin"
       user={{
-        name:       session.user.name  ?? "",
-        email:      session.user.email ?? "",
-        occupation: (session.user as any).occupation ?? "Other",
+        name:       sessionUser.name  ?? "",
+        email:      sessionUser.email ?? "",
+        occupation: sessionUser.occupation ?? "Other",
       }}
       onSave={updateUserDetails}
     />
