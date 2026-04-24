@@ -1,9 +1,22 @@
 import { prisma } from '@/lib/prisma';
+import { upsertUserActivityDaily } from '@/lib/services/user-activity';
+import type { Prisma, ReportReason } from '@prisma/client';
 import type {
   CreateDiscussionInput, UpdateDiscussionInput,
   CreateAnswerInput, CreateCommentInput,
   ReactInput, DiscussionFilters,
 } from '@/types/discussion';
+
+const NON_DEMO_USER_FILTER = {
+  identifiers: {
+    none: {
+      type: 'EMAIL' as const,
+      value: {
+        endsWith: '@legalhub.demo',
+      },
+    },
+  },
+} as const;
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -31,7 +44,14 @@ export const AUTHOR_SELECT = {
   id: true,
   displayName: true,
   avatarUrl: true,
-  profile: { select: { username: true, isLawyer: true } },
+  profile: {
+    select: {
+      username: true,
+      isLawyer: true,
+      headline: true,
+      primaryRegion: { select: { name: true } },
+    },
+  },
   lawyerProfile: { select: { verificationStatus: true, barCouncil: true, firmName: true } },
 } as const;
 
@@ -93,6 +113,11 @@ export async function createDiscussion(authorId: string, input: CreateDiscussion
       where:  { userId: authorId },
       update: { totalPoints: { increment: PTS.DISCUSSION_CREATED }, lastContributionAt: new Date() },
       create: { userId: authorId, totalPoints: PTS.DISCUSSION_CREATED, lastContributionAt: new Date() },
+    });
+
+    await upsertUserActivityDaily(tx, authorId, {
+      discussionCount: 1,
+      engagementScore: PTS.DISCUSSION_CREATED,
     });
 
     return disc;
@@ -175,6 +200,11 @@ export async function postAnswer(authorId: string, discussionId: string, input: 
       create: { userId: authorId, totalPoints: PTS.ANSWER_POSTED, lastContributionAt: new Date() },
     });
 
+    await upsertUserActivityDaily(tx, authorId, {
+      answerCount: 1,
+      engagementScore: PTS.ANSWER_POSTED,
+    });
+
     if (disc.authorId !== authorId) {
       await tx.notification.create({
         data: {
@@ -225,6 +255,9 @@ export async function acceptAnswer(discussionId: string, answerId: string, actor
         where:  { userId: answer.authorId },
         update: { totalPoints: { increment: PTS.ANSWER_ACCEPTED }, acceptedAnswers: { increment: 1 } },
         create: { userId: answer.authorId, totalPoints: PTS.ANSWER_ACCEPTED, acceptedAnswers: 1 },
+      });
+      await upsertUserActivityDaily(tx, answer.authorId, {
+        engagementScore: PTS.ANSWER_ACCEPTED,
       });
       await tx.notification.create({
         data: {
@@ -281,6 +314,11 @@ export async function createComment(
       where:  { userId: authorId },
       update: { totalPoints: { increment: PTS.COMMENT_POSTED } },
       create: { userId: authorId, totalPoints: PTS.COMMENT_POSTED },
+    });
+
+    await upsertUserActivityDaily(tx, authorId, {
+      commentCount: 1,
+      engagementScore: PTS.COMMENT_POSTED,
     });
 
     if (parentId) {
@@ -352,15 +390,19 @@ export async function reactToDiscussion(userId: string, discussionId: string, in
         await tx.gamificationEvent.create({
           data: { userId: disc.authorId, eventType: 'DISCUSSION_REACTION_RECEIVED', pointsDelta: PTS.DISCUSSION_REACTION_RECEIVED, discussionId },
         });
-        await tx.userGamification.upsert({
-          where:  { userId: disc.authorId },
-          update: { totalPoints: { increment: PTS.DISCUSSION_REACTION_RECEIVED }, likesReceived: { increment: 1 } },
-          create: { userId: disc.authorId, totalPoints: PTS.DISCUSSION_REACTION_RECEIVED, likesReceived: 1 },
-        });
+      await tx.userGamification.upsert({
+        where:  { userId: disc.authorId },
+        update: { totalPoints: { increment: PTS.DISCUSSION_REACTION_RECEIVED }, likesReceived: { increment: 1 } },
+        create: { userId: disc.authorId, totalPoints: PTS.DISCUSSION_REACTION_RECEIVED, likesReceived: 1 },
+      });
         await tx.userStats.upsert({
           where:  { userId: disc.authorId },
           update: { reactionReceivedCount: { increment: 1 } },
           create: { userId: disc.authorId, reactionReceivedCount: 1 },
+        });
+        await upsertUserActivityDaily(tx, disc.authorId, {
+          reactionReceivedCount: 1,
+          engagementScore: PTS.DISCUSSION_REACTION_RECEIVED,
         });
       }
     }
@@ -396,6 +438,10 @@ export async function reactToAnswer(userId: string, answerId: string, input: Rea
           update: { totalPoints: { increment: PTS.ANSWER_REACTION_RECEIVED }, likesReceived: { increment: 1 } },
           create: { userId: ans.authorId, totalPoints: PTS.ANSWER_REACTION_RECEIVED, likesReceived: 1 },
         });
+        await upsertUserActivityDaily(tx, ans.authorId, {
+          reactionReceivedCount: 1,
+          engagementScore: PTS.ANSWER_REACTION_RECEIVED,
+        });
       }
     }
   });
@@ -429,6 +475,10 @@ export async function reactToComment(userId: string, commentId: string, input: R
           where:  { userId: c.authorId },
           update: { totalPoints: { increment: PTS.COMMENT_REACTION_RECEIVED }, likesReceived: { increment: 1 } },
           create: { userId: c.authorId, totalPoints: PTS.COMMENT_REACTION_RECEIVED, likesReceived: 1 },
+        });
+        await upsertUserActivityDaily(tx, c.authorId, {
+          reactionReceivedCount: 1,
+          engagementScore: PTS.COMMENT_REACTION_RECEIVED,
         });
       }
     }
@@ -536,7 +586,11 @@ export async function listDiscussions(filters: DiscussionFilters, viewerId?: str
   const { page = 1, limit = 20, sort = 'latest' } = filters;
   const skip = (page - 1) * limit;
 
-  const where: Record<string, any> = { contentStatus: 'ACTIVE', visibility: 'PUBLIC' };
+  const where: Prisma.DiscussionWhereInput = {
+    contentStatus: 'ACTIVE',
+    visibility: 'PUBLIC',
+    author: NON_DEMO_USER_FILTER,
+  };
   if (filters.kind)          where.kind              = filters.kind;
   if (filters.categoryId)    where.categoryId        = filters.categoryId;
   if (filters.regionId)      where.regionId          = filters.regionId;
@@ -697,7 +751,7 @@ export async function boostDiscussion(userId: string, discussionId: string, boos
   return prisma.$transaction(async (tx) => {
     await tx.discussionBoost.create({ data: { discussionId, userId, boostType, expiresAt: expiresAt ?? null } });
 
-    const updateData: Record<string, any> = { boostCount: { increment: 1 } };
+    const updateData: Prisma.DiscussionUpdateInput = { boostCount: { increment: 1 } };
     if (boostType === 'PIN') { updateData.isPinned = true; if (expiresAt) updateData.pinnedUntil = expiresAt; }
     await tx.discussion.update({ where: { id: discussionId }, data: updateData });
 
@@ -739,6 +793,6 @@ export async function reportContent(
   }
 
   return prisma.contentReport.create({
-    data: { reporterId, targetType, reason: reason as any, description, status: 'OPEN', reportedUserId, discussionId, answerId, commentId },
+    data: { reporterId, targetType, reason: reason as ReportReason, description, status: 'OPEN', reportedUserId, discussionId, answerId, commentId },
   });
 }

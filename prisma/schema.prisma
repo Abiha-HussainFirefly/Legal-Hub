@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -160,9 +159,9 @@ enum ReactionType {
   DOWNVOTE
   HELPFUL
   INSIGHTFUL
-  LOVE        
-  HAPPY       
-  UNHAPPY     
+  LOVE
+  HAPPY
+  UNHAPPY
 }
 
 enum TagType {
@@ -315,6 +314,25 @@ enum BoostType {
   PIN
 }
 
+enum ProfileVisibilityLevel {
+  PUBLIC
+  MEMBERS_ONLY
+  LAWYERS_ONLY
+  PRIVATE
+}
+
+enum ProfileCompletionState {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum ConsultationAvailability {
+  AVAILABLE
+  LIMITED
+  UNAVAILABLE
+}
+
 model User {
   id       String     @id @default(cuid())
   userType UserType   @default(EXTERNAL)
@@ -340,53 +358,64 @@ model User {
   mfaFactors         MfaFactor[]
   mfaRecoveryCodes   MfaRecoveryCode[]
   roles              UserRole[]
-  rolesAssigned      UserRole[]               @relation("UserRoleAssignedBy")
-  auditLogs          AuditLog[]               @relation("AuditActor")
-  auditTargets       AuditLog[]               @relation("AuditTarget")
+  rolesAssigned      UserRole[]          @relation("UserRoleAssignedBy")
+  auditLogs          AuditLog[]          @relation("AuditActor")
+  auditTargets       AuditLog[]          @relation("AuditTarget")
   verificationTokens VerificationToken[]
   loginAttempts      LoginAttempt[]
 
-  profile            UserProfile?
-  stats              UserStats?
-  gamification       UserGamification?
-  lawyerProfile      LawyerProfile?
+  profile              UserProfile?
+  profileVisibility    UserProfileVisibility?
+  stats                UserStats?
+  gamification         UserGamification?
+  lawyerProfile        LawyerProfile?
+  experiences          UserExperience[]
+  educations           UserEducation[]
+  certifications       UserCertification[]
+  skills               UserSkill[]
+  languages            UserLanguage[]
+  awards               UserAward[]
+  socialLinks          UserSocialLink[]
+  profileViewsReceived UserProfileView[]      @relation("ProfileViewsReceived")
+  profileViewsGiven    UserProfileView[]      @relation("ProfileViewsGiven")
+  activityDaily        UserActivityDaily[]
 
-  organizationsOwned       Organization[]           @relation("OrganizationOwner")
-  organizationMemberships  OrganizationMember[]
-  organizationInvitesSent  OrganizationMember[]      @relation("OrganizationMemberInvitedBy")
+  organizationsOwned      Organization[]       @relation("OrganizationOwner")
+  organizationMemberships OrganizationMember[]
+  organizationInvitesSent OrganizationMember[] @relation("OrganizationMemberInvitedBy")
 
-  discussions             Discussion[]             @relation("DiscussionAuthor")
-  resolvedDiscussions     Discussion[]             @relation("DiscussionResolvedBy")
-  answers                 Answer[]                 @relation("AnswerAuthor")
-  comments                Comment[]                @relation("CommentAuthor")
-  caseRecords             CaseRecord[]             @relation("CaseAuthor")
-  reviewedCases           CaseRecord[]             @relation("CaseReviewedBy")
-  caseRevisions           CaseRevision[]           @relation("CaseRevisionEditor")
-  reviewedCaseRevisions   CaseRevision[]           @relation("CaseRevisionReviewedBy")
-  discussionRevisions     DiscussionRevision[]     @relation("DiscussionRevisionEditor")
-  answerRevisions         AnswerRevision[]         @relation("AnswerRevisionEditor")
-  commentRevisions        CommentRevision[]        @relation("CommentRevisionEditor")
+  discussions           Discussion[]         @relation("DiscussionAuthor")
+  resolvedDiscussions   Discussion[]         @relation("DiscussionResolvedBy")
+  answers               Answer[]             @relation("AnswerAuthor")
+  comments              Comment[]            @relation("CommentAuthor")
+  caseRecords           CaseRecord[]         @relation("CaseAuthor")
+  reviewedCases         CaseRecord[]         @relation("CaseReviewedBy")
+  caseRevisions         CaseRevision[]       @relation("CaseRevisionEditor")
+  reviewedCaseRevisions CaseRevision[]       @relation("CaseRevisionReviewedBy")
+  discussionRevisions   DiscussionRevision[] @relation("DiscussionRevisionEditor")
+  answerRevisions       AnswerRevision[]     @relation("AnswerRevisionEditor")
+  commentRevisions      CommentRevision[]    @relation("CommentRevisionEditor")
 
-  discussionReactions     DiscussionReaction[]
-  answerReactions         AnswerReaction[]
-  commentReactions        CommentReaction[]
-  caseReactions           CaseReaction[]
-  discussionFollows       DiscussionFollow[]
-  caseFollows             CaseFollow[]
-  savedDiscussions        SavedDiscussion[]
-  savedCases              SavedCase[]
-  discussionViews         DiscussionView[]
-  caseViews               CaseView[]
-  discussionBoosts        DiscussionBoost[]
-  gamificationEvents      GamificationEvent[]
-  badges                  UserBadge[]
-  badgesAwarded           UserBadge[]                @relation("BadgeAwardedBy")
+  discussionReactions DiscussionReaction[]
+  answerReactions     AnswerReaction[]
+  commentReactions    CommentReaction[]
+  caseReactions       CaseReaction[]
+  discussionFollows   DiscussionFollow[]
+  caseFollows         CaseFollow[]
+  savedDiscussions    SavedDiscussion[]
+  savedCases          SavedCase[]
+  discussionViews     DiscussionView[]
+  caseViews           CaseView[]
+  discussionBoosts    DiscussionBoost[]
+  gamificationEvents  GamificationEvent[]
+  badges              UserBadge[]
+  badgesAwarded       UserBadge[]          @relation("BadgeAwardedBy")
 
-  fileAssets              FileAsset[]              @relation("AssetUploader")
-  contentAttachments      ContentAttachment[]      @relation("AttachmentUploader")
-  generatedSummaries      DiscussionAISummary[]    @relation("AISummaryGeneratedBy")
-  notifications           Notification[]           @relation("NotificationRecipient")
-  notificationActors      Notification[]           @relation("NotificationActor")
+  fileAssets         FileAsset[]           @relation("AssetUploader")
+  contentAttachments ContentAttachment[]   @relation("AttachmentUploader")
+  generatedSummaries DiscussionAISummary[] @relation("AISummaryGeneratedBy")
+  notifications      Notification[]        @relation("NotificationRecipient")
+  notificationActors Notification[]        @relation("NotificationActor")
 
   verificationReviews       LawyerVerificationRequest[] @relation("VerificationReviewedBy")
   verifiedLawyers           LawyerProfile[]             @relation("LawyerVerifiedBy")
@@ -420,17 +449,17 @@ model UserIdentifier {
 }
 
 model Credential {
-  id               String   @id @default(cuid())
-  userId           String   @unique
-  passwordHash     String
-  passwordAlgo     String?
-  passwordParams   Json?
-  passwordSetAt    DateTime @default(now())
-  mustRotate       Boolean  @default(false)
-  failedAttempts   Int      @default(0)
-  lockedUntil      DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id             String    @id @default(cuid())
+  userId         String    @unique
+  passwordHash   String
+  passwordAlgo   String?
+  passwordParams Json?
+  passwordSetAt  DateTime  @default(now())
+  mustRotate     Boolean   @default(false)
+  failedAttempts Int       @default(0)
+  lockedUntil    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -448,14 +477,14 @@ model ExternalAccount {
   providerAvatarUrl   String?
   providerProfile     Json?
 
-  accessTokenEncrypted       String?
-  refreshTokenEncrypted      String?
-  idTokenEncrypted           String?
-  tokenType                  String?
-  scope                      String?
-  expiresAt                  Int?
-  refreshTokenExpiresAt      Int?
-  sessionState               String?
+  accessTokenEncrypted  String?
+  refreshTokenEncrypted String?
+  idTokenEncrypted      String?
+  tokenType             String?
+  scope                 String?
+  expiresAt             Int?
+  refreshTokenExpiresAt Int?
+  sessionState          String?
 
   linkedAt   DateTime  @default(now())
   lastUsedAt DateTime?
@@ -470,19 +499,19 @@ model ExternalAccount {
 }
 
 model Session {
-  id                 String   @id @default(cuid())
-  userId             String
-  sessionTokenHash   String   @unique
-  refreshTokenHash   String?  @unique
-  sessionFamilyId    String?
-  ip                 String?
-  userAgent          String?
-  deviceLabel        String?
-  createdAt          DateTime @default(now())
-  lastSeenAt         DateTime @default(now())
-  expiresAt          DateTime
-  revokedAt          DateTime?
-  revokeReason       String?
+  id               String    @id @default(cuid())
+  userId           String
+  sessionTokenHash String    @unique
+  refreshTokenHash String?   @unique
+  sessionFamilyId  String?
+  ip               String?
+  userAgent        String?
+  deviceLabel      String?
+  createdAt        DateTime  @default(now())
+  lastSeenAt       DateTime  @default(now())
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  revokeReason     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -513,11 +542,11 @@ model MfaFactor {
 }
 
 model MfaRecoveryCode {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   userId     String
-  codeHash   String   @unique
+  codeHash   String    @unique
   consumedAt DateTime?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -525,16 +554,16 @@ model MfaRecoveryCode {
 }
 
 model VerificationToken {
-  id              String         @id @default(cuid())
+  id              String          @id @default(cuid())
   userId          String?
   purpose         String
-  tokenHash       String         @unique
+  tokenHash       String          @unique
   expiresAt       DateTime
   consumedAt      DateTime?
   identifierType  IdentifierType?
   identifierValue String?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
   user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -561,23 +590,23 @@ model LoginAttempt {
 }
 
 model Role {
-  id          String  @id @default(cuid())
-  name        String  @unique
+  id          String           @id @default(cuid())
+  name        String           @unique
   description String?
-  isSystem    Boolean @default(false)
+  isSystem    Boolean          @default(false)
   users       UserRole[]
   permissions RolePermission[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 }
 
 model Permission {
-  id          String  @id @default(cuid())
-  key         String  @unique
+  id          String           @id @default(cuid())
+  key         String           @unique
   description String?
   roles       RolePermission[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 }
 
 model UserRole {
@@ -610,7 +639,7 @@ model RolePermission {
 }
 
 model AuditLog {
-  id           String         @id @default(cuid())
+  id           String             @id @default(cuid())
   category     AuditCategory
   action       String
   actorId      String?
@@ -621,7 +650,7 @@ model AuditLog {
   ipHash       String?
   userAgent    String?
   meta         Json?
-  createdAt    DateTime       @default(now())
+  createdAt    DateTime           @default(now())
 
   actor      User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
   targetUser User? @relation("AuditTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
@@ -633,19 +662,30 @@ model AuditLog {
 }
 
 model UserProfile {
-  id              String  @id @default(cuid())
-  userId          String  @unique
-  username        String? @unique
-  headline        String?
-  bio             String?
-  company         String?
-  websiteUrl      String?
-  linkedInUrl     String?
-  countryCode     String? @default("PK")
-  primaryRegionId String?
-  isLawyer        Boolean @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                    String                    @id @default(cuid())
+  userId                String                    @unique
+  username              String?                   @unique
+  headline              String?
+  bio                   String?
+  company               String?
+  roleTitle             String?
+  websiteUrl            String?
+  linkedInUrl           String?
+  coverImageUrl         String?
+  countryCode           String?                   @default("PK")
+  city                  String?
+  officeAddress         String?
+  primaryRegionId       String?
+  isLawyer              Boolean                   @default(false)
+  yearsExperience       Int?
+  consultationStatus    ConsultationAvailability?
+  completionPercentage  Int                       @default(0)
+  completionState       ProfileCompletionState    @default(NOT_STARTED)
+  onboardingStep        String?
+  onboardingChecklist   Json?
+  onboardingCompletedAt DateTime?
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
 
   user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   primaryRegion Region? @relation(fields: [primaryRegionId], references: [id], onDelete: SetNull)
@@ -654,39 +694,220 @@ model UserProfile {
   @@index([isLawyer])
 }
 
-model UserStats {
-  userId                String   @id
+model UserProfileVisibility {
+  userId                      String                 @id
+  emailVisibility             ProfileVisibilityLevel @default(MEMBERS_ONLY)
+  phoneVisibility             ProfileVisibilityLevel @default(PRIVATE)
+  headlineVisibility          ProfileVisibilityLevel @default(PUBLIC)
+  bioVisibility               ProfileVisibilityLevel @default(PUBLIC)
+  locationVisibility          ProfileVisibilityLevel @default(PUBLIC)
+  companyVisibility           ProfileVisibilityLevel @default(PUBLIC)
+  experienceVisibility        ProfileVisibilityLevel @default(PUBLIC)
+  educationVisibility         ProfileVisibilityLevel @default(PUBLIC)
+  certificationsVisibility    ProfileVisibilityLevel @default(PUBLIC)
+  skillsVisibility            ProfileVisibilityLevel @default(PUBLIC)
+  languagesVisibility         ProfileVisibilityLevel @default(PUBLIC)
+  websiteVisibility           ProfileVisibilityLevel @default(PUBLIC)
+  socialLinksVisibility       ProfileVisibilityLevel @default(PUBLIC)
+  activityAnalyticsVisibility ProfileVisibilityLevel @default(PUBLIC)
+  badgesVisibility            ProfileVisibilityLevel @default(PUBLIC)
+  updatedAt                   DateTime               @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserExperience {
+  id             String    @id @default(cuid())
+  userId         String
+  title          String
+  organization   String
+  location       String?
+  employmentType String?
+  description    String?
+  startDate      DateTime?
+  endDate        DateTime?
+  isCurrent      Boolean   @default(false)
+  sortOrder      Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, sortOrder])
+}
+
+model UserEducation {
+  id           String    @id @default(cuid())
+  userId       String
+  institution  String
+  degree       String?
+  fieldOfStudy String?
+  description  String?
+  startDate    DateTime?
+  endDate      DateTime?
+  sortOrder    Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, sortOrder])
+}
+
+model UserCertification {
+  id            String    @id @default(cuid())
+  userId        String
+  name          String
+  issuer        String?
+  credentialId  String?
+  credentialUrl String?
+  issuedAt      DateTime?
+  expiresAt     DateTime?
+  description   String?
+  sortOrder     Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, sortOrder])
+}
+
+model UserSkill {
+  id               String   @id @default(cuid())
+  userId           String
+  name             String
+  yearsExperience  Int?
+  endorsementCount Int      @default(0)
+  sortOrder        Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@index([name])
+  @@index([userId, sortOrder])
+}
+
+model UserLanguage {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  proficiency String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@index([userId, sortOrder])
+}
+
+model UserAward {
+  id          String    @id @default(cuid())
+  userId      String
+  title       String
+  issuer      String?
+  description String?
+  awardUrl    String?
+  awardedAt   DateTime?
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, sortOrder])
+}
+
+model UserSocialLink {
+  id        String   @id @default(cuid())
+  userId    String
+  platform  String
+  label     String?
+  url       String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, sortOrder])
+}
+
+model UserProfileView {
+  id            String   @id @default(cuid())
+  profileUserId String
+  viewerUserId  String?
+  ipHash        String?
+  userAgent     String?
+  referer       String?
+  viewedAt      DateTime @default(now())
+
+  profileUser User  @relation("ProfileViewsReceived", fields: [profileUserId], references: [id], onDelete: Cascade)
+  viewerUser  User? @relation("ProfileViewsGiven", fields: [viewerUserId], references: [id], onDelete: SetNull)
+
+  @@index([profileUserId, viewedAt])
+  @@index([viewerUserId, viewedAt])
+}
+
+model UserActivityDaily {
+  id                    String   @id @default(cuid())
+  userId                String
+  activityDate          DateTime
   discussionCount       Int      @default(0)
   answerCount           Int      @default(0)
   commentCount          Int      @default(0)
   caseCount             Int      @default(0)
-  acceptedAnswerCount   Int      @default(0)
-  followerCount         Int      @default(0)
-  bookmarkCount         Int      @default(0)
   reactionReceivedCount Int      @default(0)
   profileViewCount      Int      @default(0)
-  contributionScore     Int      @default(0)
-  lastContributionAt    DateTime?
+  badgeCount            Int      @default(0)
+  engagementScore       Int      @default(0)
+  createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, activityDate])
+  @@index([activityDate])
+  @@index([userId, activityDate])
+}
+
+model UserStats {
+  userId                String    @id
+  discussionCount       Int       @default(0)
+  answerCount           Int       @default(0)
+  commentCount          Int       @default(0)
+  caseCount             Int       @default(0)
+  acceptedAnswerCount   Int       @default(0)
+  followerCount         Int       @default(0)
+  bookmarkCount         Int       @default(0)
+  reactionReceivedCount Int       @default(0)
+  profileViewCount      Int       @default(0)
+  contributionScore     Int       @default(0)
+  lastContributionAt    DateTime?
+  updatedAt             DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model UserGamification {
-  userId               String   @id
-  totalPoints          Int      @default(0)
-  level                Int      @default(1)
-  badgesCount          Int      @default(0)
-  likesReceived        Int      @default(0)
-  likesGiven           Int      @default(0)
-  acceptedAnswers      Int      @default(0)
-  casesPublished       Int      @default(0)
-  boostsUsed           Int      @default(0)
-  streakDays           Int      @default(0)
-  bestRank             Int?
-  lastContributionAt   DateTime?
-  lastCalculatedAt     DateTime?
-  updatedAt            DateTime @updatedAt
+  userId             String    @id
+  totalPoints        Int       @default(0)
+  level              Int       @default(1)
+  badgesCount        Int       @default(0)
+  likesReceived      Int       @default(0)
+  likesGiven         Int       @default(0)
+  acceptedAnswers    Int       @default(0)
+  casesPublished     Int       @default(0)
+  boostsUsed         Int       @default(0)
+  streakDays         Int       @default(0)
+  bestRank           Int?
+  lastContributionAt DateTime?
+  lastCalculatedAt   DateTime?
+  updatedAt          DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -714,15 +935,15 @@ model GamificationEvent {
 }
 
 model Badge {
-  id            String    @id @default(cuid())
-  code          String    @unique
+  id            String   @id @default(cuid())
+  code          String   @unique
   name          String
   description   String?
   iconName      String?
-  pointsAwarded Int       @default(0)
-  isActive      Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  pointsAwarded Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   users UserBadge[]
 }
@@ -758,7 +979,7 @@ model Organization {
   createdAt   DateTime               @default(now())
   updatedAt   DateTime               @updatedAt
 
-  owner       User?                 @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  owner         User?                @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   members       OrganizationMember[]
   discussions   Discussion[]
   caseRecords   CaseRecord[]
@@ -769,7 +990,7 @@ model Organization {
 }
 
 model OrganizationMember {
-  id             String                    @id @default(cuid())
+  id             String                   @id @default(cuid())
   organizationId String
   userId         String
   role           OrganizationMemberRole   @default(MEMBER)
@@ -896,7 +1117,7 @@ model Tag {
 
   discussions DiscussionTag[]
   cases       CaseTag[]
-  metrics      TagMetricDaily[]
+  metrics     TagMetricDaily[]
 
   @@index([type, isActive])
 }
@@ -916,9 +1137,9 @@ model DiscussionTag {
 
 model CaseTag {
   id        String   @id @default(cuid())
-  caseId     String
-  tagId      String
-  createdAt  DateTime @default(now())
+  caseId    String
+  tagId     String
+  createdAt DateTime @default(now())
 
   caseRecord CaseRecord @relation(fields: [caseId], references: [id], onDelete: Cascade)
   tag        Tag        @relation(fields: [tagId], references: [id], onDelete: Cascade)
@@ -970,15 +1191,15 @@ model Region {
 }
 
 model Court {
-  id          String     @id @default(cuid())
-  slug        String     @unique
-  name        String
-  level       CourtLevel @default(OTHER)
-  regionId    String?
-  websiteUrl  String?
-  isActive    Boolean    @default(true)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id         String     @id @default(cuid())
+  slug       String     @unique
+  name       String
+  level      CourtLevel @default(OTHER)
+  regionId   String?
+  websiteUrl String?
+  isActive   Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 
   region      Region?      @relation(fields: [regionId], references: [id], onDelete: SetNull)
   caseRecords CaseRecord[]
@@ -988,9 +1209,9 @@ model Court {
 }
 
 model Discussion {
-  id               String             @id @default(cuid())
-  slug             String             @unique
-  kind             DiscussionType     @default(DISCUSSION)
+  id               String            @id @default(cuid())
+  slug             String            @unique
+  kind             DiscussionType    @default(DISCUSSION)
   title            String
   body             String
   excerpt          String?
@@ -999,55 +1220,55 @@ model Discussion {
   categoryId       String
   regionId         String?
   relatedCaseId    String?
-  status           DiscussionStatus   @default(OPEN)
-  visibility       ContentVisibility  @default(PUBLIC)
-  contentStatus    ContentStatus      @default(ACTIVE)
-  acceptedAnswerId String?            @unique
+  status           DiscussionStatus  @default(OPEN)
+  visibility       ContentVisibility @default(PUBLIC)
+  contentStatus    ContentStatus     @default(ACTIVE)
+  acceptedAnswerId String?           @unique
   resolvedById     String?
   resolvedAt       DateTime?
-  score            Int                @default(0)
-  reactionCount    Int                @default(0)
-  answerCount      Int                @default(0)
-  commentCount     Int                @default(0)
-  viewCount        Int                @default(0)
-  followerCount    Int                @default(0)
-  bookmarkCount    Int                @default(0)
-  boostCount       Int                @default(0)
-  isPinned         Boolean            @default(false)
+  score            Int               @default(0)
+  reactionCount    Int               @default(0)
+  answerCount      Int               @default(0)
+  commentCount     Int               @default(0)
+  viewCount        Int               @default(0)
+  followerCount    Int               @default(0)
+  bookmarkCount    Int               @default(0)
+  boostCount       Int               @default(0)
+  isPinned         Boolean           @default(false)
   pinnedUntil      DateTime?
   sourceUrl        String?
   effectiveDate    DateTime?
-  isAiSummaryReady Boolean            @default(false)
-  lastActivityAt   DateTime           @default(now())
+  isAiSummaryReady Boolean           @default(false)
+  lastActivityAt   DateTime          @default(now())
   closedAt         DateTime?
   lockedAt         DateTime?
   deletedAt        DateTime?
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
-  author            User                  @relation("DiscussionAuthor", fields: [authorId], references: [id], onDelete: Cascade)
-  organization      Organization?         @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  category          Category              @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  region            Region?               @relation(fields: [regionId], references: [id], onDelete: SetNull)
-  relatedCase       CaseRecord?           @relation("DiscussionRelatedCase", fields: [relatedCaseId], references: [id], onDelete: SetNull)
-  answers           Answer[]              @relation("DiscussionAnswers")
-  acceptedAnswer    Answer?               @relation("AcceptedDiscussionAnswer", fields: [acceptedAnswerId], references: [id], onDelete: SetNull)
-  resolvedBy        User?                 @relation("DiscussionResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
-  comments          Comment[]
-  reactions         DiscussionReaction[]
-  followers         DiscussionFollow[]
-  bookmarks         SavedDiscussion[]
-  views             DiscussionView[]
-  tags              DiscussionTag[]
-  aiSummaries       DiscussionAISummary[]
-  attachments       ContentAttachment[]
-  reports           ContentReport[]
-  aiAlerts          AIAlert[]
-  moderationActions ModerationAction[]
-  notifications     Notification[]
+  author             User                  @relation("DiscussionAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  organization       Organization?         @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  category           Category              @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  region             Region?               @relation(fields: [regionId], references: [id], onDelete: SetNull)
+  relatedCase        CaseRecord?           @relation("DiscussionRelatedCase", fields: [relatedCaseId], references: [id], onDelete: SetNull)
+  answers            Answer[]              @relation("DiscussionAnswers")
+  acceptedAnswer     Answer?               @relation("AcceptedDiscussionAnswer", fields: [acceptedAnswerId], references: [id], onDelete: SetNull)
+  resolvedBy         User?                 @relation("DiscussionResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
+  comments           Comment[]
+  reactions          DiscussionReaction[]
+  followers          DiscussionFollow[]
+  bookmarks          SavedDiscussion[]
+  views              DiscussionView[]
+  tags               DiscussionTag[]
+  aiSummaries        DiscussionAISummary[]
+  attachments        ContentAttachment[]
+  reports            ContentReport[]
+  aiAlerts           AIAlert[]
+  moderationActions  ModerationAction[]
+  notifications      Notification[]
   gamificationEvents GamificationEvent[]
-  boosts            DiscussionBoost[]
-  revisions         DiscussionRevision[]
+  boosts             DiscussionBoost[]
+  revisions          DiscussionRevision[]
 
   @@index([authorId, createdAt])
   @@index([organizationId, createdAt])
@@ -1073,9 +1294,9 @@ model Answer {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  discussion           Discussion         @relation("DiscussionAnswers", fields: [discussionId], references: [id], onDelete: Cascade)
-  author               User               @relation("AnswerAuthor", fields: [authorId], references: [id], onDelete: Cascade)
-  acceptedInDiscussion Discussion?        @relation("AcceptedDiscussionAnswer")
+  discussion           Discussion          @relation("DiscussionAnswers", fields: [discussionId], references: [id], onDelete: Cascade)
+  author               User                @relation("AnswerAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  acceptedInDiscussion Discussion?         @relation("AcceptedDiscussionAnswer")
   comments             Comment[]
   reactions            AnswerReaction[]
   attachments          ContentAttachment[]
@@ -1094,32 +1315,32 @@ model Answer {
 
 // IMPORTANT: add a SQL CHECK constraint in a migration so exactly one of discussionId, answerId, or caseId is set for root comments.
 model Comment {
-  id           String        @id @default(cuid())
-  discussionId String?
-  answerId     String?
-  caseId       String?
-  parentId     String?
-  authorId     String
-  body         String
-  status       ContentStatus @default(ACTIVE)
-  score        Int           @default(0)
-  reactionCount Int          @default(0)
-  deletedAt    DateTime?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id            String        @id @default(cuid())
+  discussionId  String?
+  answerId      String?
+  caseId        String?
+  parentId      String?
+  authorId      String
+  body          String
+  status        ContentStatus @default(ACTIVE)
+  score         Int           @default(0)
+  reactionCount Int           @default(0)
+  deletedAt     DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
-  discussion        Discussion?        @relation(fields: [discussionId], references: [id], onDelete: Cascade)
-  answer            Answer?            @relation(fields: [answerId], references: [id], onDelete: Cascade)
-  caseRecord        CaseRecord?        @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  parent            Comment?           @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies           Comment[]          @relation("CommentReplies")
-  author            User               @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
-  reactions         CommentReaction[]
-  attachments       ContentAttachment[]
-  reports           ContentReport[]
-  aiAlerts          AIAlert[]
-  moderationActions ModerationAction[]
-  notifications     Notification[]
+  discussion         Discussion?         @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  answer             Answer?             @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  caseRecord         CaseRecord?         @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  parent             Comment?            @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies            Comment[]           @relation("CommentReplies")
+  author             User                @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  reactions          CommentReaction[]
+  attachments        ContentAttachment[]
+  reports            ContentReport[]
+  aiAlerts           AIAlert[]
+  moderationActions  ModerationAction[]
+  notifications      Notification[]
   gamificationEvents GamificationEvent[]
   revisions          CommentRevision[]
 
@@ -1129,7 +1350,6 @@ model Comment {
   @@index([authorId, createdAt])
   @@index([parentId])
 }
-
 
 model DiscussionRevision {
   id            String   @id @default(cuid())
@@ -1197,10 +1417,10 @@ model DiscussionReaction {
 
 model AnswerReaction {
   id           String       @id @default(cuid())
-  answerId      String
-  userId        String
-  reactionType  ReactionType
-  createdAt     DateTime    @default(now())
+  answerId     String
+  userId       String
+  reactionType ReactionType
+  createdAt    DateTime     @default(now())
 
   answer Answer @relation(fields: [answerId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1300,7 +1520,7 @@ model FileAsset {
   updatedAt        DateTime       @updatedAt
   deletedAt        DateTime?
 
-  uploader              User                        @relation("AssetUploader", fields: [uploaderId], references: [id], onDelete: Cascade)
+  uploader              User                         @relation("AssetUploader", fields: [uploaderId], references: [id], onDelete: Cascade)
   attachments           ContentAttachment[]
   verificationDocuments LawyerVerificationDocument[]
   caseSourceFiles       CaseSourceFile[]
@@ -1312,21 +1532,21 @@ model FileAsset {
 // IMPORTANT: add a SQL CHECK constraint in a migration so each attachment points to exactly one parent target.
 model ContentAttachment {
   id           String   @id @default(cuid())
-  assetId       String
-  discussionId  String?
-  answerId      String?
-  commentId     String?
-  caseId        String?
-  uploadedById  String
-  caption       String?
-  createdAt     DateTime @default(now())
+  assetId      String
+  discussionId String?
+  answerId     String?
+  commentId    String?
+  caseId       String?
+  uploadedById String
+  caption      String?
+  createdAt    DateTime @default(now())
 
-  asset      FileAsset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
-  discussion Discussion?  @relation(fields: [discussionId], references: [id], onDelete: Cascade)
-  answer     Answer?      @relation(fields: [answerId], references: [id], onDelete: Cascade)
-  comment    Comment?     @relation(fields: [commentId], references: [id], onDelete: Cascade)
-  caseRecord CaseRecord?  @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  uploadedBy User         @relation("AttachmentUploader", fields: [uploadedById], references: [id], onDelete: Cascade)
+  asset      FileAsset   @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  discussion Discussion? @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  answer     Answer?     @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  comment    Comment?    @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  caseRecord CaseRecord? @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  uploadedBy User        @relation("AttachmentUploader", fields: [uploadedById], references: [id], onDelete: Cascade)
 
   @@index([assetId])
   @@index([discussionId])
@@ -1400,12 +1620,12 @@ model CaseRecord {
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
 
-  author             User               @relation("CaseAuthor", fields: [authorId], references: [id], onDelete: Cascade)
-  reviewedBy         User?              @relation("CaseReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
-  organization       Organization?      @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  category           Category           @relation(fields: [primaryCategoryId], references: [id], onDelete: Restrict)
-  region             Region?            @relation(fields: [regionId], references: [id], onDelete: SetNull)
-  court              Court?             @relation(fields: [courtId], references: [id], onDelete: SetNull)
+  author             User                @relation("CaseAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  reviewedBy         User?               @relation("CaseReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  organization       Organization?       @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  category           Category            @relation(fields: [primaryCategoryId], references: [id], onDelete: Restrict)
+  region             Region?             @relation(fields: [regionId], references: [id], onDelete: SetNull)
+  court              Court?              @relation(fields: [courtId], references: [id], onDelete: SetNull)
   tags               CaseTag[]
   comments           Comment[]
   reactions          CaseReaction[]
@@ -1416,14 +1636,14 @@ model CaseRecord {
   sourceLinks        CaseSourceLink[]
   sourceFiles        CaseSourceFile[]
   revisions          CaseRevision[]
-  citationsMade      CaseCitation[]     @relation("SourceCaseCitations")
-  citationsReceived  CaseCitation[]     @relation("TargetCaseCitations")
+  citationsMade      CaseCitation[]      @relation("SourceCaseCitations")
+  citationsReceived  CaseCitation[]      @relation("TargetCaseCitations")
   reports            ContentReport[]
   aiAlerts           AIAlert[]
   moderationActions  ModerationAction[]
   notifications      Notification[]
   gamificationEvents GamificationEvent[]
-  discussionThreads  Discussion[]       @relation("DiscussionRelatedCase")
+  discussionThreads  Discussion[]        @relation("DiscussionRelatedCase")
 
   @@index([authorId, createdAt])
   @@index([status, publishedAt])
@@ -1433,16 +1653,16 @@ model CaseRecord {
 }
 
 model CaseRevision {
-  id           String               @id @default(cuid())
-  caseId       String
-  version      Int
-  editorId     String
-  status       RepositoryItemStatus @default(PENDING_REVIEW)
-  snapshot     Json
+  id            String               @id @default(cuid())
+  caseId        String
+  version       Int
+  editorId      String
+  status        RepositoryItemStatus @default(PENDING_REVIEW)
+  snapshot      Json
   changeSummary String?
-  reviewedById String?
-  reviewedAt   DateTime?
-  createdAt    DateTime             @default(now())
+  reviewedById  String?
+  reviewedAt    DateTime?
+  createdAt     DateTime             @default(now())
 
   caseRecord CaseRecord @relation(fields: [caseId], references: [id], onDelete: Cascade)
   editor     User       @relation("CaseRevisionEditor", fields: [editorId], references: [id], onDelete: Cascade)
@@ -1468,14 +1688,14 @@ model CaseCitation {
 }
 
 model CaseSourceLink {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   caseId      String
   label       String?
   sourceName  String?
   url         String
   publishedAt DateTime?
-  isPrimary   Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  isPrimary   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
 
   caseRecord CaseRecord @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
@@ -1485,10 +1705,10 @@ model CaseSourceLink {
 
 model CaseSourceFile {
   id        String   @id @default(cuid())
-  caseId     String
-  assetId    String
-  label      String?
-  createdAt  DateTime @default(now())
+  caseId    String
+  assetId   String
+  label     String?
+  createdAt DateTime @default(now())
 
   caseRecord CaseRecord @relation(fields: [caseId], references: [id], onDelete: Cascade)
   asset      FileAsset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
@@ -1514,9 +1734,9 @@ model CaseReaction {
 
 model SavedCase {
   id        String   @id @default(cuid())
-  caseId     String
-  userId     String
-  createdAt  DateTime @default(now())
+  caseId    String
+  userId    String
+  createdAt DateTime @default(now())
 
   caseRecord CaseRecord @relation(fields: [caseId], references: [id], onDelete: Cascade)
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1527,9 +1747,9 @@ model SavedCase {
 
 model CaseFollow {
   id        String   @id @default(cuid())
-  caseId     String
-  userId     String
-  createdAt  DateTime @default(now())
+  caseId    String
+  userId    String
+  createdAt DateTime @default(now())
 
   caseRecord CaseRecord @relation(fields: [caseId], references: [id], onDelete: Cascade)
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1539,12 +1759,12 @@ model CaseFollow {
 }
 
 model CaseView {
-  id         String   @id @default(cuid())
-  caseId      String
-  userId      String?
-  ipHash      String?
-  userAgent   String?
-  viewedAt    DateTime @default(now())
+  id        String   @id @default(cuid())
+  caseId    String
+  userId    String?
+  ipHash    String?
+  userAgent String?
+  viewedAt  DateTime @default(now())
 
   caseRecord CaseRecord @relation(fields: [caseId], references: [id], onDelete: Cascade)
   user       User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
@@ -1571,13 +1791,13 @@ model ContentReport {
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
-  reporter          User        @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
-  reportedUser      User?       @relation("ReportedUser", fields: [reportedUserId], references: [id], onDelete: SetNull)
-  discussion        Discussion? @relation(fields: [discussionId], references: [id], onDelete: SetNull)
-  answer            Answer?     @relation(fields: [answerId], references: [id], onDelete: SetNull)
-  comment           Comment?    @relation(fields: [commentId], references: [id], onDelete: SetNull)
-  caseRecord        CaseRecord? @relation(fields: [caseId], references: [id], onDelete: SetNull)
-  reviewedBy        User?       @relation("ReportReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reporter          User               @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedUser      User?              @relation("ReportedUser", fields: [reportedUserId], references: [id], onDelete: SetNull)
+  discussion        Discussion?        @relation(fields: [discussionId], references: [id], onDelete: SetNull)
+  answer            Answer?            @relation(fields: [answerId], references: [id], onDelete: SetNull)
+  comment           Comment?           @relation(fields: [commentId], references: [id], onDelete: SetNull)
+  caseRecord        CaseRecord?        @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  reviewedBy        User?              @relation("ReportReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
   moderationActions ModerationAction[]
 
   @@index([reporterId, createdAt])

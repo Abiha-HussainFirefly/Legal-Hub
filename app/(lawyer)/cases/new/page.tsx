@@ -14,6 +14,7 @@ interface Option {
 
 interface CourtOption extends Option {
   level: string;
+  regionId?: string | null;
 }
 
 interface MetaResponse {
@@ -21,7 +22,6 @@ interface MetaResponse {
   tags: Option[];
   regions: Option[];
   courts: CourtOption[];
-  organizations: Option[];
 }
 
 function MetaSkeleton() {
@@ -90,7 +90,6 @@ export default function CreateCasePage() {
       tags={meta.tags}
       regions={meta.regions}
       courts={meta.courts}
-      organizations={meta.organizations}
       onSaveDraft={(payload) => persist(payload, 'draft')}
       onSubmitForReview={(payload) => persist(payload, 'submit')}
     />

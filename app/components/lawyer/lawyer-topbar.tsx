@@ -6,7 +6,7 @@ import { Bookmark, BriefcaseBusiness, LayoutGrid, LogOut, Menu, MessageSquareTex
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-type ActiveTab = 'discussions' | 'cases' | 'topics' | 'saved';
+type ActiveTab = 'discussions' | 'cases' | 'topics' | 'saved' | 'profile';
 
 interface LawyerTopbarProps {
   activeTab: ActiveTab;
@@ -106,7 +106,7 @@ export default function LawyerTopbar({
             <>
               <button
                 onClick={() => setIsDropdownOpen((current) => !current)}
-                className="inline-flex items-center gap-3 rounded-full border border-[#4C2F5E]/10 bg-white px-2 py-2 text-left text-[#4C2F5E] transition hover:bg-[#FBF9FD]"
+                className="inline-flex cursor-pointer items-center gap-3 rounded-full border border-[#4C2F5E]/10 bg-white px-2 py-2 text-left text-[#4C2F5E] transition hover:bg-[#FBF9FD]"
               >
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#4C2F5E] text-sm font-semibold text-white">
                   {initials(displayName)}
@@ -133,7 +133,7 @@ export default function LawyerTopbar({
                       className="inline-flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-[#5F506D] transition hover:bg-[#F7F3FA]"
                     >
                       <User className="h-4 w-4 text-[#7B6D8A]" />
-                      Profile settings
+                      My profile
                     </button>
                     <button
                       onClick={async () => {

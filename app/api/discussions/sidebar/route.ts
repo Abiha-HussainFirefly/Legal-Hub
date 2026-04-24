@@ -11,6 +11,17 @@ const FEATURED_GRADIENTS = [
   'linear-gradient(135deg, #005C57 0%, #00C2B7 100%)',
 ];
 
+const NON_DEMO_USER_FILTER = {
+  identifiers: {
+    none: {
+      type: 'EMAIL' as const,
+      value: {
+        endsWith: '@legalhub.demo',
+      },
+    },
+  },
+} as const;
+
 export async function GET() {
   try {
     const now = new Date();
@@ -39,6 +50,7 @@ export async function GET() {
       prisma.user.count({
         where: {
           status: 'ACTIVE',
+          ...NON_DEMO_USER_FILTER,
           lawyerProfile: {
             verificationStatus: 'VERIFIED',
           },
@@ -53,6 +65,7 @@ export async function GET() {
               contentStatus: 'ACTIVE',
               visibility: 'PUBLIC',
               deletedAt: null,
+              author: NON_DEMO_USER_FILTER,
             },
           },
         },
@@ -68,9 +81,9 @@ export async function GET() {
       prisma.user.findMany({
         where: {
           status: 'ACTIVE',
-          lawyerProfile: {
-            verificationStatus: 'VERIFIED',
-          },
+          lastLoginAt: { gte: monthAgo },
+          ...NON_DEMO_USER_FILTER,
+          lawyerProfile: { isNot: null },
           OR: [
             {
               answers: {
@@ -97,6 +110,8 @@ export async function GET() {
           avatarUrl: true,
           profile: {
             select: {
+              username: true,
+              headline: true,
               primaryRegion: { select: { name: true } },
             },
           },
@@ -148,6 +163,13 @@ export async function GET() {
               discussion: {
                 createdAt: { gte: weekAgo },
                 contentStatus: 'ACTIVE',
+                visibility: 'PUBLIC',
+                deletedAt: null,
+                author: {
+                  status: 'ACTIVE',
+                  lastLoginAt: { gte: monthAgo },
+                  ...NON_DEMO_USER_FILTER,
+                },
               },
             },
           },
@@ -164,6 +186,13 @@ export async function GET() {
                   discussion: {
                     createdAt: { gte: weekAgo },
                     contentStatus: 'ACTIVE',
+                    visibility: 'PUBLIC',
+                    deletedAt: null,
+                    author: {
+                      status: 'ACTIVE',
+                      lastLoginAt: { gte: monthAgo },
+                      ...NON_DEMO_USER_FILTER,
+                    },
                   },
                 },
               },
@@ -174,6 +203,12 @@ export async function GET() {
               discussion: {
                 createdAt: { gte: twoWeeksAgo, lt: weekAgo },
                 contentStatus: 'ACTIVE',
+                visibility: 'PUBLIC',
+                deletedAt: null,
+                author: {
+                  status: 'ACTIVE',
+                  lastLoginAt: { gte: monthAgo },
+                },
               },
             },
             select: { id: true },
@@ -228,6 +263,7 @@ export async function GET() {
           visibility: 'PUBLIC',
           createdAt: { gte: monthAgo },
           deletedAt: null,
+          author: NON_DEMO_USER_FILTER,
         },
         take: 20,
         orderBy: [
@@ -249,8 +285,17 @@ export async function GET() {
           createdAt: true,
           author: {
             select: {
+              id: true,
               displayName: true,
               avatarUrl: true,
+              profile: {
+                select: {
+                  username: true,
+                  headline: true,
+                  isLawyer: true,
+                  primaryRegion: { select: { name: true } },
+                },
+              },
               lawyerProfile: {
                 select: { verificationStatus: true },
               },
@@ -322,7 +367,9 @@ export async function GET() {
       .map((user) => ({
         id: user.id,
         name: user.displayName ?? 'Anonymous',
+        username: user.profile?.username ?? null,
         avatarUrl: user.avatarUrl,
+        headline: user.profile?.headline ?? null,
         practiceArea: user.lawyerProfile?.practiceAreas?.[0]?.category?.name ?? 'General Practice',
         firmName: user.lawyerProfile?.firmName ?? null,
         region: user.profile?.primaryRegion?.name ?? null,
@@ -412,6 +459,7 @@ export async function GET() {
           : FEATURED_GRADIENTS[index % FEATURED_GRADIENTS.length],
         categoryName: discussion.category.name,
         categorySlug: discussion.category.slug,
+        authorId: discussion.author.id,
         authorName: discussion.author.displayName ?? 'Anonymous',
         authorInitials: (discussion.author.displayName ?? 'AN')
           .split(' ')
@@ -420,6 +468,10 @@ export async function GET() {
           .slice(0, 2)
           .toUpperCase(),
         authorAvatarUrl: discussion.author.avatarUrl,
+        authorUsername: discussion.author.profile?.username ?? null,
+        authorHeadline: discussion.author.profile?.headline ?? null,
+        authorIsLawyer: discussion.author.profile?.isLawyer ?? false,
+        authorRegionName: discussion.author.profile?.primaryRegion?.name ?? discussion.region?.name ?? null,
         isVerified: discussion.author.lawyerProfile?.verificationStatus === 'VERIFIED',
         regionName: discussion.region?.name ?? null,
       }));

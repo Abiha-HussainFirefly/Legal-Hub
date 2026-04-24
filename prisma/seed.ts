@@ -71,7 +71,91 @@ async function seedLawyers() {
     const email = l.email.toLowerCase();
     const existing = await prisma.userIdentifier.findUnique({ where: { type_normalizedValue: { type: 'EMAIL', normalizedValue: email } } });
     if (existing) {
-      const u = await prisma.user.findUnique({ where: { id: existing.userId } });
+      const u = await prisma.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { id: existing.userId },
+          data: {
+            status: 'ACTIVE',
+            displayName: l.name,
+          },
+        });
+
+        await tx.userIdentifier.update({
+          where: { id: existing.id },
+          data: {
+            value: email,
+            normalizedValue: email,
+            isPrimary: true,
+            verifiedAt: new Date(),
+          },
+        });
+
+        await tx.credential.upsert({
+          where: { userId: existing.userId },
+          update: {
+            passwordHash: hash,
+            passwordAlgo: 'bcrypt',
+            passwordSetAt: new Date(),
+            mustRotate: false,
+          },
+          create: {
+            userId: existing.userId,
+            passwordHash: hash,
+            passwordAlgo: 'bcrypt',
+            passwordSetAt: new Date(),
+            mustRotate: false,
+          },
+        });
+
+        await tx.userRole.upsert({
+          where: { userId_roleId: { userId: existing.userId, roleId: lawyerRole.id } },
+          update: {},
+          create: { userId: existing.userId, roleId: lawyerRole.id },
+        });
+
+        await tx.userProfile.upsert({
+          where: { userId: existing.userId },
+          update: {
+            isLawyer: true,
+            headline: `Specialist in ${l.specialty}`,
+          },
+          create: {
+            userId: existing.userId,
+            username: l.name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20) + Math.floor(Math.random() * 99),
+            isLawyer: true,
+            headline: `Specialist in ${l.specialty}`,
+          },
+        });
+
+        await tx.userStats.upsert({
+          where: { userId: existing.userId },
+          update: {},
+          create: { userId: existing.userId },
+        });
+
+        await tx.userGamification.upsert({
+          where: { userId: existing.userId },
+          update: {},
+          create: { userId: existing.userId, totalPoints: Math.floor(Math.random() * 2000) + 500 },
+        });
+
+        await tx.lawyerProfile.upsert({
+          where: { userId: existing.userId },
+          update: {
+            barCouncil: l.barCouncil,
+            verificationStatus: 'VERIFIED',
+            verifiedAt: new Date(),
+          },
+          create: {
+            userId: existing.userId,
+            barCouncil: l.barCouncil,
+            verificationStatus: 'VERIFIED',
+            verifiedAt: new Date(),
+          },
+        });
+
+        return tx.user.findUnique({ where: { id: existing.userId } });
+      });
       users.push(u);
       continue;
     }

@@ -97,9 +97,9 @@ export default function LoginForm({
     }));
   };
 
-  const runLoginPipeline = async () => {
+  const runLoginPipeline = async (values: LoginFormData) => {
     setTouched({ email: true, password: true });
-    const result = loginSchema.safeParse(formData);
+    const result = loginSchema.safeParse(values);
 
     if (!result.success) {
       const errors: FieldErrors = {};
@@ -118,7 +118,7 @@ export default function LoginForm({
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, loginType }),
+        body: JSON.stringify({ ...values, loginType }),
       });
       const data = await res.json();
 
@@ -133,9 +133,11 @@ export default function LoginForm({
       }
 
       localStorage.setItem("user", JSON.stringify(data.user));
-      rememberMe
-        ? localStorage.setItem(rememberMeKey, formData.email)
-        : localStorage.removeItem(rememberMeKey);
+      if (rememberMe) {
+        localStorage.setItem(rememberMeKey, values.email);
+      } else {
+        localStorage.removeItem(rememberMeKey);
+      }
 
       setStep("success");
       addToast("success", "Access Granted", "Welcome back! Redirecting...");
@@ -232,14 +234,22 @@ export default function LoginForm({
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  runLoginPipeline();
+                  const form = new FormData(e.currentTarget);
+                  const values = {
+                    email: String(form.get("email") ?? ""),
+                    password: String(form.get("password") ?? ""),
+                  };
+                  setFormData(values);
+                  runLoginPipeline(values);
                 }}
                 noValidate
               >
                 <div className="mb-3.5 mt-4">
                   <label className={commonLabelClass}>Email</label>
                   <input
+                    name="email"
                     type="email"
+                    autoComplete="email"
                     placeholder="Email address"
                     className={commonInputClass(!!fieldErrors.email)}
                     value={formData.email}
@@ -257,7 +267,9 @@ export default function LoginForm({
                   <label className={commonLabelClass}>Password</label>
                   <div className="relative">
                     <input
+                      name="password"
                       type={showPassword ? "text" : "password"}
+                      autoComplete="current-password"
                       placeholder="Password"
                       className={`${commonInputClass(!!fieldErrors.password)} pr-11`}
                       value={formData.password}

@@ -74,6 +74,7 @@ export async function manualRegister(
         userId: user.id,
         type: "EMAIL",
         value: normalizedEmail,
+        normalizedValue: normalizedEmail,
         isPrimary: true,
         verifiedAt: null,
       },
@@ -103,7 +104,7 @@ export async function manualRegister(
       data: {
         userId: user.id,
         roleId: memberRole.id,
-        assignedBy: null, 
+        assignedById: null,
       },
     });
 
@@ -112,7 +113,7 @@ export async function manualRegister(
       data: {
         userId: user.id,
         purpose: "email_verify",
-        token: rawToken,
+        tokenHash: rawToken,
         expiresAt: tokenExpiresAt,
         consumedAt: null,
         identifierType: "EMAIL",
@@ -123,9 +124,12 @@ export async function manualRegister(
     // INSERT AuditLog USER_CREATED
     await tx.auditLog.create({
       data: {
+        category: "USER",
         action: "USER_CREATED",
         actorId: null,
         targetUserId: user.id,
+        ipHash: null,
+        userAgent: null,
         meta: {
           registrationMethod: "manual",
           email: normalizedEmail,

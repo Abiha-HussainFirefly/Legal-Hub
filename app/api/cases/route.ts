@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/services/api-auth';
 import { createCaseDraft, listCaseRecords } from '@/lib/services/case-repository.server';
+import type { CaseSourceType, CaseVisibility } from '@/types/case';
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,6 +16,17 @@ export async function GET(req: NextRequest) {
       authorId: authorId === 'me' ? user?.id ?? null : authorId,
       includeViewerDrafts: !authorId,
       statuses: reviewQueue && isAdmin ? ['DRAFT', 'PENDING_REVIEW', 'REJECTED'] : undefined,
+      search: params.get('search'),
+      category: params.get('category'),
+      tag: params.get('tag'),
+      region: params.get('region'),
+      court: params.get('court'),
+      sourceType: params.get('sourceType') as CaseSourceType | null,
+      visibility: params.get('visibility') as CaseVisibility | null,
+      organizationId: params.get('organization'),
+      savedByUserId: params.get('savedBy') === 'me' ? user?.id ?? null : params.get('savedBy'),
+      dateRange: params.get('dateRange') as '30d' | '90d' | '1y' | null,
+      sort: params.get('sort') as 'relevant' | 'recent' | 'decision_date' | 'views' | 'follows' | 'helpful' | 'cited' | null,
     });
 
     return NextResponse.json({ data });

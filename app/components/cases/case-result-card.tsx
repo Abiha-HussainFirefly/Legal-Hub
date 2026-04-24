@@ -1,6 +1,8 @@
 'use client';
 
 import { CaseSourceBadge, CaseStatusBadge, CaseVisibilityBadge } from '@/app/components/cases/case-badges';
+import CaseUserLink from '@/app/components/cases/case-user-link';
+import { useToast } from '@/app/components/ui/toast/toast-context';
 import type { CaseRepositoryRecord } from '@/types/case';
 import { ArrowUpRight, Bookmark, CalendarDays, Eye, MessageSquareText, Scale, Share2, Sparkles, Star, Users } from 'lucide-react';
 import Link from 'next/link';
@@ -11,6 +13,15 @@ function formatDate(value?: string | null) {
   return new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value));
 }
 
+function initials(name: string) {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('') || 'LH';
+}
+
 export default function CaseResultCard({
   item,
   compact = false,
@@ -18,9 +29,11 @@ export default function CaseResultCard({
   item: CaseRepositoryRecord;
   compact?: boolean;
 }) {
+  const { addToast } = useToast();
   const [saved, setSaved] = useState(item.viewerState.saved);
   const [followed, setFollowed] = useState(item.viewerState.followed);
   const [reaction, setReaction] = useState(item.viewerState.reaction);
+  const [saving, setSaving] = useState(false);
 
   const quickStats = useMemo(
     () => [
@@ -30,6 +43,49 @@ export default function CaseResultCard({
     ],
     [item.counts.comments, item.counts.follows, item.counts.views],
   );
+
+  async function handleToggleSave() {
+    if (saving) return;
+
+    try {
+      setSaving(true);
+
+      const response = await fetch(`/api/cases/${item.slug}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'toggle-save' }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error || 'Unable to update saved state.');
+      }
+
+      const nextSaved = Boolean(payload.data?.viewerState?.saved);
+      setSaved(nextSaved);
+      addToast('success', nextSaved ? 'Case saved' : 'Case removed', nextSaved ? 'The case was added to your saved collection.' : 'The case was removed from your saved collection.');
+    } catch (error) {
+      addToast('error', 'Save failed', error instanceof Error ? error.message : 'Unable to update the saved state.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleShare() {
+    const url = typeof window === 'undefined' ? '' : `${window.location.origin}/cases/${item.slug}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: item.title, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+      }
+
+      addToast('success', 'Link ready', 'The case link is ready to share.');
+    } catch (error) {
+      addToast('error', 'Share failed', error instanceof Error ? error.message : 'Unable to share this case right now.');
+    }
+  }
 
   return (
     <article className="overflow-hidden rounded-[26px] border border-[#4C2F5E]/10 bg-[linear-gradient(180deg,#ffffff_0%,#fdfbfe_100%)] shadow-[0_10px_26px_rgba(76,47,94,0.05)] transition hover:-translate-y-0.5 hover:border-[#4C2F5E]/18 hover:shadow-[0_18px_36px_rgba(76,47,94,0.08)]">
@@ -103,7 +159,9 @@ export default function CaseResultCard({
 
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <button
-              onClick={() => setSaved((value) => !value)}
+              type="button"
+              onClick={handleToggleSave}
+              disabled={saving}
               className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
                 saved
                   ? 'border-[#4C2F5E] bg-[#4C2F5E] text-white'
@@ -111,9 +169,10 @@ export default function CaseResultCard({
               }`}
             >
               <Bookmark className="h-4 w-4" />
-              {saved ? 'Saved' : 'Save'}
+              {saving ? 'Saving...' : saved ? 'Saved' : 'Save'}
             </button>
             <button
+              type="button"
               onClick={() => setFollowed((value) => !value)}
               className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
                 followed
@@ -125,6 +184,7 @@ export default function CaseResultCard({
               {followed ? 'Following' : 'Follow'}
             </button>
             <button
+              type="button"
               onClick={() => setReaction((value) => (value === 'HELPFUL' ? null : 'HELPFUL'))}
               className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
                 reaction === 'HELPFUL'
@@ -135,7 +195,7 @@ export default function CaseResultCard({
               <Star className="h-4 w-4" />
               Helpful
             </button>
-            <button className="inline-flex items-center gap-2 rounded-full border border-[#4C2F5E]/12 bg-white px-4 py-2 text-sm font-semibold text-[#4C2F5E] transition hover:bg-[#F7F3FA]">
+            <button type="button" onClick={handleShare} className="inline-flex items-center gap-2 rounded-full border border-[#4C2F5E]/12 bg-white px-4 py-2 text-sm font-semibold text-[#4C2F5E] transition hover:bg-[#F7F3FA]">
               <Share2 className="h-4 w-4" />
               Share
             </button>
@@ -146,10 +206,25 @@ export default function CaseResultCard({
           <div className="rounded-[22px] border border-[#4C2F5E]/10 bg-[linear-gradient(135deg,#4C2F5E_0%,#72538f_100%)] p-4 text-white shadow-[0_14px_28px_rgba(76,47,94,0.16)]">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">Provenance</p>
             <p className="mt-2 text-base font-semibold text-white">{item.provenanceLabel}</p>
-            <p className="mt-2 text-sm leading-6 text-white/80">
-              Authored by {item.author.displayName}
-              {item.organization?.name ? ` for ${item.organization.name}` : ''}.
-            </p>
+            <CaseUserLink user={item.author} className="mt-3 flex items-center gap-3 rounded-[18px] border border-white/12 bg-white/10 p-3 transition hover:bg-white/14">
+              {item.author.avatarUrl ? (
+                <img
+                  src={item.author.avatarUrl}
+                  alt={item.author.displayName}
+                  className="h-11 w-11 rounded-full border border-white/15 object-cover"
+                />
+              ) : (
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/12 text-xs font-semibold text-white">
+                  {initials(item.author.displayName)}
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-white">{item.author.displayName}</p>
+                <p className="mt-1 text-xs text-white/75">
+                  {item.organization?.name ?? item.author.organizationName ?? 'Legal Hub contributor'}
+                </p>
+              </div>
+            </CaseUserLink>
           </div>
 
           <div className="mt-4 rounded-[22px] border border-[#4C2F5E]/10 bg-white p-4">

@@ -1,5 +1,6 @@
 'use client';
 
+import ProfileHoverLink from '@/app/components/lawyer/discussions/profile-hover-link';
 import { ArrowUp, Bookmark, BookmarkCheck, Eye, MapPin, MessageSquare, Smile, Share2, Check } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -8,8 +9,17 @@ interface Author {
   id: string;
   displayName: string | null;
   avatarUrl: string | null;
-  profile: { isLawyer: boolean } | null;
-  lawyerProfile: { verificationStatus: string } | null;
+  profile: {
+    username: string | null;
+    isLawyer: boolean;
+    headline?: string | null;
+    primaryRegion?: { name: string } | null;
+  } | null;
+  lawyerProfile: {
+    verificationStatus: string;
+    barCouncil?: string | null;
+    firmName?: string | null;
+  } | null;
 }
 
 interface Props {
@@ -199,6 +209,7 @@ export default function DiscussionCard({
   const isResolved = status === 'RESOLVED';
   const isVerified = author.lawyerProfile?.verificationStatus === 'VERIFIED';
   const activeEmojis = Object.entries(emojiStats);
+  const authorProfileHref = `/profile/user/${author.id}`;
 
   return (
     <article className="discussion-card">
@@ -264,12 +275,25 @@ export default function DiscussionCard({
         ) : null}
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#4C2F5E]/8 pt-4">
-          <div className="flex min-w-0 items-center gap-3">
+          <ProfileHoverLink
+            href={authorProfileHref}
+            displayName={author.displayName}
+            username={author.profile?.username}
+            avatarUrl={author.avatarUrl}
+            isVerified={isVerified}
+            isLawyer={author.profile?.isLawyer ?? false}
+            headline={author.profile?.headline}
+            firmName={author.lawyerProfile?.firmName}
+            barCouncil={author.lawyerProfile?.barCouncil}
+            region={author.profile?.primaryRegion?.name ?? region?.name ?? null}
+            className="flex min-w-0 items-center gap-3"
+            panelPosition="top"
+          >
             {author.avatarUrl ? (
               <img
                 src={author.avatarUrl}
-                alt=""
-                className="h-8 w-8 rounded-full object-cover border border-[#4C2F5E]/10"
+                alt={author.displayName ?? 'Discussion author'}
+                className="h-8 w-8 rounded-full border border-[#4C2F5E]/10 object-cover"
               />
             ) : (
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#4C2F5E] text-[11px] font-semibold text-white">
@@ -289,7 +313,7 @@ export default function DiscussionCard({
               </div>
               <p className="text-[12px] text-[#8B7D99]">{timeAgo(createdAt)}</p>
             </div>
-          </div>
+          </ProfileHoverLink>
 
           <div className="flex flex-wrap items-center gap-2">
             <button

@@ -58,10 +58,11 @@ export async function requestPasswordResetCommand(
       console.log(`[ForgotPassword] FAIL: Email not found in database.`);
       await prisma.auditLog.create({
         data: {
+          category: "AUTH",
           action: AuditAction.PASSWORD_RESET_REQUESTED,
           actorId: null,
           targetUserId: null,
-          ip,
+          ipHash: ip,
           userAgent,
           meta: { status: "FAILED", reason: "IDENTIFIER_NOT_FOUND", email: normalizedEmail },
         },
@@ -83,10 +84,11 @@ export async function requestPasswordResetCommand(
       console.log(`[ForgotPassword] FAIL: User account is ${user.status}`);
       await prisma.auditLog.create({
         data: {
+          category: "AUTH",
           action: AuditAction.PASSWORD_RESET_REQUESTED,
           actorId: user.id,
           targetUserId: user.id,
-          ip,
+          ipHash: ip,
           userAgent,
           meta: { status: "FAILED", reason: `USER_STATUS_${user.status}`, email: normalizedEmail },
         },
@@ -104,10 +106,11 @@ export async function requestPasswordResetCommand(
       console.log(`[ForgotPassword] FAIL: Email is not verified.`);
       await prisma.auditLog.create({
         data: {
+          category: "AUTH",
           action: AuditAction.PASSWORD_RESET_REQUESTED,
           actorId: user.id,
           targetUserId: user.id,
-          ip,
+          ipHash: ip,
           userAgent,
           meta: { status: "FAILED", reason: "EMAIL_NOT_VERIFIED", email: normalizedEmail },
         },
@@ -140,7 +143,7 @@ export async function requestPasswordResetCommand(
       data: {
         userId: user.id,
         purpose: "password_reset",
-        token: rawToken,
+        tokenHash: rawToken,
         expiresAt,
         identifierType: "EMAIL",
         identifierValue: normalizedEmail,
@@ -168,10 +171,11 @@ export async function requestPasswordResetCommand(
     // 9. Log Success Audit //
     await prisma.auditLog.create({
       data: {
+        category: "AUTH",
         action: AuditAction.PASSWORD_RESET_REQUESTED,
         actorId: user.id,
         targetUserId: user.id,
-        ip,
+        ipHash: ip,
         userAgent,
         meta: {
           status: "SUCCESS",

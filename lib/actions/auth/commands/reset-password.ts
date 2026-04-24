@@ -14,7 +14,7 @@ export async function resetPasswordCommand(input: ResetPasswordInput): Promise<A
 
   try {
     const verificationToken = await prisma.verificationToken.findUnique({
-      where: { token },
+      where: { tokenHash: token },
       include: { user: true },
     });
 
@@ -51,7 +51,7 @@ export async function resetPasswordCommand(input: ResetPasswordInput): Promise<A
       });
 
       await tx.verificationToken.update({
-        where: { token },
+        where: { id: verificationToken.id },
         data: { consumedAt: new Date() },
       });
 
@@ -68,10 +68,11 @@ export async function resetPasswordCommand(input: ResetPasswordInput): Promise<A
 
       await tx.auditLog.create({
         data: {
+          category: "AUTH",
           action: "PASSWORD_RESET_COMPLETED",
           actorId: user.id,
           targetUserId: user.id,
-          ip,
+          ipHash: ip,
           userAgent,
           meta: { status: "SUCCESS", email: verificationToken.identifierValue },
         },

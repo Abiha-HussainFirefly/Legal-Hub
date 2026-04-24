@@ -3,10 +3,11 @@
 import AISummaryModal from '@/app/components/lawyer/discussions/ai-summary-modal';
 import AnswerCard from '@/app/components/lawyer/discussions/answercard';
 import CommentThread from '@/app/components/lawyer/discussions/commentthread';
+import ProfileHoverLink from '@/app/components/lawyer/discussions/profile-hover-link';
 import LawyerTopbar from '@/app/components/lawyer/lawyer-topbar';
 import {
-  ArrowLeft,
   ArrowUp,
+  ChevronRight,
   Eye,
   Loader2,
   MapPin,
@@ -18,14 +19,23 @@ import { useRouter } from 'next/navigation';
 import { use, useEffect, useRef, useState } from 'react';
 
 function ago(d: string) {
-  const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
+  const date = new Date(d);
+  const m = Math.floor((Date.now() - date.getTime()) / 60000);
   if (m < 1) return 'just now';
   if (m < 60) return `${m}m ago`;
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}h ago`;
   const days = Math.floor(h / 24);
   if (days < 30) return `${days}d ago`;
-  return new Date(d).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' });
+  return date.toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function discussionTimestampLabel(d: string) {
+  const date = new Date(d);
+  const diff = Date.now() - date.getTime();
+  const week = 7 * 24 * 60 * 60 * 1000;
+  if (diff < week) return ago(d);
+  return `on ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
 }
 
 function ini(n: string | null) {
@@ -51,7 +61,12 @@ interface Author {
   id: string;
   displayName: string | null;
   avatarUrl: string | null;
-  profile: { username: string | null; isLawyer: boolean } | null;
+  profile: {
+    username: string | null;
+    isLawyer: boolean;
+    headline?: string | null;
+    primaryRegion?: { name: string } | null;
+  } | null;
   lawyerProfile: { verificationStatus: string; barCouncil: string | null; firmName: string | null } | null;
 }
 
@@ -120,6 +135,21 @@ interface EmojiStat {
   isMyReaction: boolean;
 }
 
+interface CurrentUser {
+  id?: string;
+  name?: string | null;
+  displayName?: string | null;
+  email?: string | null;
+  avatarUrl?: string | null;
+  username?: string | null;
+  headline?: string | null;
+  isLawyer?: boolean;
+  regionName?: string | null;
+  firmName?: string | null;
+  barCouncil?: string | null;
+  verificationStatus?: string | null;
+}
+
 export default function DiscussionDetailPage({
   params,
 }: {
@@ -128,7 +158,7 @@ export default function DiscussionDetailPage({
   const router = useRouter();
   const { slug } = use(params);
 
-  const [user, setUser] = useState<{ id?: string; name?: string; displayName?: string; email?: string } | null>(null);
+  const [user, setUser] = useState<CurrentUser | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [disc, setDisc] = useState<Discussion | null>(null);
   const [loading, setLoading] = useState(true);
@@ -330,6 +360,27 @@ export default function DiscussionDetailPage({
   const isVerified = disc.author.lawyerProfile?.verificationStatus === 'VERIFIED';
   const isResolved = disc.status === 'RESOLVED';
   const activeEmojis = Object.entries(emojiStats);
+  const authorProfileHref = `/profile/user/${disc.author.id}`;
+  const currentUserAuthor = user?.id
+    ? {
+        id: user.id,
+        displayName: user.displayName ?? user.name ?? 'You',
+        avatarUrl: user.avatarUrl ?? null,
+        profile: {
+          username: user.username ?? null,
+          isLawyer: user.isLawyer ?? false,
+          headline: user.headline ?? null,
+          primaryRegion: user.regionName ? { name: user.regionName } : null,
+        },
+        lawyerProfile: user.isLawyer
+          ? {
+              verificationStatus: user.verificationStatus ?? 'PENDING',
+              barCouncil: user.barCouncil ?? null,
+              firmName: user.firmName ?? null,
+            }
+          : null,
+      }
+    : null;
 
   const allParticipants = Array.from(
     new Map([
@@ -337,6 +388,12 @@ export default function DiscussionDetailPage({
       ...localAnswers.map((a) => [a.author.id, a.author] as [string, Author]),
     ]).values(),
   );
+
+  const breadcrumbItems = [
+    { label: 'Discussions', href: '/discussions' },
+    ...(disc.category?.name ? [{ label: disc.category.name, href: `/discussions?category=${encodeURIComponent(disc.category.name)}` }] : []),
+    { label: disc.title, href: null as string | null },
+  ];
 
   return (
     <div className="min-h-screen bg-[#F8F6FB]">
@@ -347,10 +404,34 @@ export default function DiscussionDetailPage({
       />
 
       <div className="mx-auto max-w-[1280px] px-4 py-8 md:px-6 lg:px-8">
-        <Link href="/discussions" className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-[#4C2F5E]">
-          <ArrowLeft className="h-4 w-4" />
-          Back to discussions
-        </Link>
+        <nav aria-label="Breadcrumb" className="mb-6 overflow-x-auto">
+          <ol className="flex min-w-max items-center gap-2 text-sm">
+            {breadcrumbItems.map((item, index) => {
+              const isCurrent = index === breadcrumbItems.length - 1;
+
+              return (
+                <li key={`${item.label}-${index}`} className="flex items-center gap-2">
+                  {index > 0 ? <ChevronRight className="h-4 w-4 text-[#A294B1]" /> : null}
+                  {item.href && !isCurrent ? (
+                    <Link
+                      href={item.href}
+                      className="font-medium text-[#7C6B8E] transition hover:text-[#4C2F5E]"
+                    >
+                      {item.label}
+                    </Link>
+                  ) : (
+                    <span
+                      className={isCurrent ? 'font-semibold text-[#2F1D3B]' : 'font-medium text-[#7C6B8E]'}
+                      aria-current={isCurrent ? 'page' : undefined}
+                    >
+                      {item.label}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </nav>
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
           <div className="min-w-0">
@@ -395,26 +476,54 @@ export default function DiscussionDetailPage({
                     {disc.title}
                   </h1>
                   <div className="mt-4 flex flex-wrap items-center gap-3">
-                    {disc.author.avatarUrl ? (
-                      <img src={disc.author.avatarUrl} alt="" className="h-10 w-10 rounded-full border border-[#4C2F5E]/10 object-cover" />
-                    ) : (
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#4C2F5E] text-sm font-semibold text-white">
-                        {ini(disc.author.displayName)}
-                      </div>
-                    )}
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-[#4C2F5E]">
-                          {disc.author.displayName ?? 'Anonymous'}
-                        </span>
-                        {isVerified ? (
-                          <span className="rounded-full bg-[#F1EAF6] px-2 py-0.5 text-[10px] font-semibold text-[#4C2F5E]">
-                            Verified
+                    <ProfileHoverLink
+                      href={authorProfileHref}
+                      displayName={disc.author.displayName}
+                      username={disc.author.profile?.username}
+                      avatarUrl={disc.author.avatarUrl}
+                      isVerified={isVerified}
+                      isLawyer={disc.author.profile?.isLawyer ?? false}
+                      headline={disc.author.profile?.headline}
+                      firmName={disc.author.lawyerProfile?.firmName}
+                      barCouncil={disc.author.lawyerProfile?.barCouncil}
+                      region={disc.author.profile?.primaryRegion?.name ?? disc.region?.name ?? null}
+                      className="flex items-center gap-3"
+                    >
+                      {disc.author.avatarUrl ? (
+                        <img
+                          src={disc.author.avatarUrl}
+                          alt={disc.author.displayName ?? 'Discussion author'}
+                          className="h-10 w-10 rounded-full border border-[#4C2F5E]/10 object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#4C2F5E] text-sm font-semibold text-white">
+                          {ini(disc.author.displayName)}
+                        </div>
+                      )}
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2 text-sm">
+                          <span className="font-semibold text-[#4C2F5E]">
+                            {disc.author.displayName ?? 'Anonymous'}
                           </span>
-                        ) : null}
+                          <span className="text-[#8B7D99]">•</span>
+                          <span className="font-medium text-[#6B5C79] underline underline-offset-2">
+                            {discussionTimestampLabel(disc.createdAt)}
+                          </span>
+                        </div>
+                        <div className="mt-1 flex items-center gap-2">
+                          {isVerified ? (
+                            <span className="rounded-full bg-[#F1EAF6] px-2 py-0.5 text-[10px] font-semibold text-[#4C2F5E]">
+                              Verified
+                            </span>
+                          ) : null}
+                          {disc.author.lawyerProfile?.barCouncil ? (
+                            <span className="rounded-full border border-[#4C2F5E]/10 bg-white px-2 py-0.5 text-[10px] font-semibold text-[#7B6D8A]">
+                              {disc.author.lawyerProfile.barCouncil}
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
-                      <p className="text-[12px] text-[#8B7D99]">Posted {ago(disc.createdAt)}</p>
-                    </div>
+                    </ProfileHoverLink>
                   </div>
                 </div>
 
@@ -506,7 +615,7 @@ export default function DiscussionDetailPage({
 
               {disc.commentCount > 0 || user ? (
                 <div className="mt-6 border-t border-[#4C2F5E]/8 pt-5">
-                  <CommentThread comments={discussionComments} discussionId={disc.slug} currentUserId={user?.id} />
+                  <CommentThread comments={discussionComments} discussionId={disc.slug} currentUser={currentUserAuthor} />
                 </div>
               ) : null}
             </section>
@@ -543,6 +652,7 @@ export default function DiscussionDetailPage({
                   userReaction={ans.viewerReaction ?? null}
                   discussionAuthorId={disc.author.id}
                   currentUserId={user?.id}
+                  currentUser={currentUserAuthor}
                   discussionId={disc.id}
                   isDiscussionResolved={disc.status === 'RESOLVED'}
                 />
@@ -664,15 +774,32 @@ export default function DiscussionDetailPage({
                 <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-[#8B7D99]">Participants</h3>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {allParticipants.slice(0, 20).map((author) => (
-                    <div key={author.id} title={author.displayName ?? 'Participant'}>
+                    <ProfileHoverLink
+                      key={author.id}
+                      href={`/profile/user/${author.id}`}
+                      displayName={author.displayName}
+                      username={author.profile?.username}
+                      avatarUrl={author.avatarUrl}
+                      isVerified={author.lawyerProfile?.verificationStatus === 'VERIFIED'}
+                      isLawyer={author.profile?.isLawyer ?? false}
+                      headline={author.profile?.headline}
+                      firmName={author.lawyerProfile?.firmName}
+                      barCouncil={author.lawyerProfile?.barCouncil}
+                      region={author.profile?.primaryRegion?.name ?? null}
+                      panelPosition="top"
+                    >
                       {author.avatarUrl ? (
-                        <img src={author.avatarUrl} alt="" className="h-9 w-9 rounded-full border border-[#4C2F5E]/10 object-cover" />
+                        <img
+                          src={author.avatarUrl}
+                          alt={author.displayName ?? 'Participant'}
+                          className="h-9 w-9 rounded-full border border-[#4C2F5E]/10 object-cover"
+                        />
                       ) : (
                         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#4C2F5E] text-[10px] font-semibold text-white">
                           {ini(author.displayName)}
                         </div>
                       )}
-                    </div>
+                    </ProfileHoverLink>
                   ))}
                 </div>
                 {allParticipants.length > 20 ? (

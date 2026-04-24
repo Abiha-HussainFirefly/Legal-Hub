@@ -1,12 +1,25 @@
 'use client';
 
+import ProfileHoverLink from '@/app/components/lawyer/discussions/profile-hover-link';
 import { ChevronDown, ChevronUp, CornerDownRight, Loader2, Send } from 'lucide-react';
 import Image from 'next/image';
 import { useState } from 'react';
 
 interface Author {
-  id: string; displayName: string | null; avatarUrl: string | null;
-  lawyerProfile: { verificationStatus: string } | null;
+  id: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  profile?: {
+    username?: string | null;
+    isLawyer?: boolean;
+    headline?: string | null;
+    primaryRegion?: { name: string } | null;
+  } | null;
+  lawyerProfile: {
+    verificationStatus: string;
+    barCouncil?: string | null;
+    firmName?: string | null;
+  } | null;
 }
 interface Comment {
   id: string; body: string; createdAt: string;
@@ -16,7 +29,7 @@ interface Props {
   comments:      Comment[];
   discussionId?: string;
   answerId?:     string;
-  currentUserId?: string;
+  currentUser?: Author | null;
 }
 
 function ago(d: string) {
@@ -32,9 +45,20 @@ function ini(n: string | null) {
   return n ? n.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : '?';
 }
 
-function CommentItem({ comment, discussionId, answerId, currentUserId, depth = 0 }: {
+function normalizeCurrentUser(currentUser?: Author | null): Author | null {
+  if (!currentUser) return null;
+  return {
+    id: currentUser.id,
+    displayName: currentUser.displayName,
+    avatarUrl: currentUser.avatarUrl,
+    profile: currentUser.profile ?? null,
+    lawyerProfile: currentUser.lawyerProfile ?? null,
+  };
+}
+
+function CommentItem({ comment, discussionId, answerId, currentUser, depth = 0 }: {
   comment: Comment; discussionId?: string; answerId?: string;
-  currentUserId?: string; depth?: number;
+  currentUser?: Author | null; depth?: number;
 }) {
   const [showReply,    setShowReply]    = useState(false);
   const [showReplies,  setShowReplies]  = useState(true);
@@ -42,9 +66,11 @@ function CommentItem({ comment, discussionId, answerId, currentUserId, depth = 0
   const [posting,      setPosting]      = useState(false);
   const [localReplies, setLocalReplies] = useState<Comment[]>(comment.replies ?? []);
   const isVerified = comment.author.lawyerProfile?.verificationStatus === 'VERIFIED';
+  const currentViewer = normalizeCurrentUser(currentUser);
+  const authorProfileHref = `/profile/user/${comment.author.id}`;
 
   async function submitReply() {
-    if (!replyText.trim() || posting || !currentUserId) return;
+    if (!replyText.trim() || posting || !currentViewer?.id) return;
     setPosting(true);
     try {
       const endpoint = discussionId
@@ -58,7 +84,7 @@ function CommentItem({ comment, discussionId, answerId, currentUserId, depth = 0
         const c = await res.json();
         setLocalReplies(p => [...p, {
           ...c,
-          author: { id: currentUserId, displayName: 'You', avatarUrl: null, lawyerProfile: null },
+          author: (c.author ?? currentViewer),
           replies: [],
         }]);
         setReplyText(''); setShowReply(false); setShowReplies(true);
@@ -69,21 +95,38 @@ function CommentItem({ comment, discussionId, answerId, currentUserId, depth = 0
   return (
     <div className={depth > 0 ? 'ml-5 pl-4 border-l-2 border-gray-100' : ''}>
       <div className="flex items-start gap-2.5 py-2">
-        {comment.author.avatarUrl
-          ? <img src={comment.author.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover border border-gray-100 shrink-0 mt-0.5" />
-          : <div className="w-6 h-6 bg-[#9F63C4]/80 rounded-full flex items-center justify-center text-white text-[8px] font-bold shrink-0 mt-0.5">{ini(comment.author.displayName)}</div>
-        }
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-            <span className="text-xs font-semibold text-gray-800">{comment.author.displayName ?? 'Anonymous'}</span>
-            {isVerified && (
-              <Image src="/icons/circletick.png" alt="v" width={11} height={11}
-                style={{ filter: 'invert(52%) sepia(35%) saturate(836%) hue-rotate(235deg) brightness(85%) contrast(89%)' }} unoptimized />
-            )}
-            <span className="text-[10px] text-gray-400">{ago(comment.createdAt)}</span>
-          </div>
+          <ProfileHoverLink
+            href={authorProfileHref}
+            displayName={comment.author.displayName}
+            username={comment.author.profile?.username}
+            avatarUrl={comment.author.avatarUrl}
+            isVerified={isVerified}
+            isLawyer={comment.author.profile?.isLawyer ?? false}
+            headline={comment.author.profile?.headline}
+            firmName={comment.author.lawyerProfile?.firmName}
+            barCouncil={comment.author.lawyerProfile?.barCouncil}
+            region={comment.author.profile?.primaryRegion?.name ?? null}
+            className="inline-flex min-w-0 items-start gap-2.5"
+            panelPosition="top"
+          >
+            {comment.author.avatarUrl
+              ? <img src={comment.author.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover border border-gray-100 shrink-0 mt-0.5" />
+              : <div className="w-6 h-6 bg-[#9F63C4]/80 rounded-full flex items-center justify-center text-white text-[8px] font-bold shrink-0 mt-0.5">{ini(comment.author.displayName)}</div>
+            }
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                <span className="truncate text-xs font-semibold text-gray-800">{comment.author.displayName ?? 'Anonymous'}</span>
+                {isVerified && (
+                  <Image src="/icons/circletick.png" alt="v" width={11} height={11}
+                    style={{ filter: 'invert(52%) sepia(35%) saturate(836%) hue-rotate(235deg) brightness(85%) contrast(89%)' }} unoptimized />
+                )}
+                <span className="text-[10px] text-gray-400">{ago(comment.createdAt)}</span>
+              </div>
+            </div>
+          </ProfileHoverLink>
           <p className="text-xs text-[#374151] leading-relaxed">{comment.body}</p>
-          {currentUserId && depth < 2 && (
+          {currentViewer?.id && depth < 2 && (
             <button onClick={() => setShowReply(!showReply)}
               className="mt-1 text-[11px] text-gray-400 hover:text-[#9F63C4] flex items-center gap-1 transition cursor-pointer">
               <CornerDownRight className="w-3 h-3" /> Reply
@@ -92,7 +135,7 @@ function CommentItem({ comment, discussionId, answerId, currentUserId, depth = 0
         </div>
       </div>
 
-      {showReply && currentUserId && (
+      {showReply && currentViewer?.id && (
         <div className="ml-8 mb-2 flex items-start gap-2">
           <textarea value={replyText} onChange={e => setReplyText(e.target.value)}
             placeholder="Write a reply..." rows={2}
@@ -113,7 +156,7 @@ function CommentItem({ comment, discussionId, answerId, currentUserId, depth = 0
           </button>
           {showReplies && localReplies.map(r => (
             <CommentItem key={r.id} comment={r} discussionId={discussionId} answerId={answerId}
-              currentUserId={currentUserId} depth={depth + 1} />
+              currentUser={currentViewer} depth={depth + 1} />
           ))}
         </div>
       )}
@@ -121,14 +164,15 @@ function CommentItem({ comment, discussionId, answerId, currentUserId, depth = 0
   );
 }
 
-export default function CommentThread({ comments, discussionId, answerId, currentUserId }: Props) {
+export default function CommentThread({ comments, discussionId, answerId, currentUser }: Props) {
   const [local,    setLocal]    = useState<Comment[]>(comments);
   const [newBody,  setNewBody]  = useState('');
   const [posting,  setPosting]  = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const currentViewer = normalizeCurrentUser(currentUser);
 
   async function submit() {
-    if (!newBody.trim() || posting || !currentUserId) return;
+    if (!newBody.trim() || posting || !currentViewer?.id) return;
     setPosting(true);
     try {
       const endpoint = discussionId
@@ -142,7 +186,7 @@ export default function CommentThread({ comments, discussionId, answerId, curren
         const c = await res.json();
         setLocal(p => [...p, {
           ...c,
-          author: { id: currentUserId, displayName: 'You', avatarUrl: null, lawyerProfile: null },
+          author: (c.author ?? currentViewer),
           replies: [],
         }]);
         setNewBody(''); setShowForm(false);
@@ -154,10 +198,10 @@ export default function CommentThread({ comments, discussionId, answerId, curren
     <div className="space-y-0.5">
       {local.map(c => (
         <CommentItem key={c.id} comment={c} discussionId={discussionId}
-          answerId={answerId} currentUserId={currentUserId} />
+          answerId={answerId} currentUser={currentViewer} />
       ))}
 
-      {currentUserId && (
+      {currentViewer?.id && (
         <div className="mt-3">
           {!showForm ? (
             <button onClick={() => setShowForm(true)}

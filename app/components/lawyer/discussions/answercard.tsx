@@ -1,5 +1,6 @@
 'use client';
 
+import ProfileHoverLink from '@/app/components/lawyer/discussions/profile-hover-link';
 import { ArrowDown, ArrowUp, CheckCircle2, ChevronDown, ChevronUp, Loader2, MessageSquare } from 'lucide-react';
 import { useState } from 'react';
 import CommentThread from './commentthread';
@@ -8,6 +9,12 @@ interface Author {
   id: string;
   displayName: string | null;
   avatarUrl: string | null;
+  profile: {
+    username: string | null;
+    isLawyer: boolean;
+    headline?: string | null;
+    primaryRegion?: { name: string } | null;
+  } | null;
   lawyerProfile: { verificationStatus: string; barCouncil: string | null; firmName: string | null } | null;
 }
 
@@ -35,6 +42,7 @@ interface Props {
   userReaction?: string | null;
   discussionAuthorId: string;
   currentUserId?: string;
+  currentUser?: Author | null;
   discussionId: string;
   isDiscussionResolved: boolean;
 }
@@ -65,6 +73,7 @@ export default function AnswerCard({
   userReaction,
   discussionAuthorId,
   currentUserId,
+  currentUser,
   isDiscussionResolved,
 }: Props) {
   const [curScore, setScore] = useState(score);
@@ -76,6 +85,7 @@ export default function AnswerCard({
 
   const isAuthor = currentUserId === discussionAuthorId;
   const isVerified = author.lawyerProfile?.verificationStatus === 'VERIFIED';
+  const authorProfileHref = `/profile/user/${author.id}`;
 
   async function react(type: string) {
     if (!currentUserId || reactPend) return;
@@ -164,36 +174,51 @@ export default function AnswerCard({
 
           <div className="min-w-0 flex-1">
             <div className="mb-4 flex flex-wrap items-start gap-3">
-              {author.avatarUrl ? (
-                <img
-                  src={author.avatarUrl}
-                  alt=""
-                  className="h-10 w-10 rounded-full border border-[#4C2F5E]/10 object-cover"
-                />
-              ) : (
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#4C2F5E] text-xs font-semibold text-white">
-                  {ini(author.displayName)}
-                </div>
-              )}
+              <ProfileHoverLink
+                href={authorProfileHref}
+                displayName={author.displayName}
+                username={author.profile?.username}
+                avatarUrl={author.avatarUrl}
+                isVerified={isVerified}
+                isLawyer={author.profile?.isLawyer ?? false}
+                headline={author.profile?.headline}
+                firmName={author.lawyerProfile?.firmName}
+                barCouncil={author.lawyerProfile?.barCouncil}
+                region={author.profile?.primaryRegion?.name ?? null}
+                className="flex min-w-0 flex-1 items-start gap-3"
+                panelPosition="top"
+              >
+                {author.avatarUrl ? (
+                  <img
+                    src={author.avatarUrl}
+                    alt={author.displayName ?? 'Answer author'}
+                    className="h-10 w-10 rounded-full border border-[#4C2F5E]/10 object-cover"
+                  />
+                ) : (
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#4C2F5E] text-xs font-semibold text-white">
+                    {ini(author.displayName)}
+                  </div>
+                )}
 
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-semibold text-[#2F1D3B]">
-                    {author.displayName ?? 'Anonymous'}
-                  </span>
-                  {isVerified ? (
-                    <span className="rounded-full bg-[#F1EAF6] px-2 py-0.5 text-[10px] font-semibold text-[#4C2F5E]">
-                      Verified Lawyer
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-semibold text-[#2F1D3B]">
+                      {author.displayName ?? 'Anonymous'}
                     </span>
-                  ) : null}
-                  {author.lawyerProfile?.barCouncil ? (
-                    <span className="rounded-full border border-[#4C2F5E]/10 bg-white px-2 py-0.5 text-[10px] font-semibold text-[#7B6D8A]">
-                      {author.lawyerProfile.barCouncil}
-                    </span>
-                  ) : null}
+                    {isVerified ? (
+                      <span className="rounded-full bg-[#F1EAF6] px-2 py-0.5 text-[10px] font-semibold text-[#4C2F5E]">
+                        Verified Lawyer
+                      </span>
+                    ) : null}
+                    {author.lawyerProfile?.barCouncil ? (
+                      <span className="rounded-full border border-[#4C2F5E]/10 bg-white px-2 py-0.5 text-[10px] font-semibold text-[#7B6D8A]">
+                        {author.lawyerProfile.barCouncil}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-1 text-[12px] text-[#8B7D99]">{ago(createdAt)}</p>
                 </div>
-                <p className="mt-1 text-[12px] text-[#8B7D99]">{ago(createdAt)}</p>
-              </div>
+              </ProfileHoverLink>
             </div>
 
             <div className="whitespace-pre-wrap text-sm leading-7 text-[#5F506D]">
@@ -224,7 +249,7 @@ export default function AnswerCard({
 
             {showComments ? (
               <div className="mt-4 border-t border-[#4C2F5E]/8 pt-4">
-                <CommentThread comments={comments} answerId={id} currentUserId={currentUserId} />
+                <CommentThread comments={comments} answerId={id} currentUser={currentUser} />
               </div>
             ) : null}
           </div>

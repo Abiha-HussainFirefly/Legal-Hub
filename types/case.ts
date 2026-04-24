@@ -210,7 +210,6 @@ export interface CaseDraftPayload {
   tagSlugs: string[];
   regionSlug?: string;
   courtSlug?: string;
-  organizationId?: string;
   visibility: CaseVisibility;
   sourceType: CaseSourceType;
   sourceLinks: Array<{ label?: string; sourceName?: string; url: string }>;

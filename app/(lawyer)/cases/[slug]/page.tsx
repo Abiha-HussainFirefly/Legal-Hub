@@ -5,17 +5,27 @@ import CaseCitationList from '@/app/components/cases/case-citation-list';
 import CaseCommentThread from '@/app/components/cases/case-comment-thread';
 import CaseEmptyState from '@/app/components/cases/case-empty-state';
 import CasePageHero from '@/app/components/cases/case-page-hero';
+import CaseUserLink from '@/app/components/cases/case-user-link';
 import { useCaseWorkspace } from '@/app/components/cases/case-workspace';
-import { getCaseBySlug } from '@/lib/services/case-repository.mock';
+import { useToast } from '@/app/components/ui/toast/toast-context';
 import type { CaseRepositoryRecord } from '@/types/case';
-import { BadgeCheck, Bookmark, Eye, FileSearch, Flag, GitBranch, Landmark, Link2, MessageSquareText, PencilLine, Send, Share2, ShieldCheck, Star, Users } from 'lucide-react';
+import { BadgeCheck, Bookmark, ChevronRight, Eye, FileSearch, GitBranch, Landmark, Link2, MessageSquareText, PencilLine, Send, Share2, ShieldCheck, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 function formatDate(value?: string | null) {
   if (!value) return 'Undated';
   return new Intl.DateTimeFormat('en', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(value));
+}
+
+function initials(name: string) {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('') || 'LH';
 }
 
 function DetailSection({
@@ -38,24 +48,177 @@ function DetailSection({
   );
 }
 
-function CaseDetailContent({
-  record,
-  viewer,
-}: {
-  record: CaseRepositoryRecord;
-  viewer: { id?: string; roles?: string[] } | null;
-}) {
-  const [saved, setSaved] = useState(record.viewerState.saved ?? false);
-  const [followed, setFollowed] = useState(record.viewerState.followed ?? false);
-  const [reaction, setReaction] = useState<CaseRepositoryRecord['viewerState']['reaction']>(record.viewerState.reaction ?? null);
-  const isAuthor = viewer?.id === record.author.id;
-  const isReviewer = viewer?.roles?.some((role) => ['ADMIN', 'REVIEWER'].includes(role)) ?? false;
+export default function CaseDetailPage() {
+  const { user } = useCaseWorkspace();
+  const { addToast } = useToast();
+  const params = useParams<{ slug: string }>();
+  const [record, setRecord] = useState<CaseRepositoryRecord | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [savePending, setSavePending] = useState(false);
+  const [submitPending, setSubmitPending] = useState(false);
+
+  const loadRecord = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/cases/${params.slug}`);
+      const payload = (await response.json()) as { data?: CaseRepositoryRecord; error?: string };
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          setRecord(null);
+          return;
+        }
+        throw new Error(payload.error || 'Failed to load case.');
+      }
+
+      setRecord(payload.data ?? null);
+    } catch (error) {
+      setRecord(null);
+      addToast('error', 'Case unavailable', error instanceof Error ? error.message : 'Unable to load this case.');
+    } finally {
+      setLoading(false);
+    }
+  }, [addToast, params.slug]);
+
+  useEffect(() => {
+    void loadRecord();
+  }, [loadRecord]);
+
+  async function handleToggleSave() {
+    if (!record || savePending) return;
+
+    try {
+      setSavePending(true);
+      const response = await fetch(`/api/cases/${record.slug}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'toggle-save' }),
+      });
+      const payload = (await response.json()) as { data?: CaseRepositoryRecord; error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error || 'Unable to update the saved state.');
+      }
+
+      setRecord(payload.data ?? record);
+      const nextSaved = Boolean(payload.data?.viewerState.saved);
+      addToast('success', nextSaved ? 'Case saved' : 'Case removed', nextSaved ? 'The case was added to your saved collection.' : 'The case was removed from your saved collection.');
+    } catch (error) {
+      addToast('error', 'Save failed', error instanceof Error ? error.message : 'Unable to update the saved state.');
+    } finally {
+      setSavePending(false);
+    }
+  }
+
+  async function handleSubmitForReview() {
+    if (!record || submitPending) return;
+
+    try {
+      setSubmitPending(true);
+      const response = await fetch(`/api/cases/${record.slug}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'submit-for-review' }),
+      });
+      const payload = (await response.json()) as { data?: CaseRepositoryRecord; error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error || 'Unable to submit the case for review.');
+      }
+
+      setRecord(payload.data ?? record);
+      addToast('success', 'Submitted for review', 'The case is now in the review queue.');
+    } catch (error) {
+      addToast('error', 'Submission failed', error instanceof Error ? error.message : 'Unable to submit the case for review.');
+    } finally {
+      setSubmitPending(false);
+    }
+  }
+
+  async function handleShare() {
+    if (!record) return;
+
+    const url = typeof window === 'undefined' ? '' : `${window.location.origin}/cases/${record.slug}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: record.title, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+      }
+
+      addToast('success', 'Link ready', 'The case link is ready to share.');
+    } catch (error) {
+      addToast('error', 'Share failed', error instanceof Error ? error.message : 'Unable to share this case right now.');
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-[980px] px-4 py-12 md:px-6 lg:px-8">
+        <CaseEmptyState
+          icon={FileSearch}
+          title="Loading case record..."
+          description="Repository metadata, provenance, and commentary are being prepared."
+        />
+      </div>
+    );
+  }
+
+  if (!record) {
+    return (
+      <div className="mx-auto max-w-[980px] px-4 py-12 md:px-6 lg:px-8">
+        <CaseEmptyState
+          icon={FileSearch}
+          title="Case record not found"
+          description="The repository entry may have been moved, archived, or is not available to the current viewer."
+          action={<Link href="/cases" className="legal-button-primary text-sm">Back to repository</Link>}
+        />
+      </div>
+    );
+  }
+
+  const isAuthor = user?.id === record.author.id;
+  const isReviewer = user?.roles?.some((role) => ['ADMIN', 'REVIEWER'].includes(role)) ?? false;
   const canEdit = isAuthor || isReviewer;
   const canSubmitForReview = isAuthor && ['DRAFT', 'REJECTED'].includes(record.status);
-  const canModerate = isReviewer;
+  const breadcrumbItems = [
+    { label: 'Cases', href: '/cases' },
+    ...(record.category?.name ? [{ label: record.category.name, href: `/cases?category=${encodeURIComponent(record.category.name)}` }] : []),
+    { label: record.title, href: null as string | null },
+  ];
 
   return (
     <div className="mx-auto max-w-[1380px] px-4 py-8 md:px-6 lg:px-8">
+      <nav aria-label="Breadcrumb" className="mb-6 overflow-x-auto">
+        <ol className="flex min-w-max items-center gap-2 text-sm">
+          {breadcrumbItems.map((item, index) => {
+            const isCurrent = index === breadcrumbItems.length - 1;
+
+            return (
+              <li key={`${item.label}-${index}`} className="flex items-center gap-2">
+                {index > 0 ? <ChevronRight className="h-4 w-4 text-[#A294B1]" /> : null}
+                {item.href && !isCurrent ? (
+                  <Link
+                    href={item.href}
+                    className="font-medium text-[#7C6B8E] transition hover:text-[#4C2F5E]"
+                  >
+                    {item.label}
+                  </Link>
+                ) : (
+                  <span
+                    className={isCurrent ? 'font-semibold text-[#2F1D3B]' : 'font-medium text-[#7C6B8E]'}
+                    aria-current={isCurrent ? 'page' : undefined}
+                  >
+                    {item.label}
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
+
       <CasePageHero
         kicker="Case record"
         title={record.title}
@@ -79,17 +242,24 @@ function CaseDetailContent({
         }
         actions={
           <>
-            <button onClick={() => setSaved((value) => !value)} className={`inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition ${saved ? 'bg-white text-[#4C2F5E]' : 'border border-white/15 bg-white/10 text-white hover:bg-white/14'}`}>
+            <button
+              type="button"
+              onClick={handleToggleSave}
+              disabled={savePending}
+              className={`inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition ${
+                record.viewerState.saved ? 'bg-white text-[#4C2F5E]' : 'border border-white/15 bg-white/10 text-white hover:bg-white/14'
+              }`}
+            >
               <Bookmark className="h-4 w-4" />
-              {saved ? 'Saved' : 'Save case'}
+              {savePending ? 'Saving...' : record.viewerState.saved ? 'Saved' : 'Save case'}
             </button>
-            <button onClick={() => setFollowed((value) => !value)} className={`inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition ${followed ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'border border-white/15 bg-white/10 text-white hover:bg-white/14'}`}>
-              <Users className="h-4 w-4" />
-              {followed ? 'Following' : 'Follow case'}
-            </button>
-            <button onClick={() => setReaction((value) => (value === 'HELPFUL' ? null : 'HELPFUL'))} className={`inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition ${reaction === 'HELPFUL' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'border border-white/15 bg-white/10 text-white hover:bg-white/14'}`}>
-              <Star className="h-4 w-4" />
-              Helpful
+            <button
+              type="button"
+              onClick={handleShare}
+              className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/14"
+            >
+              <Share2 className="h-4 w-4" />
+              Share
             </button>
           </>
         }
@@ -98,10 +268,25 @@ function CaseDetailContent({
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-white/68">{record.canonicalCitation}</p>
               <p className="mt-3 text-lg font-semibold text-white">{record.provenanceLabel}</p>
-              <p className="mt-2 text-sm leading-7 text-white/78">
-                Authored by {record.author.displayName}
-                {record.organization?.name ? ` for ${record.organization.name}` : ''}.
-              </p>
+              <CaseUserLink user={record.author} className="mt-4 flex items-center gap-3 rounded-[20px] border border-white/12 bg-white/10 p-3 transition hover:bg-white/14">
+                {record.author.avatarUrl ? (
+                  <img
+                    src={record.author.avatarUrl}
+                    alt={record.author.displayName}
+                    className="h-12 w-12 rounded-full border border-white/15 object-cover"
+                  />
+                ) : (
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/12 text-sm font-semibold text-white">
+                    {initials(record.author.displayName)}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-white">{record.author.displayName}</p>
+                  <p className="mt-1 text-xs text-white/75">
+                    {record.organization?.name ?? record.author.organizationName ?? 'Legal Hub contributor'}
+                  </p>
+                </div>
+              </CaseUserLink>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
@@ -125,15 +310,16 @@ function CaseDetailContent({
                 </Link>
               ) : null}
               {canSubmitForReview ? (
-                <button className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white">
+                <button
+                  type="button"
+                  onClick={handleSubmitForReview}
+                  disabled={submitPending}
+                  className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white"
+                >
                   <Send className="h-4 w-4" />
-                  Submit for review
+                  {submitPending ? 'Submitting...' : 'Submit for review'}
                 </button>
               ) : null}
-              <button className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white">
-                <Share2 className="h-4 w-4" />
-                Share
-              </button>
             </div>
           </div>
         }
@@ -206,16 +392,22 @@ function CaseDetailContent({
             </div>
 
             <div className="mt-4 space-y-3">
-              {record.sourceLinks.map((source) => (
-                <a key={source.id} href={source.url} target="_blank" rel="noreferrer" className="block rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#8C7A9B]">{source.sourceName}</p>
-                  <p className="mt-2 text-sm font-semibold text-[#2F1D3B]">{source.label}</p>
-                  <div className="mt-2 inline-flex items-center gap-2 text-xs text-[#706181]">
-                    <Link2 className="h-3.5 w-3.5" />
-                    Open source link
-                  </div>
-                </a>
-              ))}
+              {record.sourceLinks.length ? (
+                record.sourceLinks.map((source) => (
+                  <a key={source.id} href={source.url} target="_blank" rel="noreferrer" className="block rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#8C7A9B]">{source.sourceName}</p>
+                    <p className="mt-2 text-sm font-semibold text-[#2F1D3B]">{source.label}</p>
+                    <div className="mt-2 inline-flex items-center gap-2 text-xs text-[#706181]">
+                      <Link2 className="h-3.5 w-3.5" />
+                      Open source link
+                    </div>
+                  </a>
+                ))
+              ) : (
+                <div className="rounded-[20px] border border-dashed border-[#4C2F5E]/15 bg-[#FBF9FD] px-4 py-6 text-sm text-[#706181]">
+                  No source links attached yet.
+                </div>
+              )}
             </div>
           </div>
 
@@ -239,28 +431,61 @@ function CaseDetailContent({
           <div className="rounded-[28px] border border-[#4C2F5E]/10 bg-white p-5">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Source files</p>
             <div className="mt-4 space-y-3">
-              {record.sourceFiles.map((file) => (
-                <div key={file.id} className="rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] p-4">
-                  <p className="text-sm font-semibold text-[#2F1D3B]">{file.label}</p>
-                  <p className="mt-2 text-xs text-[#706181]">{file.filename} • {file.fileSizeLabel}</p>
+              {record.sourceFiles.length ? (
+                record.sourceFiles.map((file) => (
+                  <div key={file.id} className="rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] p-4">
+                    <p className="text-sm font-semibold text-[#2F1D3B]">{file.label}</p>
+                    <p className="mt-2 text-xs text-[#706181]">{file.filename} / {file.fileSizeLabel}</p>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-[20px] border border-dashed border-[#4C2F5E]/15 bg-[#FBF9FD] px-4 py-6 text-sm text-[#706181]">
+                  No source files attached.
                 </div>
-              ))}
+              )}
             </div>
           </div>
 
           <div className="rounded-[28px] border border-[#4C2F5E]/10 bg-white p-5">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Revision history</p>
             <div className="mt-4 space-y-3">
-              {record.revisions.map((revision) => (
-                <div key={revision.id} className="rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-semibold text-[#2F1D3B]">Version {revision.version}</p>
-                    <CaseStatusBadge status={revision.status} />
+              {record.revisions.length ? (
+                record.revisions.map((revision) => (
+                  <div key={revision.id} className="rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold text-[#2F1D3B]">Version {revision.version}</p>
+                      <CaseStatusBadge status={revision.status} />
+                    </div>
+                    <p className="mt-3 text-sm leading-7 text-[#6E5F7D]">{revision.changeSummary}</p>
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[#8C7A9B]">
+                      <CaseUserLink user={revision.editor} className="inline-flex items-center gap-2 rounded-full border border-[#4C2F5E]/10 bg-white px-2.5 py-1 transition hover:bg-[#F7F3FA]">
+                        {revision.editor.avatarUrl ? (
+                          <img
+                            src={revision.editor.avatarUrl}
+                            alt={revision.editor.displayName}
+                            className="h-6 w-6 rounded-full border border-[#4C2F5E]/10 object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#4C2F5E] text-[10px] font-semibold text-white">
+                            {initials(revision.editor.displayName)}
+                          </div>
+                        )}
+                        <span className="font-semibold text-[#4C2F5E]">{revision.editor.displayName}</span>
+                      </CaseUserLink>
+                      <span>{formatDate(revision.createdAt)}</span>
+                      {revision.reviewedBy ? (
+                        <CaseUserLink user={revision.reviewedBy} className="inline-flex items-center gap-2 rounded-full border border-[#4C2F5E]/10 bg-white px-2.5 py-1 transition hover:bg-[#F7F3FA]">
+                          <span>Reviewed by {revision.reviewedBy.displayName}</span>
+                        </CaseUserLink>
+                      ) : null}
+                    </div>
                   </div>
-                  <p className="mt-3 text-sm leading-7 text-[#6E5F7D]">{revision.changeSummary}</p>
-                  <p className="mt-2 text-xs text-[#8C7A9B]">{revision.editor.displayName} • {formatDate(revision.createdAt)}</p>
+                ))
+              ) : (
+                <div className="rounded-[20px] border border-dashed border-[#4C2F5E]/15 bg-[#FBF9FD] px-4 py-6 text-sm text-[#706181]">
+                  No revision history available yet.
                 </div>
-              ))}
+              )}
             </div>
           </div>
 
@@ -271,7 +496,7 @@ function CaseDetailContent({
                 record.relatedDiscussions.map((discussion) => (
                   <Link key={discussion.id} href={`/discussions/${discussion.slug}`} className="block rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] p-4 transition hover:bg-white">
                     <p className="text-sm font-semibold text-[#2F1D3B]">{discussion.title}</p>
-                    <p className="mt-2 text-xs text-[#706181]">{discussion.answerCount} answers • Updated {formatDate(discussion.updatedAt)}</p>
+                    <p className="mt-2 text-xs text-[#706181]">{discussion.answerCount} answers / Updated {formatDate(discussion.updatedAt)}</p>
                   </Link>
                 ))
               ) : (
@@ -282,7 +507,7 @@ function CaseDetailContent({
             </div>
           </div>
 
-          {canModerate || isAuthor ? (
+          {(isReviewer || isAuthor) ? (
             <div className="rounded-[28px] border border-[#4C2F5E]/10 bg-[#FBF9FD] p-5">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-[#F1EAF6] text-[#4C2F5E]">
@@ -305,10 +530,6 @@ function CaseDetailContent({
                     <p className="mt-3 text-sm leading-7 text-[#706181]">{record.moderation.lastReviewerNote}</p>
                   ) : null}
                 </div>
-                <button className="legal-button-secondary w-full text-sm">
-                  <Flag className="h-4 w-4" />
-                  Report issue
-                </button>
               </div>
             </div>
           ) : null}
@@ -316,61 +537,4 @@ function CaseDetailContent({
       </div>
     </div>
   );
-}
-
-export default function CaseDetailPage() {
-  const { user } = useCaseWorkspace();
-  const params = useParams<{ slug: string }>();
-  const mockRecord = useMemo(() => getCaseBySlug(params.slug, user), [params.slug, user]);
-  const [apiRecord, setApiRecord] = useState<CaseRepositoryRecord | null | undefined>(undefined);
-
-  useEffect(() => {
-    let mounted = true;
-    fetch(`/api/cases/${params.slug}`)
-      .then(async (response) => {
-        if (!mounted) return;
-        if (!response.ok) {
-          setApiRecord(null);
-          return;
-        }
-        const payload = await response.json();
-        setApiRecord(payload.data ?? null);
-      })
-      .catch(() => {
-        if (mounted) setApiRecord(null);
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, [params.slug]);
-
-  const record = apiRecord ?? mockRecord;
-
-  if (apiRecord === undefined && !mockRecord) {
-    return (
-      <div className="mx-auto max-w-[980px] px-4 py-12 md:px-6 lg:px-8">
-        <CaseEmptyState
-          icon={FileSearch}
-          title="Loading case record..."
-          description="Repository metadata, provenance, and commentary are being prepared."
-        />
-      </div>
-    );
-  }
-
-  if (!record) {
-    return (
-      <div className="mx-auto max-w-[980px] px-4 py-12 md:px-6 lg:px-8">
-        <CaseEmptyState
-          icon={FileSearch}
-          title="Case record not found"
-          description="The repository entry may have been moved, archived, or is not available to the current viewer."
-          action={<Link href="/cases" className="legal-button-primary text-sm">Back to repository</Link>}
-        />
-      </div>
-    );
-  }
-
-  return <CaseDetailContent key={record.id} record={record} viewer={user} />;
 }

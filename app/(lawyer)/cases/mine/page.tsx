@@ -3,7 +3,6 @@
 import { CaseStatusBadge } from '@/app/components/cases/case-badges';
 import CasePageHero from '@/app/components/cases/case-page-hero';
 import { useCaseWorkspace } from '@/app/components/cases/case-workspace';
-import { getMyCases } from '@/lib/services/case-repository.mock';
 import type { CaseRepositoryRecord } from '@/types/case';
 import { Archive, ArrowRight, BriefcaseBusiness, PencilLine, Plus, Send } from 'lucide-react';
 import Link from 'next/link';
@@ -13,7 +12,6 @@ const boardOrder = ['DRAFT', 'PENDING_REVIEW', 'PUBLISHED', 'REJECTED', 'ARCHIVE
 
 export default function MyCasesPage() {
   const { user } = useCaseWorkspace();
-  const mockCases = useMemo(() => getMyCases(user), [user]);
   const [apiCases, setApiCases] = useState<CaseRepositoryRecord[]>([]);
 
   useEffect(() => {
@@ -28,11 +26,8 @@ export default function MyCasesPage() {
   }, [user?.id]);
 
   const cases = useMemo(() => {
-    const merged = new Map<string, CaseRepositoryRecord>();
-    for (const item of mockCases) merged.set(item.slug, item);
-    for (const item of apiCases) merged.set(item.slug, item);
-    return Array.from(merged.values());
-  }, [apiCases, mockCases]);
+    return apiCases;
+  }, [apiCases]);
   const grouped = useMemo(
     () =>
       boardOrder.map((status) => ({

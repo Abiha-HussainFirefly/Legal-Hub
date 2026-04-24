@@ -2,19 +2,28 @@
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
 import { compare, hash } from "bcryptjs";
 import { revalidatePath } from "next/cache";
 
-type UpdateUserDetailsInput =
-  | { name: string }
-  | { currentPassword: string; newPassword: string };
+type ProfileUpdateInput = {
+  name: string;
+  avatarUrl?: string;
+  linkedInUrl?: string;
+  occupation?: string;
+};
 
-function isNameUpdate(formData: UpdateUserDetailsInput): formData is { name: string } {
+type PasswordUpdateInput = {
+  currentPassword: string;
+  newPassword: string;
+};
+
+type UpdateUserDetailsInput = ProfileUpdateInput | PasswordUpdateInput;
+
+function isProfileUpdate(formData: UpdateUserDetailsInput): formData is ProfileUpdateInput {
   return "name" in formData;
 }
 
-function isPasswordUpdate(formData: UpdateUserDetailsInput): formData is { currentPassword: string; newPassword: string } {
+function isPasswordUpdate(formData: UpdateUserDetailsInput): formData is PasswordUpdateInput {
   return "currentPassword" in formData && "newPassword" in formData;
 }
 
@@ -23,47 +32,96 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
+function normalizeOptionalUrl(
+  value: string | undefined,
+  fieldLabel: string,
+  options?: { requireLinkedInHost?: boolean; allowDataImage?: boolean }
+) {
+  if (value === undefined) return undefined;
+
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  if (options?.allowDataImage && /^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(trimmed)) {
+    return trimmed;
+  }
+
+  const withProtocol = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(withProtocol);
+  } catch {
+    throw new Error(`${fieldLabel} must be a valid URL`);
+  }
+
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    throw new Error(`${fieldLabel} must start with http:// or https://`);
+  }
+
+  if (
+    options?.requireLinkedInHost &&
+    !parsed.hostname.toLowerCase().includes("linkedin.com")
+  ) {
+    throw new Error("LinkedIn URL must point to linkedin.com");
+  }
+
+  return parsed.toString();
+}
+
 export async function updateUserDetails(formData: UpdateUserDetailsInput) {
   const session = await auth();
 
-  // 1. Basic Auth Check
-  if (!session?.user?.email) {
+  if (!session?.user?.id) {
     throw new Error("Unauthorized: No session found");
   }
 
+  const userId = session.user.id;
+
   try {
-    // 2. Find the User ID via the UserIdentifier model
-    // FIX: Using normalizedValue property name inside type_normalizedValue
-    const identifier = await prisma.userIdentifier.findUnique({
-      where: {
-        type_normalizedValue: {
-          type: "EMAIL",
-          normalizedValue: session.user.email.toLowerCase().trim(),
-        },
-      },
-      select: { userId: true },
-    });
+    if (isProfileUpdate(formData)) {
+      const name = formData.name.trim();
+      if (!name) {
+        throw new Error("Name cannot be empty");
+      }
 
-    if (!identifier) {
-      throw new Error("User identifier not found");
-    }
+      const avatarUrl = normalizeOptionalUrl(formData.avatarUrl, "Profile picture", {
+        allowDataImage: true,
+      });
+      const linkedInUrl = normalizeOptionalUrl(formData.linkedInUrl, "LinkedIn URL", {
+        requireLinkedInHost: true,
+      });
+      const occupation = formData.occupation?.trim() || null;
+      const isLawyer =
+        session.user.roles?.some((role) => role.toUpperCase() === "LAWYER") ?? false;
 
-    const userId = identifier.userId;
-    const operations: Prisma.PrismaPromise<unknown>[] = [];
-
-    // 3. Handle Display Name update
-    if (isNameUpdate(formData) && formData.name.trim() !== "") {
-      operations.push(
+      await prisma.$transaction([
         prisma.user.update({
           where: { id: userId },
-          data: { displayName: formData.name.trim() },
-        })
-      );
+          data: {
+            displayName: name,
+            ...(avatarUrl !== undefined ? { avatarUrl } : {}),
+          },
+        }),
+        prisma.userProfile.upsert({
+          where: { userId },
+          update: {
+            linkedInUrl,
+            headline: occupation,
+          },
+          create: {
+            userId,
+            linkedInUrl,
+            headline: occupation,
+            isLawyer,
+          },
+        }),
+      ]);
     }
 
-    // 4. Handle Password update
     if (isPasswordUpdate(formData)) {
-      // Fetch existing hash to verify identity
       const credential = await prisma.credential.findUnique({
         where: { userId },
         select: { passwordHash: true },
@@ -79,29 +137,24 @@ export async function updateUserDetails(formData: UpdateUserDetailsInput) {
       }
 
       const newHash = await hash(formData.newPassword, 10);
-      operations.push(
-        prisma.credential.update({
-          where: { userId },
-          data: { passwordHash: newHash },
-        })
-      );
+
+      await prisma.credential.update({
+        where: { userId },
+        data: { passwordHash: newHash },
+      });
     }
 
-    // 5. Finalize Transactions
-    if (operations.length === 0) {
+    if (!isProfileUpdate(formData) && !isPasswordUpdate(formData)) {
       throw new Error("No valid fields to update");
     }
 
-    await prisma.$transaction(operations);
-
-    // Refresh the data for the profile page
     revalidatePath("/", "layout");
+    revalidatePath("/profile");
+    revalidatePath("/adminprofile");
 
     return { success: true };
-
   } catch (error: unknown) {
     console.error("--- UPDATE ERROR ---", error);
-    // Return a user-friendly error message
     throw new Error(getErrorMessage(error, "Failed to update profile"));
   }
 }

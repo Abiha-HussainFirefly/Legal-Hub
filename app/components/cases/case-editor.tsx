@@ -1,8 +1,9 @@
 'use client';
 
 import type { CaseDraftPayload, CaseRepositoryRecord, CaseSourceType, CaseVisibility } from '@/types/case';
-import { Eye, FileUp, Plus, Save, Send, ShieldCheck, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { ChevronRight, Eye, FileUp, Plus, Save, Send, ShieldCheck, X } from 'lucide-react';
+import Link from 'next/link';
+import { useMemo, useRef, useState } from 'react';
 
 interface SelectOption {
   id: string;
@@ -11,6 +12,7 @@ interface SelectOption {
 
 interface CourtOption extends SelectOption {
   level: string;
+  regionId?: string | null;
 }
 
 interface CaseEditorProps {
@@ -20,7 +22,6 @@ interface CaseEditorProps {
   tags: SelectOption[];
   regions: SelectOption[];
   courts: CourtOption[];
-  organizations: SelectOption[];
   onSaveDraft?: (payload: CaseDraftPayload) => Promise<void>;
   onSubmitForReview?: (payload: CaseDraftPayload) => Promise<void>;
 }
@@ -32,7 +33,6 @@ export default function CaseEditor({
   tags,
   regions,
   courts,
-  organizations,
   onSaveDraft,
   onSubmitForReview,
 }: CaseEditorProps) {
@@ -47,18 +47,19 @@ export default function CaseEditor({
   const [history, setHistory] = useState(initialCase?.proceduralHistory ?? '');
   const [selectedCategory, setSelectedCategory] = useState(initialCase?.category.id ?? categories[0]?.id ?? '');
   const [selectedTags, setSelectedTags] = useState(initialCase?.tags.map((tag) => tag.id) ?? []);
-  const [selectedRegion, setSelectedRegion] = useState(initialCase?.region?.id ?? regions[0]?.id ?? '');
-  const [selectedCourt, setSelectedCourt] = useState(initialCase?.court?.id ?? courts[0]?.id ?? '');
-  const [selectedOrganization, setSelectedOrganization] = useState(initialCase?.organization?.id ?? organizations[0]?.id ?? '');
+  const [selectedRegion, setSelectedRegion] = useState(initialCase?.region?.id ?? '');
+  const [selectedCourt, setSelectedCourt] = useState(initialCase?.court?.id ?? '');
   const [visibility, setVisibility] = useState<CaseVisibility>(initialCase?.visibility ?? 'PUBLIC');
   const [sourceType, setSourceType] = useState<CaseSourceType>(initialCase?.sourceType ?? 'USER_SUBMITTED');
   const [sourceLinks, setSourceLinks] = useState(
     initialCase?.sourceLinks.map((item) => ({ label: item.label, url: item.url, sourceName: item.sourceName })) ?? [{ label: '', url: '', sourceName: '' }],
   );
   const [citations, setCitations] = useState(initialCase?.citationsMade.map((item) => item.canonicalCitation) ?? ['']);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [preview, setPreview] = useState(false);
   const [submitting, setSubmitting] = useState<'draft' | 'submit' | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const readiness = useMemo(() => {
     const checks = [
@@ -78,6 +79,24 @@ export default function CaseEditor({
     readiness >= 85 ? 'text-emerald-700 bg-emerald-50 border-emerald-200' :
     readiness >= 60 ? 'text-amber-700 bg-amber-50 border-amber-200' :
     'text-[#4C2F5E] bg-[#F6F1FA] border-[#4C2F5E]/12';
+
+  const availableCourts = useMemo(
+    () =>
+      selectedRegion
+        ? courts.filter((court) => !court.regionId || court.regionId === selectedRegion)
+        : courts,
+    [courts, selectedRegion],
+  );
+  const breadcrumbItems = mode === 'create'
+    ? [
+        { label: 'Cases', href: '/cases' },
+        { label: 'Create case draft', href: null as string | null },
+      ]
+    : [
+        { label: 'Cases', href: '/cases' },
+        ...(initialCase?.title ? [{ label: initialCase.title, href: `/cases/${initialCase.slug}` }] : []),
+        { label: 'Edit case record', href: null as string | null },
+      ];
 
   function buildPayload(): CaseDraftPayload | null {
     if (!title.trim()) {
@@ -119,7 +138,6 @@ export default function CaseEditor({
       tagSlugs: selectedTags,
       regionSlug: selectedRegion || undefined,
       courtSlug: selectedCourt || undefined,
-      organizationId: selectedOrganization || undefined,
       visibility,
       sourceType,
       sourceLinks: cleanLinks,
@@ -144,8 +162,93 @@ export default function CaseEditor({
     }
   }
 
+  function handleFileSelection(fileList: FileList | null) {
+    if (!fileList?.length) return;
+
+    const nextFiles = Array.from(fileList);
+    setSelectedFiles((current) => {
+      const merged = [...current];
+
+      for (const file of nextFiles) {
+        const exists = merged.some(
+          (entry) =>
+            entry.name === file.name &&
+            entry.size === file.size &&
+            entry.lastModified === file.lastModified,
+        );
+
+        if (!exists) merged.push(file);
+      }
+
+      return merged;
+    });
+  }
+
+  function removeSelectedFile(target: File) {
+    setSelectedFiles((current) =>
+      current.filter(
+        (file) =>
+          !(
+            file.name === target.name &&
+            file.size === target.size &&
+            file.lastModified === target.lastModified
+          ),
+      ),
+    );
+  }
+
+  function fileSizeLabel(size: number) {
+    if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+    if (size >= 1024) return `${Math.round(size / 1024)} KB`;
+    return `${size} B`;
+  }
+
+  function handleRegionChange(nextRegion: string) {
+    setSelectedRegion(nextRegion);
+
+    if (!selectedCourt) return;
+
+    const selectedCourtStillAvailable = courts.some(
+      (court) =>
+        court.id === selectedCourt && (!nextRegion || !court.regionId || court.regionId === nextRegion),
+    );
+
+    if (!selectedCourtStillAvailable) {
+      setSelectedCourt('');
+    }
+  }
+
   return (
     <div className="mx-auto max-w-[1240px] px-4 py-8 md:px-6 lg:px-8">
+      <nav aria-label="Breadcrumb" className="mb-6 overflow-x-auto">
+        <ol className="flex min-w-max items-center gap-2 text-sm">
+          {breadcrumbItems.map((item, index) => {
+            const isCurrent = index === breadcrumbItems.length - 1;
+
+            return (
+              <li key={`${item.label}-${index}`} className="flex items-center gap-2">
+                {index > 0 ? <ChevronRight className="h-4 w-4 text-[#A294B1]" /> : null}
+                {item.href && !isCurrent ? (
+                  <Link
+                    href={item.href}
+                    className="font-medium text-[#7C6B8E] transition hover:text-[#4C2F5E]"
+                  >
+                    {item.label}
+                  </Link>
+                ) : (
+                  <span
+                    className={isCurrent ? 'font-semibold text-[#2F1D3B]' : 'font-medium text-[#7C6B8E]'}
+                    aria-current={isCurrent ? 'page' : undefined}
+                  >
+                    {item.label}
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
+
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-6">
           <section className="overflow-hidden rounded-[30px] border border-[#4C2F5E]/10 bg-white">
@@ -207,12 +310,6 @@ export default function CaseEditor({
                   {categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                 </select>
               </div>
-              <div>
-                <label className="text-sm font-semibold text-[#2F1D3B]">Organization ownership</label>
-                <select className="legal-field mt-3" value={selectedOrganization} onChange={(event) => setSelectedOrganization(event.target.value)}>
-                  {organizations.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-                </select>
-              </div>
             </div>
           </section>
 
@@ -220,15 +317,18 @@ export default function CaseEditor({
             <div className="grid gap-6 md:grid-cols-2">
               <div>
                 <label className="text-sm font-semibold text-[#2F1D3B]">Region</label>
-                <select className="legal-field mt-3" value={selectedRegion} onChange={(event) => setSelectedRegion(event.target.value)}>
+                <select className="legal-field mt-3" value={selectedRegion} onChange={(event) => handleRegionChange(event.target.value)}>
+                  <option value="">Select region</option>
                   {regions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="text-sm font-semibold text-[#2F1D3B]">Court</label>
                 <select className="legal-field mt-3" value={selectedCourt} onChange={(event) => setSelectedCourt(event.target.value)}>
-                  {courts.map((item) => <option key={item.id} value={item.id}>{item.name} • {item.level}</option>)}
+                  <option value="">Select court</option>
+                  {availableCourts.map((item) => <option key={item.id} value={item.id}>{item.name} / {item.level}</option>)}
                 </select>
+                
               </div>
               <div>
                 <label className="text-sm font-semibold text-[#2F1D3B]">Source type</label>
@@ -387,18 +487,56 @@ export default function CaseEditor({
             </div>
 
             <div className="mt-8 rounded-[24px] border border-dashed border-[#4C2F5E]/18 bg-[#FBF9FD] p-5">
+              <input
+                id="case-file-upload"
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(event) => {
+                  handleFileSelection(event.target.files);
+                  event.target.value = '';
+                }}
+              />
               <div className="flex flex-col items-start gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
                   <p className="text-sm font-semibold text-[#2F1D3B]">Source files & attachments</p>
                   <p className="mt-1 text-sm leading-7 text-[#6F5E7F]">
-                    TODO integration: connect this dropzone to the existing file-asset pipeline once the repository upload endpoint is available.
+                    Choose files now to keep them in the draft workspace. Backend upload persistence still needs the repository file endpoint.
                   </p>
                 </div>
-                <button className="inline-flex items-center gap-2 rounded-full border border-[#4C2F5E]/12 bg-white px-4 py-2 text-sm font-semibold text-[#4C2F5E]">
+                <label
+                  htmlFor="case-file-upload"
+                  className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-[#4C2F5E]/12 bg-white px-4 py-2 text-sm font-semibold text-[#4C2F5E] transition hover:bg-[#F7F3FA]"
+                >
                   <FileUp className="h-4 w-4" />
-                  Upload files
-                </button>
+                  {selectedFiles.length ? `Add more files (${selectedFiles.length})` : 'Upload files'}
+                </label>
               </div>
+
+              {selectedFiles.length ? (
+                <div className="mt-4 space-y-3">
+                  {selectedFiles.map((file) => (
+                    <div
+                      key={`${file.name}-${file.size}-${file.lastModified}`}
+                      className="flex items-center justify-between gap-3 rounded-[18px] border border-[#4C2F5E]/10 bg-white px-4 py-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-[#2F1D3B]">{file.name}</p>
+                        <p className="mt-1 text-xs text-[#8C7A9B]">{file.type || 'Unknown type'} / {fileSizeLabel(file.size)}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeSelectedFile(file)}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#4C2F5E]/10 text-[#4C2F5E] transition hover:bg-[#F7F3FA]"
+                        aria-label={`Remove ${file.name}`}
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </div>
           </section>
         </div>

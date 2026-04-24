@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
+import { AUTHOR_SELECT } from '@/lib/services/discussion.service';
 
 type AnswerWithViewerReaction = {
   reactions?: { reactionType: string }[];
@@ -43,45 +44,21 @@ export async function GET(
         take: limit,
         include: {
           author: {
-            select: {
-              id: true,
-              displayName: true,
-              avatarUrl: true,
-              profile: {
-                select: { username: true, headline: true, isLawyer: true },
-              },
-              lawyerProfile: {
-                select: { verificationStatus: true },
-              },
-            },
+            select: AUTHOR_SELECT,
           },
           comments: {
             where: { status: 'ACTIVE', parentId: null },
             orderBy: { createdAt: 'asc' },
             include: {
               author: {
-                select: {
-                  id: true,
-                  displayName: true,
-                  avatarUrl: true,
-                  lawyerProfile: {
-                    select: { verificationStatus: true, barCouncil: true, firmName: true },
-                  },
-                },
+                select: AUTHOR_SELECT,
               },
               replies: {
                 where: { status: 'ACTIVE' },
                 orderBy: { createdAt: 'asc' },
                 include: {
                   author: {
-                    select: {
-                      id: true,
-                      displayName: true,
-                      avatarUrl: true,
-                      lawyerProfile: {
-                        select: { verificationStatus: true, barCouncil: true, firmName: true },
-                      },
-                    },
+                    select: AUTHOR_SELECT,
                   },
                 },
               },
@@ -168,12 +145,7 @@ export async function POST(
         },
         include: {
           author: {
-            select: {
-              id: true,
-              displayName: true,
-              avatarUrl: true,
-              profile: { select: { username: true, isLawyer: true } },
-            },
+            select: AUTHOR_SELECT,
           },
         },
       }),

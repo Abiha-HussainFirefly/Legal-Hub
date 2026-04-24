@@ -1,5 +1,7 @@
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? 'Legal Hub';
 const APP_URL  = process.env.NEXT_PUBLIC_APP_URL  ?? 'http://localhost:3000';
+const SHOULD_LOG_EMAIL_DEBUG =
+  process.env.EMAIL_DEBUG_TO_TERMINAL === 'true' || process.env.NODE_ENV !== 'production';
 
 // Interfaces //
 
@@ -24,11 +26,13 @@ export async function sendVerificationCode({
   name,
   code,
 }: { to: string; name: string; code: string }): Promise<void> {
-  console.log("\n" + "=".repeat(40));
-  console.log("VERIFICATION CODE");
-  console.log(`Email: ${to}`);
-  console.log(`Code:  ${code}`);
-  console.log("=".repeat(40) + "\n");
+  if (SHOULD_LOG_EMAIL_DEBUG) {
+    console.log("\n" + "=".repeat(40));
+    console.log("VERIFICATION CODE");
+    console.log(`Email: ${to}`);
+    console.log(`Code:  ${code}`);
+    console.log("=".repeat(40) + "\n");
+  }
 
   await sendEmail({
     to,
@@ -47,6 +51,16 @@ export async function sendPasswordResetEmail({
   portal = 'lawyer', 
 }: PasswordResetEmailInput): Promise<void> {
   const resetUrl = `${APP_URL}/reset-password?token=${token}&portal=${portal}`; 
+
+  if (SHOULD_LOG_EMAIL_DEBUG) {
+    console.log("\n" + "=".repeat(40));
+    console.log("PASSWORD RESET LINK");
+    console.log(`Email: ${to}`);
+    console.log(`Portal: ${portal}`);
+    console.log(`Token: ${token}`);
+    console.log(`Link:  ${resetUrl}`);
+    console.log("=".repeat(40) + "\n");
+  }
 
   await sendEmail({
     to,
@@ -81,13 +95,22 @@ async function sendEmail({ to, subject, html, text }: SendEmailInput) {
     },
   });
 
-  await transporter.sendMail({
+  const info = await transporter.sendMail({
     from: `"${APP_NAME}" <${emailFrom}>`,
     to,
     subject,
     html,
     text,
   });
+
+  if (SHOULD_LOG_EMAIL_DEBUG) {
+    console.log("\n" + "─".repeat(28) + " EMAIL SENT " + "─".repeat(28));
+    console.log(`To:        ${to}`);
+    console.log(`Subject:   ${subject}`);
+    console.log(`Transport: Gmail SMTP`);
+    console.log(`MessageId: ${info.messageId}`);
+    console.log("─".repeat(68) + "\n");
+  }
 }
 
 // Verification email templates //

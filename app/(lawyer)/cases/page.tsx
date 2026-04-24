@@ -2,18 +2,12 @@
 
 import CaseResultCard from '@/app/components/cases/case-result-card';
 import { useCaseWorkspace } from '@/app/components/cases/case-workspace';
-import {
-  getCaseRepositoryFilterOptions,
-  getCaseRepositoryInsights,
-  getFeaturedCases,
-  searchCaseRepository,
-} from '@/lib/services/case-repository.mock';
-import type { CaseRepositoryFilters, CaseRepositorySort } from '@/types/case';
+import { useToast } from '@/app/components/ui/toast/toast-context';
+import type { CaseRepositoryFilterOptions, CaseRepositoryFilters, CaseRepositoryRecord, CaseRepositorySort } from '@/types/case';
 import { ArrowUpRight, BriefcaseBusiness, Filter, Grid2X2, List, Plus, Search, SlidersHorizontal, Sparkles, TrendingUp, X } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
-const filterOptions = getCaseRepositoryFilterOptions();
 const sortOptions: Array<{ label: string; value: CaseRepositorySort }> = [
   { label: 'Most relevant', value: 'relevant' },
   { label: 'Most recent', value: 'recent' },
@@ -39,17 +33,24 @@ const defaultFilters: CaseRepositoryFilters = {
   sort: 'relevant',
 };
 
-const taxonomyFilterGroups: Array<{
-  label: string;
-  key: 'category' | 'tag' | 'region' | 'court' | 'organization';
-  options: Array<{ id: string; name: string }>;
-}> = [
-  { label: 'Category', key: 'category', options: filterOptions.categories },
-  { label: 'Tag', key: 'tag', options: filterOptions.tags },
-  { label: 'Region', key: 'region', options: filterOptions.regions },
-  { label: 'Court', key: 'court', options: filterOptions.courts },
-  { label: 'Organization', key: 'organization', options: filterOptions.organizations },
-];
+const emptyFilterOptions: CaseRepositoryFilterOptions = {
+  categories: [],
+  tags: [],
+  regions: [],
+  courts: [],
+  organizations: [],
+  sourceTypes: ['USER_SUBMITTED', 'OFFICIAL_COURT', 'IMPORTED_EDITORIAL', 'COMMUNITY_CURATED'],
+  statuses: ['DRAFT', 'PENDING_REVIEW', 'PUBLISHED', 'REJECTED', 'ARCHIVED', 'REMOVED'],
+  visibilities: ['PUBLIC', 'UNLISTED', 'PRIVATE', 'ORGANIZATION'],
+};
+
+interface MetaResponse {
+  categories: Array<{ id: string; name: string }>;
+  tags: Array<{ id: string; name: string }>;
+  regions: Array<{ id: string; name: string }>;
+  courts: Array<{ id: string; name: string; level: 'LOCAL' | 'DISTRICT' | 'HIGH' | 'APPELLATE' | 'SUPREME' | 'TRIBUNAL' | 'OTHER' }>;
+  organizations: Array<{ id: string; name: string }>;
+}
 
 function ResultSkeleton() {
   return (
@@ -81,20 +82,164 @@ const quickFilterPresets = [
 
 export default function CaseRepositoryPage() {
   const { user } = useCaseWorkspace();
+  const { addToast } = useToast();
   const [filters, setFilters] = useState<CaseRepositoryFilters>(defaultFilters);
+  const [filterOptions, setFilterOptions] = useState<CaseRepositoryFilterOptions>(emptyFilterOptions);
+  const [records, setRecords] = useState<CaseRepositoryRecord[]>([]);
   const [view, setView] = useState<'list' | 'grid'>('list');
-  const [loading, setLoading] = useState(true);
+  const [metaLoading, setMetaLoading] = useState(true);
+  const [recordsReady, setRecordsReady] = useState(false);
+  const canFetchMine = filters.authorScope !== 'mine' || Boolean(user?.id);
 
   useEffect(() => {
-    const timeout = window.setTimeout(() => setLoading(false), 320);
-    return () => window.clearTimeout(timeout);
-  }, []);
+    let cancelled = false;
 
-  const results = useMemo(() => searchCaseRepository(filters, user), [filters, user]);
-  const insights = useMemo(() => getCaseRepositoryInsights(user), [user]);
-  const featured = useMemo(() => getFeaturedCases(user), [user]);
-  const categoryQuickLinks = useMemo(() => filterOptions.categories.slice(0, 4), []);
+    fetch('/api/cases/meta')
+      .then(async (response) => {
+        const payload = (await response.json()) as MetaResponse & { error?: string };
+        if (!response.ok) {
+          throw new Error(payload.error || 'Failed to load repository filters.');
+        }
+        if (cancelled) return;
+
+        setFilterOptions((current) => ({
+          ...current,
+          categories: payload.categories ?? [],
+          tags: payload.tags ?? [],
+          regions: payload.regions ?? [],
+          courts: payload.courts ?? [],
+          organizations: payload.organizations ?? [],
+        }));
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          addToast('error', 'Case filters unavailable', error instanceof Error ? error.message : 'Unable to load repository filters.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setMetaLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [addToast]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!canFetchMine) {
+      return;
+    }
+
+    const params = new URLSearchParams();
+    if (filters.search.trim()) params.set('search', filters.search.trim());
+    if (filters.category) params.set('category', filters.category);
+    if (filters.tag) params.set('tag', filters.tag);
+    if (filters.region) params.set('region', filters.region);
+    if (filters.court) params.set('court', filters.court);
+    if (filters.sourceType) params.set('sourceType', filters.sourceType);
+    if (filters.visibility) params.set('visibility', filters.visibility);
+    if (filters.organization) params.set('organization', filters.organization);
+    if (filters.dateRange) params.set('dateRange', filters.dateRange);
+    if (filters.sort) params.set('sort', filters.sort);
+    if (filters.authorScope === 'mine') params.set('authorId', 'me');
+
+    fetch(`/api/cases?${params.toString()}`)
+      .then(async (response) => {
+        const payload = (await response.json()) as { data?: CaseRepositoryRecord[]; error?: string };
+        if (!response.ok) {
+          throw new Error(payload.error || 'Failed to load cases.');
+        }
+        if (!cancelled) {
+          setRecords(payload.data ?? []);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setRecords([]);
+          addToast('error', 'Cases unavailable', error instanceof Error ? error.message : 'Unable to load cases.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setRecordsReady(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    addToast,
+    canFetchMine,
+    filters.authorScope,
+    filters.category,
+    filters.court,
+    filters.dateRange,
+    filters.organization,
+    filters.region,
+    filters.search,
+    filters.sort,
+    filters.sourceType,
+    filters.tag,
+    filters.visibility,
+    user?.id,
+  ]);
+
+  const loading = metaLoading || (canFetchMine && !recordsReady);
+  const results = useMemo(
+    () =>
+      (canFetchMine ? records : []).filter((item) => {
+        if (filters.status && item.status !== filters.status) return false;
+        if (filters.authorScope === 'verified' && !item.author.isVerifiedLawyer) return false;
+        return true;
+      }),
+    [canFetchMine, filters.authorScope, filters.status, records],
+  );
+  const insights = useMemo(() => {
+    const published = records.filter((item) => item.status === 'PUBLISHED');
+    const pending = records.filter((item) => item.status === 'PENDING_REVIEW');
+    const officialSources = records.filter((item) => item.sourceType === 'OFFICIAL_COURT');
+    const officialCoverage = records.length ? `${Math.round((officialSources.length / records.length) * 100)}%` : '0%';
+
+    return [
+      { label: 'Published records', value: `${published.length}`, detail: 'Structured case entries ready for public research and citation tracking.' },
+      { label: 'Pending review', value: `${pending.length}`, detail: 'Contributor drafts waiting on editorial quality, source, or moderation checks.' },
+      { label: 'Official-source coverage', value: officialCoverage, detail: 'Repository items grounded directly in court-issued material.' },
+    ];
+  }, [records]);
+  const featured = useMemo(
+    () =>
+      [...results]
+        .sort(
+          (left, right) =>
+            right.counts.inboundCitations +
+            right.counts.outboundCitations -
+            (left.counts.inboundCitations + left.counts.outboundCitations),
+        )
+        .slice(0, 3),
+    [results],
+  );
+  const categoryQuickLinks = useMemo(() => filterOptions.categories.slice(0, 4), [filterOptions.categories]);
   const spotlightCase = featured[0];
+  const taxonomyFilterGroups = useMemo(
+    () =>
+      [
+        { label: 'Category', key: 'category', options: filterOptions.categories },
+        { label: 'Tag', key: 'tag', options: filterOptions.tags },
+        { label: 'Region', key: 'region', options: filterOptions.regions },
+        { label: 'Court', key: 'court', options: filterOptions.courts },
+        { label: 'Organization', key: 'organization', options: filterOptions.organizations },
+      ] as Array<{
+        label: string;
+        key: 'category' | 'tag' | 'region' | 'court' | 'organization';
+        options: Array<{ id: string; name: string }>;
+      }>,
+    [filterOptions.categories, filterOptions.courts, filterOptions.organizations, filterOptions.regions, filterOptions.tags],
+  );
   const activeFilterCount = useMemo(
     () =>
       [filters.category, filters.tag, filters.region, filters.court, filters.sourceType, filters.visibility, filters.status, filters.authorScope, filters.organization, filters.dateRange]
@@ -115,7 +260,7 @@ export default function CaseRepositoryPage() {
         filters.organization && { key: 'organization', label: filterOptions.organizations.find((item) => item.id === filters.organization)?.name ?? filters.organization },
         filters.dateRange && { key: 'dateRange', label: filters.dateRange === '30d' ? 'Last 30 days' : filters.dateRange === '90d' ? 'Last 90 days' : 'Last year' },
       ].filter(Boolean) as Array<{ key: keyof CaseRepositoryFilters; label: string }>,
-    [filters],
+    [filterOptions.categories, filterOptions.courts, filterOptions.organizations, filterOptions.regions, filterOptions.tags, filters],
   );
 
   function clearSingleFilter(key: keyof CaseRepositoryFilters) {
@@ -126,8 +271,7 @@ export default function CaseRepositoryPage() {
     <div className="mx-auto max-w-[1380px] px-4 py-8 md:px-6 lg:px-8">
       <section className="overflow-hidden rounded-[30px] border border-[#4C2F5E]/10 bg-white shadow-[0_16px_40px_rgba(76,47,94,0.07)]">
         <div className="bg-[linear-gradient(135deg,#4C2F5E_0%,#735092_100%)] px-6 py-7 text-white md:px-8 md:py-8">
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_360px]">
-            <div>
+          <div>
               <p className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/85">
               <Sparkles className="h-3.5 w-3.5" />
                 Research workspace
@@ -186,44 +330,6 @@ export default function CaseRepositoryPage() {
                   })}
                 </div>
               </div>
-            </div>
-
-            <div className="rounded-[26px] border border-white/12 bg-white/10 p-5 backdrop-blur">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">Repository snapshot</p>
-                  <h2 className="mt-2 text-xl font-semibold text-white">Research desk</h2>
-                </div>
-                <div className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/80">
-                  {view === 'grid' ? 'Grid mode' : 'List mode'}
-                </div>
-              </div>
-
-              <div className="mt-5 space-y-3">
-                {insights.map((item) => (
-                  <div key={item.label} className="rounded-[18px] border border-white/10 bg-white/8 px-4 py-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/68">{item.label}</p>
-                        <p className="mt-1 text-xl font-semibold tracking-[-0.04em] text-white">{item.value}</p>
-                      </div>
-                      <ArrowUpRight className="mt-1 h-4 w-4 text-white/55" />
-                    </div>
-                    <p className="mt-2 text-xs leading-6 text-white/72">{item.detail}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-4 rounded-[20px] border border-white/10 bg-white/8 px-4 py-3.5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/68">Spotlight record</p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-white">
-                  {spotlightCase?.title ?? 'High-signal precedents appear here as repository data grows.'}
-                </p>
-                <p className="mt-1 text-xs text-white/72">
-                  {spotlightCase?.canonicalCitation ?? 'Featured cases are surfaced from repository engagement and authority signals.'}
-                </p>
-              </div>
-            </div>
           </div>
         </div>
         <div className="grid gap-3 border-t border-[#4C2F5E]/10 bg-[#FBF9FD] px-6 py-4 md:grid-cols-4 md:px-8">
@@ -372,12 +478,46 @@ export default function CaseRepositoryPage() {
                 <TrendingUp className="h-4 w-4" />
               </div>
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Featured records</p>
-                <h2 className="text-lg font-semibold text-[#2F1D3B]">High-signal precedents</h2>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Repository snapshot</p>
+                <h2 className="text-lg font-semibold text-[#2F1D3B]">Research desk</h2>
               </div>
             </div>
+            <p className="mt-4 text-sm leading-7 text-[#706181]">
+              Quick repository coverage and the strongest current precedent without taking over the hero.
+            </p>
+
+            <div className="mt-4 flex flex-wrap gap-3 border-y border-[#4C2F5E]/10 py-4">
+              <div className="min-w-[90px] flex-1">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Visible</p>
+                <p className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-[#2F1D3B]">{results.length}</p>
+              </div>
+              <div className="min-w-[90px] flex-1">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Published</p>
+                <p className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-[#2F1D3B]">{insights[1]?.value ?? '0'}</p>
+              </div>
+              <div className="min-w-[90px] flex-1">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Official</p>
+                <p className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-[#2F1D3B]">{insights[2]?.value ?? '0%'}</p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-[20px] border border-[#4C2F5E]/10 bg-[linear-gradient(180deg,#fbf9fd_0%,#ffffff_100%)] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8C7A9B]">Spotlight record</p>
+                <span className="rounded-full border border-[#4C2F5E]/10 bg-[#F7F3FA] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#4C2F5E]">
+                  Featured
+                </span>
+              </div>
+              <p className="mt-3 text-sm font-semibold leading-6 text-[#2F1D3B]">
+                {spotlightCase?.title ?? 'High-signal precedents appear here as repository data grows.'}
+              </p>
+              <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-[#8C7A9B]">
+                {spotlightCase?.canonicalCitation ?? 'Featured cases are surfaced from repository engagement and authority signals.'}
+              </p>
+            </div>
+
             <div className="mt-4 space-y-3">
-              {featured.map((item) => (
+              {featured.slice(1).map((item) => (
                 <Link key={item.id} href={`/cases/${item.slug}`} className="block rounded-[18px] border border-[#4C2F5E]/10 bg-[linear-gradient(180deg,#fbf9fd_0%,#ffffff_100%)] p-3.5 transition hover:border-[#4C2F5E]/18 hover:bg-white">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#8C7A9B]">{item.canonicalCitation}</p>
                   <p className="mt-2 text-sm font-semibold leading-6 text-[#2F1D3B]">{item.title}</p>

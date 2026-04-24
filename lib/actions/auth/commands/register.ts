@@ -1,6 +1,7 @@
 import { sendVerificationCode } from "@/lib/auth/email";
 import { hashPassword } from "@/lib/auth/password";
 import { prisma } from "@/lib/prisma";
+import { generateUniqueUsername } from "@/lib/services/profile.server";
 import { z } from "zod";
 import { EmailSchema, PasswordSchema, RegisterResult } from "../types";
 
@@ -94,6 +95,7 @@ export async function registerCommand(input: RegisterInput): Promise<RegisterRes
     }
 
     const { hash, algo } = await hashPassword(password);
+    const generatedUsername = await generateUniqueUsername(name);
     
     // 3. Generate 6-digit code for verification
     const code = generateVerificationCode();
@@ -146,7 +148,21 @@ export async function registerCommand(input: RegisterInput): Promise<RegisterRes
       await tx.userProfile.create({
         data: {
           userId: user.id,
+          username: generatedUsername,
           isLawyer: true,
+          onboardingStep: "profile_setup",
+          onboardingChecklist: [
+            "Upload a professional headshot",
+            "Add a clear professional headline",
+            "Write your professional summary",
+            "Add practice areas or skills",
+          ],
+        },
+      });
+
+      await tx.userProfileVisibility.create({
+        data: {
+          userId: user.id,
         },
       });
 

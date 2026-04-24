@@ -3,6 +3,7 @@
 import StartDiscussionModal from '@/app/components/StartDiscussionModal';
 import DiscussionCard from '@/app/components/lawyer/discussions/discussioncard';
 import NotificationBell from '@/app/components/lawyer/discussions/notificationbell';
+import ProfileHoverLink from '@/app/components/lawyer/discussions/profile-hover-link';
 import LawyerTopbar from '@/app/components/lawyer/lawyer-topbar';
 import { BriefcaseBusiness, ChevronDown, MapPin, Medal, Search, ShieldCheck, Sparkles, TrendingUp, Trophy, X } from 'lucide-react';
 import Link from 'next/link';
@@ -42,8 +43,17 @@ interface DiscussionRow {
     id: string;
     displayName: string | null;
     avatarUrl: string | null;
-    profile: { isLawyer: boolean } | null;
-    lawyerProfile: { verificationStatus: string } | null;
+    profile: {
+      username: string | null;
+      isLawyer: boolean;
+      headline?: string | null;
+      primaryRegion?: { name: string } | null;
+    } | null;
+    lawyerProfile: {
+      verificationStatus: string;
+      barCouncil?: string | null;
+      firmName?: string | null;
+    } | null;
   };
   category: { name: string; colorHex: string | null };
   region: { name: string } | null;
@@ -71,9 +81,14 @@ interface FeaturedDiscussion {
   createdAt: string;
   gradient: string;
   categoryName: string;
+  authorId: string;
   authorName: string;
   authorInitials: string;
   authorAvatarUrl: string | null;
+  authorUsername: string | null;
+  authorHeadline: string | null;
+  authorIsLawyer: boolean;
+  authorRegionName: string | null;
   isVerified: boolean;
   regionName: string | null;
 }
@@ -81,7 +96,9 @@ interface FeaturedDiscussion {
 interface TopLawyer {
   id: string;
   name: string;
+  username: string | null;
   avatarUrl: string | null;
+  headline: string | null;
   practiceArea: string;
   firmName: string | null;
   region: string | null;
@@ -195,60 +212,6 @@ function leaderboardAccent(index: number) {
   return { badge: 'border-[#4C2F5E]/10 bg-white text-[#4C2F5E]', ring: '', dot: '#4C2F5E' };
 }
 
-
-function buildDynamicLawyers(
-  topLawyers: TopLawyer[],
-  currentUser: CurrentUser | null,
-  discussions: DiscussionRow[]
-): TopLawyer[] {
-  if (!currentUser) return topLawyers;
-
-  const authoredDiscussions = discussions.filter((discussion) => discussion.author.id === currentUser.id);
-  const fallbackName =
-    authoredDiscussions[0]?.author.displayName ??
-    currentUser.displayName ??
-    currentUser.name ??
-    'You';
-  const fallbackPracticeArea = authoredDiscussions[0]?.category.name ?? 'General Practice';
-  const fallbackRegion = authoredDiscussions[0]?.region?.name ?? null;
-  const fallbackScore = authoredDiscussions.reduce((sum, discussion) => sum + Math.max(0, discussion.score), 0);
-  const fallbackMonthlyCount = authoredDiscussions.length;
-
-  if (topLawyers.length === 0) {
-    return [{
-      id: currentUser.id ?? 'current-user',
-      name: fallbackName,
-      avatarUrl: authoredDiscussions[0]?.author.avatarUrl ?? null,
-      practiceArea: fallbackPracticeArea,
-      firmName: null,
-      region: fallbackRegion,
-      score: fallbackScore,
-      monthlyCount: fallbackMonthlyCount,
-      isVerified: false,
-    }];
-  }
-
-  // If the current user isn't listed yet, append them at the bottom
-  const alreadyListed = topLawyers.some((l) => l.id === currentUser.id);
-  if (!alreadyListed) {
-    return [
-      ...topLawyers,
-      {
-        id: currentUser.id ?? 'current-user',
-        name: fallbackName,
-        avatarUrl: authoredDiscussions[0]?.author.avatarUrl ?? null,
-        practiceArea: fallbackPracticeArea,
-        firmName: null,
-        region: fallbackRegion,
-        score: fallbackScore,
-        monthlyCount: fallbackMonthlyCount,
-        isVerified: false,
-      },
-    ];
-  }
-
-  return topLawyers;
-}
 
 export default function LegalDiscussionsPage() {
   const router = useRouter();
@@ -445,8 +408,7 @@ export default function LegalDiscussionsPage() {
   const catLabel = categories.find((c) => c.id === selectedCategory)?.name ?? 'All Categories';
   const regionLabel = regions.find((r) => r.id === selectedRegion)?.name ?? 'All Regions';
   const featuredCards = sidebar?.featuredDiscussions ?? [];
-  const rawTopLawyers = sidebar?.topLawyers ?? [];
-  const topLawyers = buildDynamicLawyers(rawTopLawyers, user, discussions);
+  const topLawyers = sidebar?.topLawyers ?? [];
   const trendingTopics = sidebar?.trendingTopics ?? [];
   const regionalTopics = sidebar?.regionalHotTopics ?? [];
   const hasFilters = !!(activeQuickFilter || selectedCategory || selectedRegion || searchQuery || aiSummarized);
@@ -497,9 +459,8 @@ export default function LegalDiscussionsPage() {
               ? [1, 2, 3, 4].map((i) => <FeaturedSkeleton key={i} />)
               : featuredCards.length > 0
                 ? featuredCards.map((card, index) => (
-                    <Link
+                    <div
                       key={card.id}
-                      href={`/discussions/${card.slug}`}
                       className="overflow-hidden rounded-[18px] border border-[#4C2F5E]/10 bg-white transition hover:border-[#4C2F5E]/20"
                     >
                       <div className="p-4 text-white" style={{ background: FALLBACK_GRADIENTS[index % FALLBACK_GRADIENTS.length] }}>
@@ -511,24 +472,46 @@ export default function LegalDiscussionsPage() {
                             <span className="text-[11px] font-medium text-white/80">{card.regionName}</span>
                           ) : null}
                         </div>
-                        <h3 className="mt-8 line-clamp-2 text-sm font-semibold leading-6">{card.title}</h3>
+                        <Link href={`/discussions/${card.slug}`} className="mt-8 block">
+                          <h3 className="line-clamp-2 text-sm font-semibold leading-6 transition hover:text-white/85">{card.title}</h3>
+                        </Link>
                       </div>
                       <div className="space-y-3 p-4">
-                        <div className="flex items-center gap-3">
-                          {card.authorAvatarUrl ? (
-                            <img src={card.authorAvatarUrl} alt="" className="h-8 w-8 rounded-full object-cover border border-[#4C2F5E]/10" />
-                          ) : (
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#4C2F5E] text-[11px] font-semibold text-white">
-                              {card.authorInitials || initials(card.authorName)}
+                        <div className="flex items-center justify-between gap-3">
+                          <ProfileHoverLink
+                            href={`/profile/user/${card.authorId}`}
+                            displayName={card.authorName}
+                            username={card.authorUsername}
+                            avatarUrl={card.authorAvatarUrl}
+                            isVerified={card.isVerified}
+                            isLawyer={card.authorIsLawyer}
+                            headline={card.authorHeadline}
+                            region={card.authorRegionName}
+                            className="flex min-w-0 items-center gap-3"
+                            panelPosition="top"
+                          >
+                            {card.authorAvatarUrl ? (
+                              <img src={card.authorAvatarUrl} alt="" className="h-8 w-8 rounded-full object-cover border border-[#4C2F5E]/10" />
+                            ) : (
+                              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#4C2F5E] text-[11px] font-semibold text-white">
+                                {card.authorInitials || initials(card.authorName)}
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <p className="truncate text-[13px] font-semibold text-[#4C2F5E]">{card.authorName}</p>
+                              <p className="text-[12px] text-[#8B7D99]">{card.answerCount} answers</p>
                             </div>
-                          )}
-                          <div className="min-w-0">
-                            <p className="truncate text-[13px] font-semibold text-[#4C2F5E]">{card.authorName}</p>
-                            <p className="text-[12px] text-[#8B7D99]">{card.answerCount} answers</p>
-                          </div>
+                          </ProfileHoverLink>
+
+                          <Link
+                            href={`/discussions/${card.slug}`}
+                            className="text-[12px] font-semibold text-[#4C2F5E] transition hover:text-[#2F1D3B]"
+                          >
+                            Open
+                          </Link>
                         </div>
                       </div>
-                    </Link>
+                    </div>
                   ))
                 : [1, 2, 3, 4].map((i) => (
                     <div key={i} className="overflow-hidden rounded-[18px] border border-[#4C2F5E]/10 bg-white">
@@ -803,7 +786,7 @@ export default function LegalDiscussionsPage() {
               ) : (
                 <div className="space-y-4">
                   {leaderboardLeader ? (
-                    <div className="overflow-hidden rounded-[20px] border border-[#4C2F5E]/10 bg-[linear-gradient(135deg,#4C2F5E_0%,#7B58A0_100%)] text-white shadow-[0_18px_32px_rgba(76,47,94,0.18)]">
+                    <div className="overflow-visible rounded-[20px] border border-[#4C2F5E]/10 bg-[linear-gradient(135deg,#4C2F5E_0%,#7B58A0_100%)] text-white shadow-[0_18px_32px_rgba(76,47,94,0.18)]">
                       <div className="flex items-start justify-between gap-3 p-4">
                         <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]">
                           <Medal className="h-3.5 w-3.5" />
@@ -815,7 +798,19 @@ export default function LegalDiscussionsPage() {
                       </div>
 
                       <div className="px-4 pb-4">
-                        <div className="flex items-center gap-3">
+                        <ProfileHoverLink
+                          href={`/profile/user/${leaderboardLeader.id}`}
+                          displayName={leaderboardLeader.name}
+                          username={leaderboardLeader.username}
+                          avatarUrl={leaderboardLeader.avatarUrl}
+                          isVerified={leaderboardLeader.isVerified}
+                          isLawyer
+                          headline={leaderboardLeader.headline}
+                          practiceArea={leaderboardLeader.practiceArea}
+                          firmName={leaderboardLeader.firmName}
+                          region={leaderboardLeader.region}
+                          className="flex items-center gap-3"
+                        >
                           {leaderboardLeader.avatarUrl ? (
                             <img
                               src={leaderboardLeader.avatarUrl}
@@ -844,7 +839,7 @@ export default function LegalDiscussionsPage() {
                               {leaderboardLeader.firmName || leaderboardLeader.region || 'Nationwide practice'}
                             </p>
                           </div>
-                        </div>
+                        </ProfileHoverLink>
 
                         <div className="mt-4 grid grid-cols-2 gap-3">
                           <div className="rounded-[16px] border border-white/10 bg-white/8 px-3 py-2.5">
@@ -885,7 +880,20 @@ export default function LegalDiscussionsPage() {
                               : 'border-[#4C2F5E]/8 bg-white hover:border-[#4C2F5E]/14 hover:bg-[#FCFAFE]'
                           }`}
                         >
-                          <div className="flex min-w-0 items-center gap-3">
+                          <ProfileHoverLink
+                            href={`/profile/user/${lawyer.id}`}
+                            displayName={lawyer.name}
+                            username={lawyer.username}
+                            avatarUrl={lawyer.avatarUrl}
+                            isVerified={lawyer.isVerified}
+                            isLawyer
+                            headline={lawyer.headline}
+                            practiceArea={lawyer.practiceArea}
+                            firmName={lawyer.firmName}
+                            region={lawyer.region}
+                            className="flex min-w-0 items-center gap-3"
+                            panelAlign="right"
+                          >
                             <div className={`inline-flex h-8 min-w-8 items-center justify-center rounded-full border text-[11px] font-semibold ${accent.badge}`}>
                               #{rank}
                             </div>
@@ -925,7 +933,7 @@ export default function LegalDiscussionsPage() {
                                 </span>
                               </div>
                             </div>
-                          </div>
+                          </ProfileHoverLink>
 
                           <div className="text-right">
                             <p className="text-sm font-semibold text-[#4C2F5E]">
