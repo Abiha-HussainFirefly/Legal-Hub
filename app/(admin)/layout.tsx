@@ -16,11 +16,11 @@ function AdminShell({
   const { isOpen } = useSidebar();
 
   return (
-    <div className="min-h-screen bg-[#F3F0F4]">
+    <div className="min-h-screen bg-transparent">
       <Sidebar />
       <Header userData={userData} />
       <main
-        className="pt-20 px-3 py-4 transition-all duration-300"
+        className="pt-24 px-3 py-6 transition-all duration-300 md:px-5"
         style={{ marginLeft: isOpen ? '256px' : '72px' }}
       >
         {children}
@@ -74,8 +74,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (status === 'loading' || !userData) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#F9FAFB]">
-        <div className="w-8 h-8 border-4 border-purple-300 border-t-purple-600 rounded-full animate-spin" />
+      <div className="flex items-center justify-center min-h-screen bg-[linear-gradient(180deg,#f8f4ee_0%,#efe7dc_100%)]">
+        <div className="w-9 h-9 border-4 border-[#d8c7a6] border-t-[#102033] rounded-full animate-spin" />
       </div>
     );
   }

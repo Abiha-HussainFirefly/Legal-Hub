@@ -1,15 +1,13 @@
-
 import { prisma } from "@/lib/prisma";
+import { createHash } from "crypto";
 import type {
   Adapter,
   AdapterUser,
   AdapterSession,
 } from "next-auth/adapters";
 
-function toAdapterUser(
-  user: any,
-  overrideEmail?: string | null
-): AdapterUser {
+// Helper to map DB User to Auth.js User
+function toAdapterUser(user: any, overrideEmail?: string | null): AdapterUser {
   const primaryIdentifier =
     user.identifiers?.find(
       (i: any) => i.type === "EMAIL" && i.isPrimary
@@ -27,50 +25,46 @@ function toAdapterUser(
   };
 }
 
-function toAdapterSession(session: any): AdapterSession {
+function toAdapterSession(session: any, rawToken?: string): AdapterSession {
   return {
-    sessionToken: session.sessionToken,
+    sessionToken: rawToken ?? session.sessionTokenHash,
     userId: session.userId,
-    expires: session.expiresAt, 
+    expires: session.expiresAt,
   };
 }
 
-// Adapter
-
 export function CustomPrismaAdapter(): Adapter {
   return {
-    // User 
-
     async createUser(data) {
+      const emailValue = data.email?.toLowerCase() ?? "";
       const user = await prisma.user.create({
         data: {
           displayName: data.name ?? undefined,
           avatarUrl: data.image ?? undefined,
           identifiers: data.email
             ? {
-                create: {
-                  type: "EMAIL",
-                  value: data.email.toLowerCase(),
-                  isPrimary: true,
-                  verifiedAt: data.emailVerified ?? undefined,
-                },
+                create: [
+                  {
+                    type: "EMAIL",
+                    value: emailValue,
+                    normalizedValue: emailValue, // ✅ Required by your schema
+                    isPrimary: true,
+                    verifiedAt: data.emailVerified ?? undefined,
+                  },
+                ],
               }
             : undefined,
         },
         include: { identifiers: true },
       });
 
-      // Assign default 'member' role
+      // Default role assignment
       const memberRole = await prisma.role.findUnique({ where: { name: "member" } });
       if (memberRole) {
         await prisma.userRole.create({
-          data: {
-            userId: user.id,
-            roleId: memberRole.id,
-          },
+          data: { userId: user.id, roleId: memberRole.id },
         });
       }
-
       return toAdapterUser(user, data.email);
     },
 
@@ -79,35 +73,27 @@ export function CustomPrismaAdapter(): Adapter {
         where: { id },
         include: { identifiers: true },
       });
-      if (!user) return null;
-      return toAdapterUser(user);
+      return user ? toAdapterUser(user) : null;
     },
 
     async getUserByEmail(email) {
+      const normalized = email.toLowerCase();
       const identifier = await prisma.userIdentifier.findUnique({
-        where: {
-          type_value: { type: "EMAIL", value: email.toLowerCase() },
-        },
+        where: { type_normalizedValue: { type: "EMAIL", normalizedValue: normalized } },
         include: { user: { include: { identifiers: true } } },
       });
-      if (!identifier) return null;
-      return toAdapterUser(identifier.user, email);
+      return identifier ? toAdapterUser(identifier.user, email) : null;
     },
 
     async getUserByAccount({ provider, providerAccountId }) {
-      
       const account = await prisma.externalAccount.findUnique({
-        where: {
-          provider_providerAccountId: { provider, providerAccountId },
-        },
+        where: { provider_providerAccountId: { provider, providerAccountId } },
         include: { user: { include: { identifiers: true } } },
       });
-      if (!account) return null;
-      return toAdapterUser(account.user);
+      return account ? toAdapterUser(account.user) : null;
     },
 
     async updateUser({ id, ...data }) {
-      
       const user = await prisma.user.update({
         where: { id },
         data: {
@@ -119,15 +105,10 @@ export function CustomPrismaAdapter(): Adapter {
 
       if (data.emailVerified !== undefined && data.email) {
         await prisma.userIdentifier.updateMany({
-          where: {
-            userId: id,
-            type: "EMAIL",
-            value: data.email.toLowerCase(),
-          },
+          where: { userId: id, type: "EMAIL", normalizedValue: data.email.toLowerCase() },
           data: { verifiedAt: data.emailVerified },
         });
       }
-
       return toAdapterUser(user, data.email);
     },
 
@@ -135,7 +116,6 @@ export function CustomPrismaAdapter(): Adapter {
       await prisma.user.delete({ where: { id } });
     },
 
-    
     async linkAccount(account) {
       await prisma.externalAccount.create({
         data: {
@@ -143,85 +123,76 @@ export function CustomPrismaAdapter(): Adapter {
           provider: account.provider,
           providerAccountId: account.providerAccountId,
           providerType: "OAUTH",
-          accessToken: account.access_token ?? undefined,
-          refreshToken: account.refresh_token ?? undefined,
-          idToken: account.id_token ?? undefined,
+          accessTokenEncrypted: account.access_token ?? undefined,
+          refreshTokenEncrypted: account.refresh_token ?? undefined,
+          idTokenEncrypted: account.id_token ?? undefined,
           tokenType: account.token_type ?? undefined,
           scope: account.scope ?? undefined,
           expiresAt: account.expires_at ?? undefined,
-          sessionState: account.session_state != null
-            ? String(account.session_state)
-            : undefined,
+          sessionState: account.session_state != null ? String(account.session_state) : undefined,
         },
       });
-      return account;
+      return account as any;
     },
 
     async unlinkAccount({ provider, providerAccountId }) {
       await prisma.externalAccount.delete({
-        where: {
-          provider_providerAccountId: { provider, providerAccountId },
-        },
+        where: { provider_providerAccountId: { provider, providerAccountId } },
       });
     },
 
     async createSession({ sessionToken, userId, expires }) {
+      const sessionTokenHash = createHash("sha256").update(sessionToken).digest("hex");
       const session = await prisma.session.create({
         data: {
-          sessionToken,
+          sessionTokenHash,
           userId,
-          expiresAt: expires, 
+          expiresAt: expires,
         },
       });
-      return toAdapterSession(session);
+      return toAdapterSession(session, sessionToken);
     },
 
     async getSessionAndUser(sessionToken) {
+      const sessionTokenHash = createHash("sha256").update(sessionToken).digest("hex");
       const session = await prisma.session.findUnique({
-        where: { sessionToken },
+        where: { sessionTokenHash },
         include: { user: { include: { identifiers: true } } },
       });
 
-      if (
-        !session ||
-        session.revokedAt !== null ||
-        session.expiresAt < new Date()
-      ) {
+      if (!session || session.revokedAt !== null || session.expiresAt < new Date()) {
         return null;
       }
 
-      await prisma.session.update({
-        where: { sessionToken },
-        data: { lastSeenAt: new Date() },
-      });
-
       return {
-        session: toAdapterSession(session),
+        session: toAdapterSession(session, sessionToken),
         user: toAdapterUser(session.user),
       };
     },
 
-    async updateSession({ sessionToken, expires, userId }) {
+    async updateSession({ sessionToken, expires }) {
+      const sessionTokenHash = createHash("sha256").update(sessionToken).digest("hex");
       const session = await prisma.session.update({
-        where: { sessionToken },
+        where: { sessionTokenHash },
         data: {
           ...(expires && { expiresAt: expires }),
           lastSeenAt: new Date(),
         },
       });
-      return toAdapterSession(session);
+      return toAdapterSession(session, sessionToken);
     },
 
     async deleteSession(sessionToken) {
-      await prisma.session.delete({ where: { sessionToken } }).catch(() => {
-       
-      });
+      const sessionTokenHash = createHash("sha256").update(sessionToken).digest("hex");
+      await prisma.session.delete({ where: { sessionTokenHash } }).catch(() => {});
     },
+
+    // --- VERIFICATION TOKEN (FIXED FIELD NAMES) ---
 
     async createVerificationToken({ identifier, token, expires }) {
       await prisma.verificationToken.create({
         data: {
-          token,
+          tokenHash: token, // ✅ Matches 'tokenHash' in your schema
           purpose: "email_verify",
           identifierType: "EMAIL",
           identifierValue: identifier,
@@ -232,24 +203,22 @@ export function CustomPrismaAdapter(): Adapter {
     },
 
     async useVerificationToken({ identifier, token }) {
-      const vt = await prisma.verificationToken.findFirst({
-        where: {
-          token,
-          identifierValue: identifier,
-          purpose: "email_verify",
-          consumedAt: null,
-          expiresAt: { gt: new Date() },
-        },
+      const vt = await prisma.verificationToken.findUnique({
+        where: { tokenHash: token }, // ✅ Matches 'tokenHash' in your schema
       });
 
-      if (!vt) return null;
+      if (!vt || vt.consumedAt || vt.expiresAt < new Date()) return null;
 
       await prisma.verificationToken.update({
         where: { id: vt.id },
         data: { consumedAt: new Date() },
       });
 
-      return { identifier, token, expires: vt.expiresAt };
+      return { 
+        identifier: vt.identifierValue ?? "", 
+        token: vt.tokenHash, 
+        expires: vt.expiresAt 
+      };
     },
   };
 }

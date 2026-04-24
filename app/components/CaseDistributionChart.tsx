@@ -3,11 +3,11 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 
 const data = [
-  { name: 'Family law', value: 33, color: '#008B62' },
-  { name: 'Criminal',   value: 25, color: '#9F63C4' },
-  { name: 'Tax Law',    value: 15, color: '#4285F4' },
-  { name: 'Civil',      value: 20, color: '#EEA62B' },
-  { name: 'Other',      value: 5,  color: '#9A9997' },
+  { name: 'Family law', value: 33, color: '#1B7A5A' },
+  { name: 'Criminal',   value: 25, color: '#203A58' },
+  { name: 'Tax Law',    value: 15, color: '#486B92' },
+  { name: 'Civil',      value: 20, color: '#B08C54' },
+  { name: 'Other',      value: 5,  color: '#A3A3A3' },
 ];
 
 const renderLabel = ({ cx, cy, midAngle, outerRadius, value }: any) => {
@@ -32,7 +32,7 @@ const renderLabel = ({ cx, cy, midAngle, outerRadius, value }: any) => {
 
 export default function CaseDistributionChart() {
   return (
-    <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100">
+    <div className="legal-panel p-4 sm:p-6">
 
       <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">
         Case Distribution by Category
@@ -80,10 +80,10 @@ export default function CaseDistributionChart() {
                 className="w-3 h-3 rounded-sm flex-shrink-0"
                 style={{ backgroundColor: entry.color }}
               />
-              <span className="text-xs sm:text-sm text-gray-700 whitespace-nowrap">
-                {entry.name}
-              </span>
-            </div>
+                <span className="text-xs sm:text-sm text-slate-700 whitespace-nowrap">
+                  {entry.name}
+                </span>
+              </div>
           ))}
         </div>
       </div>

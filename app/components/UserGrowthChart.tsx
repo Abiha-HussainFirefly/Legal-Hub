@@ -16,7 +16,7 @@ const data = [
 
 export default function UserGrowthChart() {
   return (
-    <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100">
+    <div className="legal-panel p-4 sm:p-6">
 
       <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">
         User Growth over Time
@@ -27,8 +27,8 @@ export default function UserGrowthChart() {
           <AreaChart data={data} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
             <defs>
               <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor="#9333ea" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="#9333ea" stopOpacity={0.1} />
+                <stop offset="5%"  stopColor="#102033" stopOpacity={0.82} />
+                <stop offset="95%" stopColor="#B08C54" stopOpacity={0.14} />
               </linearGradient>
             </defs>
 
@@ -59,7 +59,7 @@ export default function UserGrowthChart() {
             <Area
               type="monotone"
               dataKey="users"
-              stroke="#9333ea"
+              stroke="#102033"
               strokeWidth={2}
               fillOpacity={1}
               fill="url(#colorUsers)"

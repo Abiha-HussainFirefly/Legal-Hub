@@ -53,15 +53,17 @@ export default function Verification() {
 
   return (
     
-    <div className="bg-[#FFFFFF] rounded-2xl p-4 md:p-6">
+    <div className="space-y-6">
 
-      {/* Page Header */}
-      <div className="mb-5 sm:mb-6">
-        <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">Lawyer Verification</h1>
-        <p className="text-xs sm:text-sm text-gray-500">Manage verification workflow</p>
-      </div>
+      <section className="legal-panel px-6 py-7 md:px-8">
+        <p className="legal-kicker">Verification queue</p>
+        <h1 className="mt-4 text-4xl font-semibold tracking-[-0.05em] text-[#102033]">Review lawyer verification with more confidence.</h1>
+        <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 md:text-base">
+          The workflow uses stronger table contrast and cleaner filters so trust decisions feel structured instead of improvised.
+        </p>
+      </section>
 
-      <div className="bg-white rounded-2xl shadow-sm p-4 md:p-6">
+      <div className="legal-panel p-4 md:p-6">
 
         {/* Search Bar */}
         <div className="mb-4 sm:mb-6">
@@ -72,16 +74,16 @@ export default function Verification() {
               value={searchQuery}
               onChange={handleSearch}
               placeholder="Search by name or bar number..."
-              className="w-full pl-9 sm:pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+              className="legal-field w-full pl-9 sm:pl-10 pr-4 py-3 text-sm"
             />
           </div>
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px]">
+        <div className="legal-table-wrap overflow-x-auto">
+          <table className="legal-table w-full min-w-[560px]">
             <thead>
-              <tr className="bg-gradient-to-r from-[#9F63C4] to-[#7E4FA1] text-white">
+              <tr>
                 <th className="px-4 md:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold">Name</th>
                 <th className="hidden sm:table-cell px-4 md:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold">Bar Number</th>
                 <th className="px-4 md:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold">Region</th>
@@ -92,7 +94,7 @@ export default function Verification() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {paginated.length > 0 ? paginated.map((lawyer) => (
-                <tr key={lawyer.id} className="hover:bg-gray-50 transition">
+                <tr key={lawyer.id} className="transition">
                   <td className="px-4 md:px-6 py-3 sm:py-4 text-sm font-medium text-gray-900">
                     <div className="flex flex-col">
                       <span>{lawyer.name}</span>
@@ -124,7 +126,7 @@ export default function Verification() {
                       onClick={() => openModal(lawyer)}
                       className="inline-flex items-center gap-1.5 text-sm text-black-600 hover:text-black-700 font-medium"
                     >
-                      <FileTextIcon className="w-4 h-4 text-[#4C2F5E] flex-shrink-0" />
+                      <FileTextIcon className="w-4 h-4 text-[#102033] flex-shrink-0" />
                       <span className="hidden sm:inline">Review</span>
                     </button>
                   </td>
@@ -149,7 +151,7 @@ export default function Verification() {
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="px-3 md:px-4 py-1.5 text-xs md:text-sm text-gray-600 hover:bg-gray-100 rounded-full border border-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
+              className="legal-button-secondary disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Previous
             </button>
@@ -157,10 +159,10 @@ export default function Verification() {
               <button
                 key={n}
                 onClick={() => setCurrentPage(n)}
-                className={`w-8 h-7 md:w-9 md:h-8 flex items-center justify-center text-xs md:text-sm rounded-xl shadow-sm transition ${
+                className={`w-8 h-7 md:w-10 md:h-10 flex items-center justify-center text-xs md:text-sm rounded-full shadow-sm transition ${
                   n === currentPage
-                    ? 'bg-gradient-to-r from-[#9F63C4] to-[#7E4FA1] text-white'
-                    : 'text-gray-600 hover:bg-gray-100'
+                    ? 'bg-[#102033] text-white'
+                    : 'text-gray-600 hover:bg-[#F8F4EE]'
                 }`}
               >
                 {n}
@@ -169,7 +171,7 @@ export default function Verification() {
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages || totalPages === 0}
-              className="px-3 md:px-4 py-1.5 text-xs md:text-sm text-gray-600 hover:bg-gray-100 rounded-full border border-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
+              className="legal-button-secondary disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Next
             </button>

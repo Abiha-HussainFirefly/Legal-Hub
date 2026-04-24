@@ -4,6 +4,7 @@ import { useSidebar } from '@/app/components/admin/sidebar/SidebarContext';
 import {
   BarChart3,
   Bell,
+  BriefcaseBusiness,
   ChevronDown,
   FileSearch,
   Home,
@@ -21,6 +22,7 @@ import { useEffect, useRef, useState } from 'react';
 const menuItems = [
   { icon: Home,         label: 'Dashboard',   href: '/dashboard'   },
   { icon: ShieldCheck, label: 'Verification', href: '/verification' },
+  { icon: BriefcaseBusiness, label: 'Cases', href: '/case-review' },
   { icon: FileSearch,  label: 'Moderation',  href: '/moderation'   },
   { icon: Users,       label: 'User',        href: '/user'        },
   { icon: BarChart3,   label: 'Reports',     href: '/reports'     },

@@ -24,7 +24,12 @@ function ResetPasswordForm() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const portal = searchParams.get("portal") || "lawyer";
-  const loginPath = portal === "admin" ? "/adminlogin" : "/lawyerlogin";
+  const loginPath =
+    portal === "admin"
+      ? "/adminlogin"
+      : portal === "client"
+        ? "/clientlogin"
+        : "/lawyerlogin";
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");

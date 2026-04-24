@@ -11,7 +11,12 @@ export async function provisionAdminAccount(
 
  
   const existing = await prisma.userIdentifier.findUnique({
-    where: { type_value: { type: "EMAIL", value: normalizedEmail } },
+    where: {
+      type_normalizedValue: {
+        type: "EMAIL",
+        normalizedValue: normalizedEmail,
+      },
+    },
   });
 
   if (existing) {

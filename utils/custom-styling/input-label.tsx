@@ -1,6 +1,6 @@
 export const commonInputClass = (hasError: boolean) => `
-    w-full px-3.5 py-[11px] rounded-[10px] text-[15px] transition-all outline-none border-[1.5px]
-    ${hasError ? "border-red-500 bg-[#fff5f5]" : "border-gray-200 bg-[#fafafa] focus:border-[#9F63C4]"}
+    legal-field w-full px-4 py-[13px] rounded-[14px] text-[15px] transition-all outline-none border-[1.5px]
+    ${hasError ? "border-red-400 bg-[#fff7f5] focus:border-red-400 focus:ring-4 focus:ring-red-100" : "border-[#4C2F5E]/12 bg-white focus:border-[#4C2F5E]"}
   `
 
-export const commonLabelClass = "block text-[15px] font-semibold text-gray-700 mb-1.5"
+export const commonLabelClass = "mb-2 block text-[12px] font-semibold uppercase tracking-[0.18em] text-[#736683]"

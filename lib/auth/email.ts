@@ -1,5 +1,7 @@
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? 'Legal Hub';
 const APP_URL  = process.env.NEXT_PUBLIC_APP_URL  ?? 'http://localhost:3000';
+const SHOULD_LOG_EMAIL_DEBUG =
+  process.env.EMAIL_DEBUG_TO_TERMINAL === 'true' || process.env.NODE_ENV !== 'production';
 
 // Interfaces //
 
@@ -24,6 +26,14 @@ export async function sendVerificationCode({
   name,
   code,
 }: { to: string; name: string; code: string }): Promise<void> {
+  if (SHOULD_LOG_EMAIL_DEBUG) {
+    console.log("\n" + "=".repeat(40));
+    console.log("VERIFICATION CODE");
+    console.log(`Email: ${to}`);
+    console.log(`Code:  ${code}`);
+    console.log("=".repeat(40) + "\n");
+  }
+
   await sendEmail({
     to,
     subject: `${code} is your ${APP_NAME} verification code`,
@@ -42,6 +52,16 @@ export async function sendPasswordResetEmail({
 }: PasswordResetEmailInput): Promise<void> {
   const resetUrl = `${APP_URL}/reset-password?token=${token}&portal=${portal}`; 
 
+  if (SHOULD_LOG_EMAIL_DEBUG) {
+    console.log("\n" + "=".repeat(40));
+    console.log("PASSWORD RESET LINK");
+    console.log(`Email: ${to}`);
+    console.log(`Portal: ${portal}`);
+    console.log(`Token: ${token}`);
+    console.log(`Link:  ${resetUrl}`);
+    console.log("=".repeat(40) + "\n");
+  }
+
   await sendEmail({
     to,
     subject: `Reset your ${APP_NAME} password`,
@@ -52,7 +72,10 @@ export async function sendPasswordResetEmail({
 
 //  Core send function //
 async function sendEmail({ to, subject, html, text }: SendEmailInput) {
-  if (process.env.NODE_ENV !== 'production') {
+  const emailFrom = process.env.EMAIL_FROM;
+  const emailPassword = process.env.EMAIL_PASSWORD;
+
+  if (!emailFrom || !emailPassword) {
     console.log('\n──────── EMAIL (dev) ────────');
     console.log(`To:      ${to}`);
     console.log(`Subject: ${subject}`);
@@ -67,18 +90,27 @@ async function sendEmail({ to, subject, html, text }: SendEmailInput) {
   const transporter = nodemailer.default.createTransport({
     service: 'gmail',
     auth: {
-      user: process.env.EMAIL_FROM,
-      pass: process.env.EMAIL_PASSWORD,
+      user: emailFrom,
+      pass: emailPassword,
     },
   });
 
-  await transporter.sendMail({
-    from: `"${APP_NAME}" <${process.env.EMAIL_FROM}>`,
+  const info = await transporter.sendMail({
+    from: `"${APP_NAME}" <${emailFrom}>`,
     to,
     subject,
     html,
     text,
   });
+
+  if (SHOULD_LOG_EMAIL_DEBUG) {
+    console.log("\n" + "─".repeat(28) + " EMAIL SENT " + "─".repeat(28));
+    console.log(`To:        ${to}`);
+    console.log(`Subject:   ${subject}`);
+    console.log(`Transport: Gmail SMTP`);
+    console.log(`MessageId: ${info.messageId}`);
+    console.log("─".repeat(68) + "\n");
+  }
 }
 
 // Verification email templates //

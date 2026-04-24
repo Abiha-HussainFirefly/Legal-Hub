@@ -18,12 +18,13 @@ export async function verifyEmailCommand(input: VerifyEmailInput): Promise<AuthR
     return { success: false, error: "VALIDATION_ERROR", message: validated.error.issues[0].message, status: 400 };
   }
 
-  const { email: normalizedEmail, code, ip, userAgent } = validated.data;
+  const { email: emailInput, code, ip, userAgent } = validated.data;
+  const normalizedEmail = emailInput.trim().toLowerCase(); // Always normalize for lookups
 
   try {
     const record = await prisma.verificationToken.findFirst({
       where: {
-        token: code,
+        tokenHash: code, // Matches your PostgreSQL schema
         purpose: "email_verify",
         identifierValue: normalizedEmail,
       },
@@ -43,22 +44,32 @@ export async function verifyEmailCommand(input: VerifyEmailInput): Promise<AuthR
     }
 
     const { session } = await prisma.$transaction(async (tx) => {
+      // 1. Mark token as used
       await tx.verificationToken.update({ where: { id: record.id }, data: { consumedAt: new Date() } });
 
+      // 2. Find identifier using the same compound index as your Register action
       const identifier = await tx.userIdentifier.findUnique({
-        where: { type_value: { type: "EMAIL", value: normalizedEmail } },
+        where: { 
+          type_normalizedValue: { // Match your specific Prisma schema index
+            type: "EMAIL", 
+            normalizedValue: normalizedEmail 
+          } 
+        },
       });
 
       if (!identifier) throw new Error("Could not locate a UserIdentifier to verify.");
 
+      // 3. Update verification status
       await tx.userIdentifier.update({ where: { id: identifier.id }, data: { verifiedAt: new Date() } });
 
+      // 4. Create Audit Log
       await tx.auditLog.create({
         data: {
+          category: "USER", // Added to match your schema's required category
           action: "EMAIL_VERIFIED",
-          actorId: record.userId,
-          targetUserId: record.userId,
-          ip,
+          actorId: record.userId!,
+          targetUserId: record.userId!,
+          ipHash: ip, // Your schema uses ipHash
           userAgent,
           meta: { status: "SUCCESS", email: normalizedEmail },
         },

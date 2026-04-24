@@ -98,14 +98,17 @@ export default function ModerationPage() {
     data.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   return (
-    <div className="bg-[#FFFFFF] rounded-2xl p-4 md:p-6">
+    <div className="space-y-6">
 
-      <div className="mb-4 sm:mb-5">
-        <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">Moderation</h1>
-        <p className="text-xs sm:text-sm text-gray-500">Review AI-flagged content and user reports</p>
-      </div>
+      <section className="legal-panel px-6 py-7 md:px-8">
+        <p className="legal-kicker">Moderation</p>
+        <h1 className="mt-4 text-4xl font-semibold tracking-[-0.05em] text-[#102033]">Resolve risk signals with cleaner triage views.</h1>
+        <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 md:text-base">
+          AI flags, user reports, and resolved items now read as one deliberate workflow rather than disconnected tables.
+        </p>
+      </section>
 
-      <div className="flex gap-4 sm:gap-6 mb-4 sm:mb-6 border-b border-gray-200 overflow-x-auto scrollbar-none">
+      <div className="legal-panel flex gap-4 sm:gap-6 px-6 pt-5 border-b border-gray-200 overflow-x-auto scrollbar-none">
         {([
           { key: 'ai-flagged',   label: 'Flagged by AI' },
           { key: 'user-reports', label: 'User Reports'  },
@@ -125,7 +128,7 @@ export default function ModerationPage() {
         ))}
       </div>
 
-      <div className="bg-white rounded-2xl p-4 shadow-sm md:p-6">
+      <div className="legal-panel p-4 shadow-sm md:p-6">
 
         {/* AI-Flagged Content Tab */}
         {activeTab === 'ai-flagged' && (

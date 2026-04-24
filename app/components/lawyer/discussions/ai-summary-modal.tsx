@@ -1,107 +1,154 @@
 'use client';
 
-import { X, Sparkles, CheckCircle2 } from 'lucide-react';
-import { useState } from 'react';
+import { AlertCircle, CheckCircle2, Sparkles, X } from 'lucide-react';
 
-
-interface AISummaryModalProps {
-  isOpen: boolean;
-  onClose: () => void;
+interface AISummaryData {
+  summaryText: string | null;
+  mainIssue: string | null;
+  keyPoints: unknown;
+  expertConsensus: string | null;
+  status: string;
 }
 
-export default function AISummaryModal({ isOpen, onClose }: AISummaryModalProps) {
+interface Props {
+  isOpen: boolean;
+  onClose: () => void;
+  summaryData: AISummaryData | null;
+  discussionTitle: string;
+}
+
+function parseKeyPoints(kp: unknown): string[] {
+  if (!kp) return [];
+  if (Array.isArray(kp)) return kp.filter(Boolean).map(String);
+  if (typeof kp === 'string') {
+    try { const p = JSON.parse(kp); return Array.isArray(p) ? p.map(String) : [kp]; }
+    catch { return [kp]; }
+  }
+  return [];
+}
+
+export default function AISummaryModal({ isOpen, onClose, summaryData, discussionTitle }: Props) {
   if (!isOpen) return null;
 
+  const keyPoints = parseKeyPoints(summaryData?.keyPoints);
+
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+        className="absolute inset-0 bg-[#1a0a2e]/60 backdrop-blur-[2px]"
         onClick={onClose}
       />
 
       {/* Modal */}
-      <div className="flex min-h-full items-center justify-center p-4">
-        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl transform transition-all">
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-[#9E62C4]" />
-              <h2 className="text-xl font-bold text-[#4C2F5E]">AI Summary</h2>
+      <div className="relative w-full max-w-[520px] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+
+        {/* Header  */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+              style={{ background: 'linear-gradient(135deg, #7B3FA0 0%, #9F63C4 100%)' }}>
+              <Sparkles className="w-4 h-4 text-white" />
             </div>
-            <button
-              onClick={onClose}
-              className="p-1 hover:bg-gray-100 rounded-lg transition"
-            >
-              <X className="w-6 h-6 text-[#4C2F5E]" />
-            </button>
+            <h2 className="text-[16px] font-bold text-gray-900">AI Summary</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition cursor-pointer">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+
+          {/* Discussion title card */}
+          <div className="rounded-xl px-4 py-3.5" style={{ background: '#F8F3FF', border: '1px solid #E8D9F5' }}>
+            <p className="text-[13px] font-bold text-[#4C2F5E] leading-snug mb-1">{discussionTitle}</p>
+            <p className="text-[11px] text-[#9F63C4]">AI-generated summary based on discussion content and expert replies</p>
           </div>
 
-          {/* Content */}
-          <div className="p-6">
-            <div className="bg-[#EDE2F3] rounded-lg p-4 mb-6">
-              <h3 className="font-semibold text-[#4C2F5E] mb-2">
-                Legal Framework for Digital Assets in Pakistan - Need Clarification
-              </h3>
-              <p className="text-sm text-[#6E7D7D]">
-                AI-generated summary based on discussion content and expert replies
-              </p>
-            </div>
-
-            {/* Main Issue */}
-            <div className="mb-6">
-              <div className="flex items-start gap-2 mb-2">
-                <CheckCircle2 className="w-5 h-5 text-[#9E62C4] flex-shrink-0 mt-0.5" />
-                <h4 className="font-semibold text-[#4C2F5E]">Main Issue</h4>
+          {!summaryData || summaryData.status !== 'GENERATED' ? (
+            <div className="text-center py-6">
+              <div className="w-12 h-12 rounded-2xl bg-[#F8F3FF] flex items-center justify-center mx-auto mb-3">
+                <Sparkles className="w-5 h-5 text-[#9F63C4]" />
               </div>
-              <p className="text-sm text-[#6E7D7D] leading-relaxed ml-7">
-                The discussion centers on understanding the legal framework and implications of the topic within Pakistan jurisdiction
-              </p>
+              <p className="text-sm font-semibold text-gray-700 mb-1">Summary not available yet</p>
+              <p className="text-xs text-gray-400">Our AI is still analyzing this discussion.</p>
             </div>
+          ) : (
+            <>
+              {/* Main Issue  */}
+              {summaryData.mainIssue && (
+                <section>
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <CheckCircle2 className="w-4.5 h-4.5 text-[#9F63C4] flex-shrink-0" style={{ width: 18, height: 18 }} />
+                    <h3 className="text-[14px] font-bold text-gray-900">Main Issue</h3>
+                  </div>
+                  <p className="text-[13px] text-gray-600 leading-relaxed pl-[26px]">
+                    {summaryData.mainIssue}
+                  </p>
+                </section>
+              )}
 
-            {/* Key Points */}
-            <div className="mb-6">
-              <div className="flex items-start gap-2 mb-3">
-                <CheckCircle2 className="w-5 h-5 text-[#9E62C4] flex-shrink-0 mt-0.5" />
-                <h4 className="font-semibold text-[#4C2F5E]">Key Points</h4>
+              {/*  Key Points */}
+              {keyPoints.length > 0 && (
+                <section>
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <CheckCircle2 className="w-4.5 h-4.5 text-[#9F63C4] flex-shrink-0" style={{ width: 18, height: 18 }} />
+                    <h3 className="text-[14px] font-bold text-gray-900">Key Points</h3>
+                  </div>
+                  <ul className="space-y-1.5 pl-[26px]">
+                    {keyPoints.map((pt, i) => (
+                      <li key={i} className="flex items-start gap-2 text-[13px] text-gray-600">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#9F63C4] mt-[6px] flex-shrink-0" />
+                        {pt}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+
+              {/* Expert Consensus */}
+              {summaryData.expertConsensus && (
+                <section>
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <CheckCircle2 className="w-4.5 h-4.5 text-[#9F63C4] flex-shrink-0" style={{ width: 18, height: 18 }} />
+                    <h3 className="text-[14px] font-bold text-gray-900">Expert Consensus</h3>
+                  </div>
+                  <p className="text-[13px] text-gray-600 leading-relaxed pl-[26px]">
+                    {summaryData.expertConsensus}
+                  </p>
+                </section>
+              )}
+
+            
+              {summaryData.summaryText && (
+                <div className="rounded-xl bg-gray-50 border border-gray-100 px-4 py-3.5">
+                  <p className="text-[12px] text-gray-600 leading-relaxed">{summaryData.summaryText}</p>
+                </div>
+              )}
+
+              {/* Disclaimer */}
+              <div className="rounded-xl px-4 py-3 flex items-start gap-2.5"
+                style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
+                <AlertCircle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
+                <p className="text-[11px] text-amber-700 leading-relaxed">
+                  <span className="font-bold">Disclaimer:</span> This AI summary is for informational purposes only and does not constitute legal advice. Consult a qualified lawyer for specific guidance.
+                </p>
               </div>
-              <ul className="ml-7 space-y-2">
-                <li className="flex items-start gap-2 text-sm text-[#6E7D7D]">
-                  <span className="w-1.5 h-1.5 bg-[#4C2F5E] rounded-full mt-2 flex-shrink-0"></span>
-                  <span>Relevant laws and statutory provisions discussed</span>
-                </li>
-                <li className="flex items-start gap-2 text-sm text-[#6E7D7D]">
-                  <span className="w-1.5 h-1.5 bg-[#4C2F5E] rounded-full mt-2 flex-shrink-0"></span>
-                  <span>Precedents and case law references provided</span>
-                </li>
-                <li className="flex items-start gap-2 text-sm text-[#6E7D7D]">
-                  <span className="w-1.5 h-1.5 bg-[#4C2F5E] rounded-full mt-2 flex-shrink-0"></span>
-                  <span>Practical steps and recommendations outlined</span>
-                </li>
-              </ul>
-            </div>
+            </>
+          )}
+        </div>
 
-            {/* Expert Consensus */}
-            <div className="mb-6">
-              <div className="flex items-start gap-2 mb-2">
-                <CheckCircle2 className="w-5 h-5 text-[#9E62C4] flex-shrink-0 mt-0.5" />
-                <h4 className="font-semibold text-[#4C2F5E]">Expert Consensus</h4>
-              </div>
-              <p className="text-sm text-[#6E7D7D] leading-relaxed ml-7">
-                Multiple verified lawyers have provided aligned\guidance on the proper legal approach and recommended next steps.
-              </p>
-            </div>
-
-            {/* Footer Badge */}
-           
-<div className="p-6 pt-0 flex justify-start">
-  <div className="flex items-center justify-center gap-3 bg-gradient-to-r from-[#4C2F5E] to-[#8A54B0] text-white px-6 py-2.5 rounded-xl w-72 shadow-md">
-    <Sparkles className="w-4 h-4 shrink-0" />
-    <span className="text-sm font-bold tracking-wide">
-      Generated by Legal Hub AI
-    </span>
-  </div>
-</div>
-          </div>
+        {/* ── Footer button ── */}
+        <div className="px-6 pb-5 pt-2">
+          <button
+            onClick={onClose}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white text-[13px] font-bold transition hover:opacity-90 cursor-pointer"
+            style={{ background: 'linear-gradient(135deg, #5B2D8E 0%, #9F63C4 100%)' }}>
+            <Sparkles className="w-4 h-4" />
+            Generated by Legal Hub AI
+          </button>
         </div>
       </div>
     </div>

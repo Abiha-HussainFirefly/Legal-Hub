@@ -1,334 +1,350 @@
 'use client';
 
-import { ArrowLeft, Eye, Menu, X, LogOut } from 'lucide-react';
-import Image from 'next/image';
+import LawyerTopbar from '@/app/components/lawyer/lawyer-topbar';
+import { ArrowLeft, Bookmark, BookmarkCheck, Eye, Plus, Sparkles, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
-import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
-const saved = [
-  {
-    id: 1,
-    title: 'Legal Framework for Digital Assets in Pakistan - Need Clarification',
-    excerpt: '43  I am trying to understand the legal status of cryptocurrency and NFTs under pakistani law.Recent amendments seem contradictory.. ',
-    author: 'Muhammad Tariq',
-    category: 'Corporate Law',
-    tags: ['Islamabad', 'AI Summary', 'Answered'],
-    views: 14,
-    likes: 342,
-    timeAgo: '3 hours ago',
-  },
-  {
-    id: 2,
-    title: "Inheritance Rights: Father's Property Distribution Among Sons and Daughters",
-    excerpt: '67  My father recently passed away without a will.According to Islamic law and Pakistani civil law,how should the property be distributed?',
-    author: 'Ayesha Siddiqui',
-    category: 'Family Law',
-    tags: ['Lahore', 'AI Summary', 'Answered'],
-    views: 23,
-    likes: 521,
-    timeAgo: '2 hours ago',
-  },
-  {
-    id: 3,
-    title: 'Employer Refusing to Pay Dues After Termination - Legal Options?',
-    excerpt: '43  I was terminated from my job after 3 years without proper notice. The company is refusing to pay my pending salary and dues. What are my legal options under labor law?',
-    author: 'Rehan Zaidi',
-    category: 'Labor Law',
-    tags: ['Karachi', 'AI Summary','Answered'],
-    views: 14,
-    likes: 352,
-    timeAgo: '2 hours ago',
-  },
-];
+interface DiscussionRow {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string | null;
+  status: string;
+  answerCount: number;
+  viewCount: number;
+  isAiSummaryReady: boolean;
+  createdAt: string;
+  author: { id: string; displayName: string | null; avatarUrl: string | null };
+  category: { name: string };
+  region: { name: string } | null;
+  tags: { tag: { id: string; name: string } }[];
+}
+
+interface CurrentUser {
+  id?: string;
+  name?: string | null;
+  displayName?: string | null;
+  email?: string | null;
+}
+
+function timeAgo(date: string) {
+  const minutes = Math.floor((Date.now() - new Date(date).getTime()) / 60000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+function initials(name: string | null) {
+  if (!name) return 'LH';
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('');
+}
+
+function SkeletonCard() {
+  return (
+    <div className="overflow-hidden rounded-[24px] border border-[#4C2F5E]/10 bg-white p-6">
+      <div className="flex gap-6">
+        <div className="flex-1 space-y-3">
+          <div className="flex gap-2">
+            <div className="h-6 w-24 animate-pulse rounded-full bg-[#F1EAF6]" />
+            <div className="h-6 w-16 animate-pulse rounded-full bg-[#F5F1F8]" />
+          </div>
+          <div className="h-5 w-3/4 animate-pulse rounded-lg bg-[#F5F1F8]" />
+          <div className="h-4 w-full animate-pulse rounded-lg bg-[#F5F1F8]" />
+        </div>
+        <div className="hidden w-52 animate-pulse rounded-[18px] bg-[#F1EAF6] lg:block" />
+      </div>
+    </div>
+  );
+}
 
 export default function SavedPage() {
   const router = useRouter();
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [user, setUser] = useState<{ name: string; role: string } | null>(null);
+  const [user, setUser] = useState<CurrentUser | null>(null);
+  const [discussions, setDiscussions] = useState<DiscussionRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [removingIds, setRemovingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    const name = localStorage.getItem('user_name') || 'Legal Expert';
-    const role = localStorage.getItem('user_role') || 'LAWYER';
-    setUser({ name, role });
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.authenticated) { router.replace('/lawyerlogin'); return; }
+        setUser(data.user);
+        fetch('/api/discussions/saved?limit=50&page=1')
+          .then((r) => r.json())
+          .then((payload) => setDiscussions(payload.data ?? []))
+          .catch(() => setDiscussions([]))
+          .finally(() => setLoading(false));
+      })
+      .catch(() => router.replace('/lawyerlogin'));
+  }, [router]);
 
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsUserMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  async function handleLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.replace('/lawyerlogin');
+  }
 
-  const handleLogout = () => {
-    localStorage.clear();
-    router.push('/lawyerlogin');
-  };
+  async function unsave(discussionId: string) {
+    setRemovingIds((prev) => new Set([...prev, discussionId]));
+    await fetch(`/api/discussions/${discussionId}/bookmark`, { method: 'POST' });
+    setTimeout(() => {
+      setDiscussions((prev) => prev.filter((d) => d.id !== discussionId));
+      setRemovingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(discussionId);
+        return next;
+      });
+    }, 300);
+  }
+
+  const resolvedCount = discussions.filter((d) => d.status === 'RESOLVED').length;
+  const totalAnswers = discussions.reduce((s, d) => s + d.answerCount, 0);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Top Navigation */}
-      <nav className="bg-[linear-gradient(135deg,#4C2F5E_0%,#9E63C4_100%)] text-white px-4 md:px-8 py-4">
-        <div className="container mx-auto flex items-center justify-between relative">
+    <div className="min-h-screen bg-[#F8F6FB]">
+      <LawyerTopbar activeTab="saved" user={user} onLogout={handleLogout} />
 
-          <div className="hidden lg:flex flex-1">
-            <Image 
-              src="/logo-legal-hub.png" 
-              alt="Legal Hub" 
-              width={120}
-              height={30}
-              className="brightness-0 invert"
-              unoptimized
-            />
-          </div>
+      <div className="mx-auto max-w-[1100px] px-4 py-8 md:px-6 lg:px-8">
 
-          <div className="flex lg:hidden items-center justify-between w-full">
-      
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="w-9 h-9 flex items-center justify-center text-white hover:opacity-80 transition"
-            >
-              {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
-            </button>
-
-            <div className="absolute left-1/2 -translate-x-1/2">
-              <Image 
-                src="/logo-legal-hub.png" 
-                alt="Legal Hub" 
-                width={120}
-                height={30}
-                className="brightness-0 invert"
-                unoptimized
-              />
-            </div>
-
-            <div className="w-9 h-9" />
-          </div>
-
-          <div className="hidden lg:flex gap-8 text-sm font-medium absolute left-1/2 -translate-x-1/2">
-            <Link href="/discussions" className="opacity-80 hover:opacity-100 transition">
-              Discussions
-            </Link>
-            <Link href="/topics" className="opacity-80 hover:opacity-100 transition">
-              My Topics
-            </Link>
-            <Link href="/saved" className="opacity-80 hover:opacity-100 transition">
-              Saved
-            </Link>
-          </div>
-
-          <div className="hidden lg:flex items-center justify-end gap-4 text-sm flex-1">
-            
-            {/* User menu */}
-            <div className="relative" ref={dropdownRef}>
-              <button 
-                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="relative w-9 h-9 bg-transparent flex items-center justify-center transition-all active:scale-95 hover:opacity-80 outline-none border-none cursor-pointer"
-              >
-                <Image 
-                  src="/icons/user.png" 
-                  alt="User Profile" 
-                  width={36} 
-                  height={36} 
-                  className="object-contain"
-                  priority
-                  unoptimized
-                />
-              </button>
-
-              {isUserMenuOpen && (
-                <div className="absolute right-0 mt-3 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden text-gray-800 z-50">
-                  <div className="p-4 border-b border-gray-50 bg-gray-50/50">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-transparent flex items-center justify-center">
-                        <Image src="/icons/user.png" alt="User" width={35} height={35} unoptimized />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-sm text-[#4C2F5E] truncate">{user?.name}</p>
-                        <p className="text-[10px] font-bold text-[#9E63C4] uppercase tracking-wider">{user?.role}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-2">
-                    <button 
-                      onClick={handleLogout}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-red-500 hover:bg-red-50 rounded-lg transition cursor-pointer"
-                    >
-                      <LogOut size={14} /> Sign out
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {isMobileMenuOpen && (
-          <div className="lg:hidden mt-3 pt-3 border-t border-white/20 flex flex-col gap-3 text-sm font-medium px-1 pb-2">
-            <Link href="/discussions" className="opacity-80 hover:opacity-100 transition py-1" onClick={() => setIsMobileMenuOpen(false)}>
-              Discussions
-            </Link>
-            <Link href="/topics" className="opacity-80 hover:opacity-100 transition py-1" onClick={() => setIsMobileMenuOpen(false)}>
-              My Topics
-            </Link>
-            <Link href="/saved" className="opacity-80 hover:opacity-100 transition py-1" onClick={() => setIsMobileMenuOpen(false)}>
-              Saved
-            </Link>
-            <div className="flex items-center gap-4 pt-1 border-t border-white/20">
-              <Link href="/lawyerlogin" className="opacity-80 hover:opacity-100 transition">
-                Sign In
-              </Link>
-              <Link 
-                href="/lawyerregister"
-                className="px-4 py-1.5 border border-white/30 rounded text-sm hover:bg-white/10 transition font-medium"
-              >
-                Sign up
-              </Link>
-            </div>
-          </div>
-        )}
-      </nav>
-
-      {/* Header Section */}
-      <div className="bg-gray-50">
-        <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-6">
-          
-          <Link 
+        {/* ── Header ── */}
+        <div className="mb-8 rounded-[28px] border border-[#4C2F5E]/10 bg-white p-6 shadow-[0_12px_32px_rgba(76,47,94,0.06)]">
+          <Link
             href="/discussions"
-            className="inline-flex items-center gap-2 text-m text-[#9E62C4] hover:text-[#9E62C4] mb-6"
+            className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#4C2F5E]/12 bg-white px-4 py-2 text-sm font-semibold text-[#4C2F5E] shadow-sm transition hover:bg-[#F7F3FA]"
           >
-            <ArrowLeft className="w-5 h-5" />
-            Back
+            <ArrowLeft className="h-4 w-4" />
+            Back to discussions
           </Link>
 
-          {/* Header */}
-          <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="mt-6 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h1 className="text-xl md:text-2xl font-bold text-[#4C2F5E]">Saved Discussions</h1>
-              <p className="text-sm text-[#6E7D7D]">Legal discussions you've bookmarked for later reference</p>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-[#4C2F5E]">
+                  <Bookmark className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8B7D99]">Saved research</p>
+                  <h1 className="text-2xl font-semibold tracking-[-0.04em] text-[#2F1D3B] md:text-3xl">
+                    Saved Discussions
+                  </h1>
+                </div>
+              </div>
+              <p className="mt-3 max-w-xl text-sm leading-7 text-[#736683]">
+                Important legal threads saved for reference, case prep, or follow-up during client work.
+              </p>
             </div>
 
-            <Link
-              href="/discussions/new"
-              className="px-4 md:px-6 py-2 md:py-2.5 bg-[linear-gradient(90deg,#9F63C4_0%,#4C2F5E_100%)] text-white rounded-lg hover:opacity-90 transition flex items-center gap-2 md:gap-3 shadow-md flex-shrink-0"
+            <button
+              onClick={() => router.push('/discussions')}
+              className="inline-flex shrink-0 items-center gap-2 rounded-[16px] bg-[#4C2F5E] px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(76,47,94,0.22)] transition hover:opacity-90"
             >
-              <div className="w-5 h-5 md:w-6 md:h-6 border-[2px] border-white rounded-full flex items-center justify-center shrink-0">
-                <span className="text-sm md:text-base font-bold leading-none translate-y-[-1px]">+</span>
-              </div>
-              <span className="text-[15px] md:text-[18px] font-medium tracking-wide">
-                New Discussion
-              </span>
-            </Link>
+              <Plus className="h-4 w-4" />
+              Start discussion
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* Discussion List */}
-      <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-6">
-        <div className="space-y-3">
-          {saved.map((saved) => (
-            <div key={saved.id} className="bg-white rounded-lg p-4 md:p-5 border border-gray-50 shadow-sm hover:shadow-md transition group">
-              
-              <div className="flex items-start gap-2 mb-2">
-                <Image 
-                  src="/icons/vector.png" 
-                  alt="Up" 
-                  width={18} 
-                  height={18} 
-                  className="mt-1 shrink-0 opacity-100"
-                  style={{ 
-                    filter: 'brightness(0) saturate(100%) invert(20%) sepia(21%) saturate(1450%) hue-rotate(228deg) brightness(95%) contrast(92%)' 
-                  }}
-                  unoptimized
-                />
-                <h3 className="font-semibold text-black leading-tight hover:text-[#4C2F5E] cursor-pointer text-[14px] md:text-[16px]">
-                  {saved.title}
-                </h3>
+        {/* ── Stats strip ── */}
+        {!loading && discussions.length > 0 && (
+          <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
+            {[
+              { label: 'Saved items', value: discussions.length, gradient: true },
+              { label: 'Total answers', value: totalAnswers, gradient: false },
+              { label: 'Resolved', value: resolvedCount, gradient: false },
+            ].map(({ label, value, gradient }) => (
+              <div
+                key={label}
+                className={`rounded-[20px] border p-5 ${
+                  gradient
+                    ? 'border-[#4C2F5E]/20 bg-[linear-gradient(135deg,#4C2F5E_0%,#7B58A0_100%)] text-white'
+                    : 'border-[#4C2F5E]/10 bg-white text-[#2F1D3B]'
+                }`}
+              >
+                <p className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${gradient ? 'text-white/70' : 'text-[#8B7D99]'}`}>
+                  {label}
+                </p>
+                <p className={`mt-2 text-2xl font-semibold ${gradient ? 'text-white' : 'text-[#4C2F5E]'}`}>
+                  {value}
+                </p>
               </div>
-                        
-              <p className="text-[#6E7D7D] text-sm mb-3 line-clamp-2">
-                {saved.excerpt}
-              </p>
-      
-              <div className="flex items-center gap-3 text-xs text-gray-500 mb-2">
-                <div className="flex flex-wrap items-center gap-2 mb-4">
-                  <span className="px-3 py-1 bg-gray-50 text-black rounded-full text-xs md:text-sm border border-gray-200">
-                    {saved.category}
-                  </span>
-                
-                  {saved.tags.map((tag) => {
-                    if (tag === 'Islamabad' || tag === 'Karachi' || tag === 'Punjab' || tag === 'Lahore' || tag === 'Multan') {
-                      return (
-                        <span key={tag} className="flex items-center gap-1.5 px-3 py-1 border border-gray-200 text-gray-600 rounded-full text-xs md:text-sm bg-white">
-                          <Image src="/icons/location.png" alt="Loc" width={10} height={10} className="shrink-0 opacity-70" unoptimized />
-                          {tag}
-                        </span>
-                      );
-                    }
-                
-                    if (tag === 'AI Summary') {
-                      return (
-                        <span key={tag} className="flex items-center gap-1.5 px-3 py-1 bg-[#9F63C4] text-white rounded-full text-xs md:text-sm font-medium shadow-sm">
-                          <Image src="/icons/ai.png" alt="AI" width={12} height={12} className="brightness-0 invert shrink-0" unoptimized />
-                          {tag}
-                        </span>
-                      );
-                    }
+            ))}
+          </div>
+        )}
 
-                    if (tag === 'Answered') {
-                      return (
-                        <span key={tag} className="flex items-center gap-1.5 px-3 py-1 text-[#4C2F5E] text-xs md:text-sm font-medium">
-                          <div className="w-3.5 h-3.5 border border-[#4C2F5E] rounded-full flex items-center justify-center shrink-0">
-                            <svg 
-                              viewBox="0 0 24 24" 
-                              fill="none" 
-                              stroke="#4C2F5E" 
-                              strokeWidth="4" 
-                              strokeLinecap="round" 
-                              strokeLinejoin="round" 
-                              className="w-2 h-2"
-                            >
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                          </div>
-                          {tag}
-                        </span>
-                      );
-                    }
-                    return null;
-                  })}
-                </div>
-              </div>
-
-              <hr className="border-gray-100 mb-4" />
-              
-              <div className="flex items-center justify-between text-xs text-gray-500 flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 bg-[#9F63C4] rounded-full flex items-center justify-center text-white text-[10px] font-bold">
-                    {saved.author.charAt(0)}
-                  </div>
-                  <span className="text-xs md:text-sm text-[#6E7D7D] font-medium">{saved.author}</span>
-                </div>
-                
-                <div className="flex items-center gap-3 md:gap-4">
-                  <span className="flex items-center gap-1">
-                    <Image src="/icons/message.png" alt="Mes" width={10} height={10} unoptimized />
-                    {saved.likes}
-                  </span>
-                  <span className="flex items-center gap-1 text-[#4C2F5E]">
-                    <Eye className="w-3 h-3" />
-                    {saved.views}
-                  </span>
-                  <span className="hidden sm:inline">{saved.timeAgo}</span>
-                </div>
-              </div>
+        {/* ── List ── */}
+        <section>
+          {loading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
             </div>
-          ))}
-        </div>
+          ) : discussions.length === 0 ? (
+            <div className="flex flex-col items-center rounded-[28px] border border-[#4C2F5E]/10 bg-white px-6 py-16 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-[22px] bg-[#F1EAF6]">
+                <BookmarkCheck className="h-7 w-7 text-[#4C2F5E]" />
+              </div>
+              <h2 className="mt-5 text-xl font-semibold text-[#2F1D3B]">No saved discussions yet</h2>
+              <p className="mx-auto mt-2 max-w-md text-sm leading-7 text-[#736683]">
+                Bookmark discussions that matter so you can return to them during client work, research, or case prep.
+              </p>
+              <button
+                onClick={() => router.push('/discussions')}
+                className="mt-6 inline-flex items-center gap-2 rounded-[14px] bg-[#4C2F5E] px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+              >
+                <Sparkles className="h-4 w-4" />
+                Explore discussions
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {discussions.map((d) => (
+                <article
+                  key={d.id}
+                  className={`group overflow-hidden rounded-[24px] border border-[#4C2F5E]/10 bg-white transition hover:border-[#4C2F5E]/20 hover:shadow-[0_12px_36px_rgba(76,47,94,0.10)] ${
+                    removingIds.has(d.id) ? 'scale-95 opacity-50' : ''
+                  }`}
+                  style={{ transition: 'opacity 0.3s, transform 0.3s' }}
+                >
+                  <div className="flex flex-col gap-0 lg:flex-row">
+                    {/* Saved indicator strip */}
+                    <div className="flex w-full items-stretch lg:w-auto">
+                      <div className="flex w-12 shrink-0 items-center justify-center rounded-l-[24px] bg-[linear-gradient(180deg,#4C2F5E_0%,#7B58A0_100%)]">
+                        <Bookmark className="h-4 w-4 text-white" />
+                      </div>
+
+                      <div className="flex-1 p-5 lg:p-6">
+                        {/* Badges */}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-[#4C2F5E] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white">
+                            {d.category.name}
+                          </span>
+                          {d.region && (
+                            <span className="rounded-full border border-[#4C2F5E]/12 bg-[#F7F3FA] px-3 py-1 text-[11px] font-semibold text-[#6B5C79]">
+                              {d.region.name}
+                            </span>
+                          )}
+                          {d.isAiSummaryReady && (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-[#4C2F5E]/15 bg-[#F1EAF6] px-3 py-1 text-[11px] font-semibold text-[#4C2F5E]">
+                              <Sparkles className="h-3 w-3" />
+                              AI summary
+                            </span>
+                          )}
+                          {d.status === 'RESOLVED' && (
+                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700">
+                              Resolved
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Title */}
+                        <Link href={`/discussions/${d.slug}`} className="mt-3 block">
+                          <h2 className="text-lg font-semibold tracking-[-0.02em] text-[#2F1D3B] transition group-hover:text-[#4C2F5E]">
+                            {d.title}
+                          </h2>
+                        </Link>
+
+                        {d.excerpt && (
+                          <p className="mt-2 line-clamp-2 text-sm leading-7 text-[#736683]">{d.excerpt}</p>
+                        )}
+
+                        {/* Tags */}
+                        {d.tags.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-1.5">
+                            {d.tags.slice(0, 4).map((t) => (
+                              <span
+                                key={t.tag.id}
+                                className="rounded-full border border-[#4C2F5E]/8 bg-[#F8F6FB] px-2.5 py-1 text-[11px] font-medium text-[#6B5C79]"
+                              >
+                                {t.tag.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right: meta panel */}
+                    <div className="flex shrink-0 flex-col gap-4 border-t border-[#4C2F5E]/8 p-5 lg:w-56 lg:border-l lg:border-t-0">
+                      {/* Author */}
+                      <div className="flex items-center gap-3">
+                        {d.author.avatarUrl ? (
+                          <img src={d.author.avatarUrl} alt="" className="h-10 w-10 rounded-full object-cover border border-[#4C2F5E]/10" />
+                        ) : (
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#4C2F5E] text-xs font-semibold text-white">
+                            {initials(d.author.displayName)}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-[#4C2F5E]">
+                            {d.author.displayName ?? 'Anonymous'}
+                          </p>
+                          <p className="text-[11px] text-[#8B7D99]">{timeAgo(d.createdAt)}</p>
+                        </div>
+                      </div>
+
+                      {/* Stats */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="rounded-[14px] border border-[#4C2F5E]/8 bg-[#F8F6FB] px-3 py-2.5">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#8B7D99]">Answers</p>
+                          <p className="mt-1 text-lg font-semibold text-[#4C2F5E]">{d.answerCount}</p>
+                        </div>
+                        <div className="rounded-[14px] border border-[#4C2F5E]/8 bg-[#F8F6FB] px-3 py-2.5">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#8B7D99]">Views</p>
+                          <div className="mt-1 flex items-center gap-1 text-lg font-semibold text-[#4C2F5E]">
+                            <Eye className="h-3.5 w-3.5 text-[#8B7D99]" />
+                            {d.viewCount}
+                          </div>
+                        </div>
+                      </div>
+
+                      <Link
+                        href={`/discussions/${d.slug}`}
+                        className="flex w-full items-center justify-center gap-2 rounded-[14px] border border-[#4C2F5E]/15 bg-white px-4 py-2.5 text-sm font-semibold text-[#4C2F5E] transition hover:bg-[#F7F3FA]"
+                      >
+                        Open discussion
+                      </Link>
+
+                      <button
+                        onClick={() => unsave(d.id)}
+                        disabled={removingIds.has(d.id)}
+                        className="flex w-full items-center justify-center gap-2 rounded-[14px] border border-red-100 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-500 transition hover:bg-red-100 disabled:opacity-50"
+                      >
+                        <BookmarkCheck className="h-4 w-4" />
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* ── Footer CTA ── */}
+        {!loading && discussions.length > 0 && (
+          <div className="mt-8 flex flex-col items-center justify-between gap-4 rounded-[24px] border border-[#4C2F5E]/15 bg-[linear-gradient(135deg,#4C2F5E_0%,#6F5484_100%)] px-6 py-5 text-white sm:flex-row">
+            <div className="flex items-center gap-3">
+              <TrendingUp className="h-5 w-5 text-white/70" />
+              <p className="text-sm leading-6 text-white/80">
+                Use saved threads as a lightweight research library for repeated legal issues.
+              </p>
+            </div>
+            <Link
+              href="/topics"
+              className="shrink-0 rounded-[14px] border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/20"
+            >
+              View my topics
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );

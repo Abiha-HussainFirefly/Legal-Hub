@@ -8,7 +8,7 @@ export async function verifyEmail(
 ): Promise<EmailVerifyResult> {
   // READ VerificationToken by token
   const verificationToken = await prisma.verificationToken.findUnique({
-    where: { token: input.token },
+    where: { tokenHash: input.token },
   });
 
   // Token found?
@@ -89,9 +89,12 @@ export async function verifyEmail(
     // INSERT AuditLog EMAIL_VERIFIED
     await tx.auditLog.create({
       data: {
+        category: "AUTH",
         action: "EMAIL_VERIFIED",
         actorId: null,
         targetUserId: userId,
+        ipHash: null,
+        userAgent: null,
         meta: {
           identifierType: "EMAIL",
           identifierValue,

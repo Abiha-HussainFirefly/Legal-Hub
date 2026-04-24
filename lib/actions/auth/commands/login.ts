@@ -41,13 +41,17 @@ export async function loginCommand(input: LoginInput): Promise<LoginResult> {
 
   try {
     const identifier = await prisma.userIdentifier.findUnique({
-      where: { type_value: { type: "EMAIL", value: normalizedEmail } },
+      where: {
+        type_normalizedValue: {
+          type: "EMAIL",
+          normalizedValue: normalizedEmail,
+        },
+      },
       include: {
         user: {
           include: {
             credential: true,
             roles: { include: { role: true } },
-            accounts: { where: { provider: "google" }, select: { id: true } },
           },
         },
       },
@@ -132,10 +136,11 @@ export async function loginCommand(input: LoginInput): Promise<LoginResult> {
 async function logLoginAudit({ userId, ip, userAgent, email, reason }: { userId?: string; ip: string | null; userAgent: string | null; email: string; reason: string }) {
   await prisma.auditLog.create({
     data: {
+      category: "AUTH",
       action: "LOGIN_FAILED",
       actorId: userId ?? null,
       targetUserId: userId ?? null,
-      ip,
+      ipHash: ip,
       userAgent,
       meta: { reason, email },
     },

@@ -26,17 +26,19 @@ export default function Settings() {
   };
 
   return (
-    <div className="bg-[#FFFFFF] rounded-2xl shadow-sm p-4 md:p-6">
+    <div className="space-y-6">
 
-      {/* Page Header */}
-      <div className="mb-5 sm:mb-8">
-        <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">Settings</h1>
-        <p className="text-xs sm:text-sm text-gray-500">Admin profile and system configurations</p>
-      </div>
+      <section className="legal-panel px-6 py-7 md:px-8">
+        <p className="legal-kicker">Settings</p>
+        <h1 className="mt-4 text-4xl font-semibold tracking-[-0.05em] text-[#102033]">Secure defaults, surfaced more clearly.</h1>
+        <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 md:text-base">
+          Profile controls and system toggles now sit in calmer panels so security-related decisions are easier to inspect and maintain.
+        </p>
+      </section>
 
       {/* Profile Settings */}
-      <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100 mb-4 sm:mb-8">
-        <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4 sm:mb-6">Profile Settings</h2>
+      <div className="legal-panel p-4 sm:p-6">
+        <h2 className="text-base sm:text-lg font-semibold text-[#102033] mb-4 sm:mb-6">Profile Settings</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           <div>
@@ -47,7 +49,7 @@ export default function Settings() {
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 sm:px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+              className="legal-field w-full px-3 sm:px-4 py-3 text-sm"
             />
           </div>
 
@@ -59,23 +61,22 @@ export default function Settings() {
               type="email"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full px-3 sm:px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+              className="legal-field w-full px-3 sm:px-4 py-3 text-sm"
             />
           </div>
         </div>
 
         <button
           onClick={handleSave}
-          className="mt-4 sm:mt-6 w-full sm:w-auto px-6 py-2 text-sm text-white rounded-full hover:opacity-90 transition-opacity font-medium shadow-md"
-          style={{ background: 'linear-gradient(135deg, #4C2F5E 10%, #9F63C4 100%)' }}
+          className="legal-button-primary mt-4 sm:mt-6 w-full sm:w-auto text-sm"
         >
           Save Changes
         </button>
       </div>
 
       {/* System Configuration */}
-      <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100">
-        <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4 sm:mb-6">System Configuration</h2>
+      <div className="legal-panel p-4 sm:p-6">
+        <h2 className="text-base sm:text-lg font-semibold text-[#102033] mb-4 sm:mb-6">System Configuration</h2>
 
         <div className="space-y-0">
 
@@ -88,7 +89,7 @@ export default function Settings() {
             <button
               onClick={() => handleToggle('shield1')}
               className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
-                toggles.shield1 ? 'bg-[#9F63C4]' : 'bg-gray-200'
+                toggles.shield1 ? 'bg-[#102033]' : 'bg-gray-200'
               }`}
             >
               <span
@@ -108,7 +109,7 @@ export default function Settings() {
             <button
               onClick={() => handleToggle('shield2')}
               className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
-                toggles.shield2 ? 'bg-[#9F63C4]' : 'bg-gray-200'
+                toggles.shield2 ? 'bg-[#102033]' : 'bg-gray-200'
               }`}
             >
               <span
@@ -128,7 +129,7 @@ export default function Settings() {
             <button
               onClick={() => handleToggle('shield3')}
               className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
-                toggles.shield3 ? 'bg-[#9F63C4]' : 'bg-gray-200'
+                toggles.shield3 ? 'bg-[#102033]' : 'bg-gray-200'
               }`}
             >
               <span

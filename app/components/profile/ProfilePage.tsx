@@ -1,69 +1,294 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
 
-import { ArrowLeft, Eye, EyeOff, KeyRound, Pencil } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import {
+  persistTheme,
+  readStoredTheme,
+  resolveTheme,
+  THEME_EVENT_NAME,
+  type ThemeMode,
+} from "@/lib/theme";
+import {
+  ArrowLeft,
+  Camera,
+  Eye,
+  EyeOff,
+  ExternalLink,
+  Linkedin,
+  LockKeyhole,
+  Mail,
+  Monitor,
+  Moon,
+  Pencil,
+  SunMedium,
+  Trash2,
+  UserRound,
+} from "lucide-react";
+import Link from "next/link";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
+
+interface ProfileSaveResult {
+  success: boolean;
+}
 
 interface ProfilePageProps {
   user: {
     name: string;
     email: string;
-    occupation?: string;
     avatarUrl?: string;
+    linkedInUrl?: string;
+    occupation?: string;
   };
   variant?: "lawyer" | "admin";
-  onSave?: (data: any) => Promise<any>;
+  onSave?: (
+    data:
+      | { name: string; avatarUrl?: string; linkedInUrl?: string; occupation?: string }
+      | { currentPassword: string; newPassword: string }
+  ) => Promise<ProfileSaveResult>;
+}
+
+type PasswordField = "currentPassword" | "newPassword" | "confirmPassword";
+
+const OCCUPATION_OPTIONS = [
+  "Other",
+  "Lawyer",
+  "Advocate",
+  "Legal Consultant",
+  "Paralegal",
+  "Law Student",
+];
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
+
+function getInitials(name: string) {
+  const trimmed = name.trim();
+  if (!trimmed) return "U";
+
+  return trimmed
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+}
+
+function ThemeButton({
+  active,
+  icon,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex flex-1 items-center justify-center gap-2 rounded-[16px] px-4 py-3 text-sm font-semibold transition ${
+        active
+          ? "bg-[var(--primary)] text-white shadow-[0_18px_30px_rgba(76,47,94,0.2)]"
+          : "bg-transparent text-[var(--foreground)] hover:bg-[var(--background-surface)]"
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function DetailCard({
+  icon,
+  label,
+  content,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  content: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-[24px] border border-[var(--border-subtle)] bg-[var(--background-surface)] p-5 shadow-[var(--shadow-card)]">
+      <div className="flex items-start gap-3">
+        <div className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-[var(--background-card-nested)] text-[var(--primary)]">
+          {icon}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-[var(--heading)]">{label}</p>
+          <div className="mt-4 min-w-0">{content}</div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function ProfilePage({
   user,
-  variant = "admin",
+  variant = "lawyer",
   onSave,
 }: ProfilePageProps) {
-  const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [modalVisibility, setModalVisibility] = useState({
-    current: false,
-    new: false,
-    confirm: false,
+  const [themePreference, setThemePreference] = useState<ThemeMode>("system");
+  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
+  const [showPasswords, setShowPasswords] = useState<Record<PasswordField, boolean>>({
+    currentPassword: false,
+    newPassword: false,
+    confirmPassword: false,
   });
-  const [passwordLastUpdated, setPasswordLastUpdated] = useState<string | null>(null);
-
-  const fixedRole = variant === "admin" ? "Admin" : "Lawyer";
-  const accent = "#4C2F5E";
-
-  const [formData, setFormData] = useState({ name: user.name });
-
-  const [passwordForm, setPasswordForm] = useState({
+  const [formData, setFormData] = useState({
+    name: user.name,
+    avatarUrl: user.avatarUrl ?? "",
+    linkedInUrl: user.linkedInUrl ?? "",
+    occupation: user.occupation ?? (variant === "lawyer" ? "Lawyer" : "Other"),
+  });
+  const [displayData, setDisplayData] = useState({
+    name: user.name,
+    avatarUrl: user.avatarUrl ?? "",
+    linkedInUrl: user.linkedInUrl ?? "",
+    occupation: user.occupation ?? (variant === "lawyer" ? "Lawyer" : "Other"),
+  });
+  const [passwordForm, setPasswordForm] = useState<Record<PasswordField, string>>({
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
   });
 
-  const [displayData, setDisplayData] = useState({ name: user.name });
+  useEffect(() => {
+    const occupation = user.occupation ?? (variant === "lawyer" ? "Lawyer" : "Other");
+    setFormData({
+      name: user.name,
+      avatarUrl: user.avatarUrl ?? "",
+      linkedInUrl: user.linkedInUrl ?? "",
+      occupation,
+    });
+    setDisplayData({
+      name: user.name,
+      avatarUrl: user.avatarUrl ?? "",
+      linkedInUrl: user.linkedInUrl ?? "",
+      occupation,
+    });
+  }, [user, variant]);
 
   useEffect(() => {
-    setFormData({ name: user.name });
-    setDisplayData({ name: user.name });
-  }, [user]);
+    const syncThemeState = () => {
+      const stored = readStoredTheme();
+      setThemePreference(stored);
+      setResolvedTheme(resolveTheme(stored));
+    };
+
+    syncThemeState();
+
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleSystemChange = () => {
+      if (readStoredTheme() === "system") syncThemeState();
+    };
+    const handleThemeChange = () => syncThemeState();
+
+    mediaQuery.addEventListener("change", handleSystemChange);
+    window.addEventListener(THEME_EVENT_NAME, handleThemeChange as EventListener);
+
+    return () => {
+      mediaQuery.removeEventListener("change", handleSystemChange);
+      window.removeEventListener(THEME_EVENT_NAME, handleThemeChange as EventListener);
+    };
+  }, []);
+
+  const passwordFields: Array<{ label: string; field: PasswordField }> = [
+    { label: "Current Password", field: "currentPassword" },
+    { label: "New Password", field: "newPassword" },
+    { label: "Confirm Password", field: "confirmPassword" },
+  ];
+
+  const themeSummary =
+    themePreference === "system"
+      ? `System mode is active and currently using ${resolvedTheme}.`
+      : `${themePreference[0].toUpperCase()}${themePreference.slice(1)} mode is active.`;
+  const previewData = isEditing ? formData : displayData;
 
   const resetPasswordForm = () => {
     setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-    setModalVisibility({ current: false, new: false, confirm: false });
+    setShowPasswords({ currentPassword: false, newPassword: false, confirmPassword: false });
   };
 
-  const handleSaveName = async () => {
-    if (!formData.name.trim()) return alert("Name cannot be empty");
+  const handleThemeSelect = (mode: ThemeMode) => {
+    setThemePreference(mode);
+    setResolvedTheme(resolveTheme(mode));
+    persistTheme(mode);
+  };
+
+  const togglePasswordVisibility = (field: PasswordField) => {
+    setShowPasswords((prev) => ({ ...prev, [field]: !prev[field] }));
+  };
+
+  const handleAvatarPick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert("Please choose an image file.");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 4 * 1024 * 1024) {
+      alert("Please choose an image smaller than 4MB.");
+      event.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      setFormData((prev) => ({ ...prev, avatarUrl: result }));
+      setIsEditing(true);
+    };
+    reader.readAsDataURL(file);
+    event.target.value = "";
+  };
+
+  const handleRemoveAvatar = () => {
+    setFormData((prev) => ({ ...prev, avatarUrl: "" }));
+    setIsEditing(true);
+  };
+
+  const handleSaveProfile = async () => {
+    const trimmedName = formData.name.trim();
+    if (!trimmedName) {
+      alert("Name cannot be empty");
+      return;
+    }
+
     setIsSaving(true);
     try {
-      if (onSave) await onSave({ name: formData.name });
-      setDisplayData({ name: formData.name });
+      if (onSave) {
+        await onSave({
+          name: trimmedName,
+          avatarUrl: formData.avatarUrl.trim(),
+          linkedInUrl: formData.linkedInUrl.trim(),
+          occupation: formData.occupation,
+        });
+      }
+
+      setDisplayData({
+        name: trimmedName,
+        avatarUrl: formData.avatarUrl.trim(),
+        linkedInUrl: formData.linkedInUrl.trim(),
+        occupation: formData.occupation,
+      });
       setIsEditing(false);
-    } catch (error: any) {
-      alert(error.message || "Failed to update name. Please try again.");
+    } catch (error: unknown) {
+      alert(getErrorMessage(error, "Failed to update profile. Please try again."));
     } finally {
       setIsSaving(false);
     }
@@ -72,8 +297,12 @@ export default function ProfilePage({
   const handleSavePassword = async () => {
     if (!passwordForm.currentPassword) return alert("Please enter your current password");
     if (!passwordForm.newPassword) return alert("Please enter a new password");
-    if (passwordForm.newPassword.length < 8) return alert("New password must be at least 6 characters");
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) return alert("New passwords do not match");
+    if (passwordForm.newPassword.length < 8) {
+      return alert("New password must be at least 8 characters");
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      return alert("New passwords do not match");
+    }
 
     setIsSaving(true);
     try {
@@ -83,303 +312,385 @@ export default function ProfilePage({
           newPassword: passwordForm.newPassword,
         });
       }
-      setPasswordLastUpdated(new Date().toLocaleDateString());
       setShowPasswordModal(false);
       resetPasswordForm();
-    } catch (error: any) {
-      alert(error.message || "Failed to update password. Please try again.");
+    } catch (error: unknown) {
+      alert(getErrorMessage(error, "Failed to update password. Please try again."));
     } finally {
       setIsSaving(false);
     }
   };
 
+  const resetEditState = () => {
+    setIsEditing(false);
+    setFormData({
+      name: displayData.name,
+      avatarUrl: displayData.avatarUrl,
+      linkedInUrl: displayData.linkedInUrl,
+      occupation: displayData.occupation,
+    });
+  };
+
   return (
-    <div className="w-full min-h-screen bg-[#F3F0F4] p-4 sm:p-8 font-sans relative">
-      <div
-        className="w-full rounded-[24px] p-6 sm:p-10 shadow-sm border border-gray-100 mb-8"
-        style={{ backgroundColor: "#FFFFFF" }}
-      >
-        {/* Header */}
-        <div className="mb-8 flex items-center gap-4">
-          {variant === "lawyer" && (
-            <button
-              onClick={() => router.push("/discussions")}
-              className="p-2 hover:bg-white rounded-full transition-colors text-gray-600 bg-white shadow-sm border border-gray-100"
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(159,99,196,0.14),transparent_32%),radial-gradient(circle_at_top_right,rgba(76,47,94,0.12),transparent_26%),var(--background-page)]">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleAvatarChange}
+      />
+
+      <div className="mx-auto max-w-[1180px] px-4 pb-10 pt-6 md:px-6">
+        <div className="flex items-center gap-4">
+          {variant === "lawyer" ? (
+            <Link
+              href="/discussions"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--background-surface)] text-[var(--foreground)] shadow-[var(--shadow-card)] transition hover:bg-[var(--background-card-nested)]"
+              aria-label="Back to discussions"
             >
-              <ArrowLeft size={20} />
-            </button>
-          )}
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          ) : null}
+          <h1 className="text-[26px] font-semibold tracking-[-0.03em] text-[var(--heading)]">
             Profile Settings
           </h1>
         </div>
 
-        <div className="bg-white rounded-[20px] shadow-sm overflow-hidden border border-gray-50">
-          {/* Section Header */}
-          <div className="px-8 py-6 border-b border-gray-100">
-            <h2 className="text-[22px] font-bold" style={{ color: accent }}>
-              Personal Information
-            </h2>
-          </div>
+        <div className="mt-6 rounded-[34px] border border-[var(--border-subtle)] bg-[var(--background-surface)] p-4 shadow-[var(--shadow-elevated)] md:p-6">
+          <section className="overflow-hidden rounded-[30px] border border-[rgba(255,255,255,0.14)] bg-[linear-gradient(135deg,#3A2348_0%,#59356E_50%,#8F66AD_100%)] px-5 py-6 text-white md:px-7 md:py-7">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                <button
+                  type="button"
+                  onClick={handleAvatarPick}
+                  className="group relative flex h-24 w-24 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-[28px] border border-white/20 bg-white/12 text-white shadow-[0_24px_40px_rgba(0,0,0,0.18)] transition hover:scale-[1.02]"
+                  aria-label="Upload profile picture"
+                >
+                  {previewData.avatarUrl.trim() ? (
+                    <img
+                      src={previewData.avatarUrl}
+                      alt={previewData.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-[28px] font-semibold tracking-[-0.04em]">
+                      {getInitials(previewData.name)}
+                    </span>
+                  )}
+                  <span className="absolute bottom-2 right-2 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-[#1f1427]/65 text-white backdrop-blur-sm">
+                    <Camera className="h-4 w-4" />
+                  </span>
+                </button>
 
-          <div className="px-8 py-4 divide-y divide-gray-50">
-            {/* Name Row */}
-            <div className="flex items-center py-6 gap-8">
-              <span className="w-40 shrink-0 text-sm font-semibold text-gray-400 uppercase tracking-wider">
-                Name
-              </span>
-              <div className="flex-1">
-                {isEditing ? (
-                  <div className="relative flex items-center max-w-md">
+                <div className="min-w-0">
+                  <h2 className="mt-1 truncate text-[28px] font-semibold tracking-[-0.04em] text-white">
+                    {previewData.name}
+                  </h2>
+                  <div className="mt-4 flex flex-col gap-4 text-sm text-white/80 sm:flex-row sm:flex-wrap sm:items-center">
+                    <span className="inline-flex items-center gap-2">
+                      <Mail className="h-4 w-4" />
+                      {user.email}
+                    </span>
+                    {variant === "lawyer" && previewData.linkedInUrl.trim() ? (
+                      <a
+                        href={previewData.linkedInUrl.trim()}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 text-white transition hover:text-white/85"
+                      >
+                        <Linkedin className="h-4 w-4" />
+                        Open LinkedIn
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
+              {isEditing ? (
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={resetEditState}
+                    className="min-w-[140px] rounded-full border border-white/16 bg-white/10 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/14"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveProfile}
+                    disabled={isSaving}
+                    className="min-w-[140px] rounded-full bg-white px-6 py-3 text-sm font-semibold text-[#4C2F5E] transition hover:opacity-92 disabled:cursor-not-allowed disabled:opacity-65"
+                  >
+                    {isSaving ? "Saving..." : "Save Changes"}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-white/16 bg-white/10 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/14"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Edit Profile
+                </button>
+              )}
+            </div>
+          </section>
+
+          <section className="mt-6 grid gap-4 lg:grid-cols-2">
+            <DetailCard
+              icon={<UserRound className="h-5 w-5" />}
+              label="Name"
+              content={
+                isEditing ? (
+                  <div className="flex items-center gap-3 rounded-[18px] border border-[var(--border-subtle)] bg-[var(--background-card-nested)] px-4 py-3">
                     <input
                       type="text"
                       value={formData.name}
-                      onChange={(e) =>
-                        setFormData((p) => ({ ...p, name: e.target.value }))
-                      }
-                      className="w-full text-[16px] text-[#1a1a2e] border-b-2 pb-1 focus:outline-none"
-                      style={{ borderColor: accent }}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                      className="w-full border-0 bg-transparent p-0 text-[15px] text-[var(--heading)] outline-none"
                     />
-                    <Pencil size={14} className="absolute right-0 text-gray-300" />
+                    <Pencil className="h-4 w-4 shrink-0 text-[var(--icon-muted)]" />
                   </div>
                 ) : (
-                  <span className="text-[16px] font-bold text-[#1a1a2e]">
+                  <span className="text-[16px] font-medium text-[var(--heading)]">
                     {displayData.name}
                   </span>
-                )}
-              </div>
-            </div>
+                )
+              }
+            />
 
-            {/* Email Row */}
-            <div className="flex items-center py-6 gap-8">
-              <span className="w-40 shrink-0 text-sm font-semibold text-gray-400 uppercase tracking-wider">
-                Email
-              </span>
-              <span className="text-[16px] text-gray-400">{user.email}</span>
-            </div>
+            <DetailCard
+              icon={<Mail className="h-5 w-5" />}
+              label="Email"
+              content={
+                <span className="break-all text-[15px] text-[var(--foreground)]">{user.email}</span>
+              }
+            />
 
-            {/* Role Row */}
-            <div className="flex items-center py-6 gap-8">
-              <span className="w-40 shrink-0 text-sm font-semibold text-gray-400 uppercase tracking-wider">
-                Role
-              </span>
-              <span className="text-[16px] text-[#1a1a2e] font-medium">
-                {fixedRole}
-              </span>
-            </div>
+            <DetailCard
+              icon={<UserRound className="h-5 w-5" />}
+              label="Occupation"
+              content={
+                isEditing ? (
+                  <select
+                    value={formData.occupation}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, occupation: e.target.value }))
+                    }
+                    className="w-full rounded-[18px] border border-[var(--border-subtle)] bg-[var(--background-card-nested)] px-4 py-3 text-[15px] text-[var(--heading)] outline-none focus:border-[var(--primary)]"
+                  >
+                    {OCCUPATION_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="text-[15px] text-[var(--heading)]">{displayData.occupation}</span>
+                )
+              }
+            />
 
-            {/* Password Row */}
-            <div className="flex items-center py-6 gap-8 border-b-0">
-              <span className="w-40 shrink-0 text-sm font-semibold text-gray-400 uppercase tracking-wider">
-                Password
-              </span>
-              <div className="flex-1 flex items-center gap-4 flex-wrap">
-                <KeyRound size={18} className="text-gray-400" />
-                <span className="text-[16px] text-[#1a1a2e] tracking-[0.4em]">
-                  ********
-                </span>
-                {passwordLastUpdated && (
-                  <span className="text-xs text-green-500 font-semibold">
-                    ✓ Updated {passwordLastUpdated}
-                  </span>
-                )}
-                {isEditing && (
+            <DetailCard
+              icon={<Camera className="h-5 w-5" />}
+              label="Profile picture"
+              content={
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                   <button
+                    type="button"
+                    onClick={handleAvatarPick}
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-[var(--primary)] px-4 py-2.5 text-[15px] font-medium text-white transition hover:opacity-90"
+                  >
+                    <Camera className="h-4 w-4" />
+                    {previewData.avatarUrl.trim() ? "Change Photo" : "Upload Photo"}
+                  </button>
+
+                  {previewData.avatarUrl.trim() ? (
+                    <button
+                      type="button"
+                      onClick={handleRemoveAvatar}
+                      className="inline-flex items-center justify-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--background-surface)] px-4 py-2.5 text-[15px] font-medium text-[var(--foreground)] transition hover:bg-[var(--background-card-nested)]"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Remove
+                    </button>
+                  ) : (
+                    <span className="text-[15px] text-[var(--text-muted)]">
+                      No profile picture added yet.
+                    </span>
+                  )}
+                </div>
+              }
+            />
+
+            {variant === "lawyer" ? (
+              <DetailCard
+                icon={<Linkedin className="h-5 w-5" />}
+                label="LinkedIn"
+                content={
+                  isEditing ? (
+                    <div className="rounded-[18px] border border-[var(--border-subtle)] bg-[var(--background-card-nested)] px-4 py-3">
+                      <input
+                        type="url"
+                        placeholder="https://www.linkedin.com/in/your-profile"
+                        value={formData.linkedInUrl}
+                        onChange={(e) =>
+                          setFormData((prev) => ({ ...prev, linkedInUrl: e.target.value }))
+                        }
+                        className="w-full border-0 bg-transparent p-0 text-[15px] text-[var(--heading)] outline-none"
+                      />
+                    </div>
+                  ) : previewData.linkedInUrl.trim() ? (
+                    <a
+                      href={previewData.linkedInUrl.trim()}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 break-all text-[15px] font-medium text-[var(--primary)] transition hover:opacity-80"
+                    >
+                      {previewData.linkedInUrl.trim()}
+                      <ExternalLink className="h-4 w-4 shrink-0" />
+                    </a>
+                  ) : (
+                    <span className="text-[15px] text-[var(--text-muted)]">
+                      No LinkedIn URL added yet.
+                    </span>
+                  )
+                }
+              />
+            ) : null}
+
+            <DetailCard
+              icon={<LockKeyhole className="h-5 w-5" />}
+              label="Password"
+              content={
+                isEditing ? (
+                  <button
+                    type="button"
                     onClick={() => {
                       resetPasswordForm();
                       setShowPasswordModal(true);
                     }}
-                    className="text-xs font-bold uppercase tracking-tighter hover:underline"
-                    style={{ color: accent }}
+                    className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--background-card-nested)] px-4 py-2.5 text-[15px] font-medium text-[var(--primary)] transition hover:bg-[var(--background-page)]"
                   >
-                    Update Security
+                    <Pencil className="h-4 w-4" />
+                    Change Password
                   </button>
-                )}
+                ) : (
+                  <span className="text-[15px] tracking-[0.24em] text-[var(--foreground)]">
+                    **********
+                  </span>
+                )
+              }
+            />
+          </section>
+
+          <section className="mt-8 rounded-[28px] border border-[var(--border-subtle)] bg-[var(--background-card-nested)] p-5 md:p-6">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h2 className="text-[20px] font-semibold text-[var(--heading)]">Appearance</h2>
+              </div>
+              <div className="rounded-full border border-[var(--border-subtle)] bg-[var(--background-surface)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--primary)]">
+                {themeSummary}
               </div>
             </div>
-          </div>
 
-          {/* Footer Actions */}
-          <div className="px-8 py-6 bg-gray-50/30 flex justify-end gap-4 border-t border-gray-50">
-            {isEditing ? (
-              <>
-                <button
-                  onClick={() => {
-                    setIsEditing(false);
-                    setFormData({ name: displayData.name });
-                  }}
-                  className="text-sm font-bold text-gray-500 px-6 py-2.5 hover:bg-gray-100 rounded-full transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSaveName}
-                  disabled={isSaving}
-                  className="text-sm font-bold text-white px-8 py-2.5 rounded-full shadow-md transition active:scale-95 disabled:opacity-50"
-                  style={{ backgroundColor: accent }}
-                >
-                  {isSaving ? "Saving..." : "Save Changes"}
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={() => setIsEditing(true)}
-                className="flex items-center gap-2 text-sm font-bold text-white px-8 py-2.5 rounded-full shadow-md transition active:scale-95"
-                style={{ backgroundColor: accent }}
-              >
-                <Pencil size={14} /> Edit Profile
-              </button>
-            )}
-          </div>
+            <div className="mt-5 rounded-[18px] bg-[var(--background-surface)] p-2 shadow-[var(--shadow-card)]">
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <ThemeButton
+                  active={themePreference === "light"}
+                  icon={<SunMedium className="h-4 w-4" />}
+                  label="Light"
+                  onClick={() => handleThemeSelect("light")}
+                />
+                <ThemeButton
+                  active={themePreference === "dark"}
+                  icon={<Moon className="h-4 w-4" />}
+                  label="Dark"
+                  onClick={() => handleThemeSelect("dark")}
+                />
+                <ThemeButton
+                  active={themePreference === "system"}
+                  icon={<Monitor className="h-4 w-4" />}
+                  label="System"
+                  onClick={() => handleThemeSelect("system")}
+                />
+              </div>
+            </div>
+          </section>
         </div>
       </div>
 
-      {/* Password Modal */}
-      {showPasswordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-          <div
-            className="bg-white w-full max-w-md rounded-[32px] p-8 shadow-2xl animate-in fade-in zoom-in duration-200">
-            <h2 className="text-xl font-bold text-[#1a1a2e] mb-6">
-              Change Password
-            </h2>
+      {showPasswordModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-[440px] rounded-[30px] border border-[var(--border-subtle)] bg-[var(--background-surface)] p-7 shadow-[var(--shadow-elevated)]">
+            <h3 className="text-[20px] font-semibold text-[var(--heading)]">Change Password</h3>
+            <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
+              Confirm your current password before setting a new one.
+            </p>
 
-            <div className="space-y-5">
-              {/* Current Password */}
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700">
-                  Current Password:
-                </label>
-                <div className="relative">
-                  <input
-                    type={modalVisibility.current ? "text" : "password"}
-                    value={passwordForm.currentPassword}
-                    autoComplete="off"
-                    onChange={(e) =>
-                      setPasswordForm((p) => ({
-                        ...p,
-                        currentPassword: e.target.value,
-                      }))
-                    }
-                    className="w-full p-3 pr-10 border rounded-xl bg-gray-50/50 focus:outline-none border-gray-200 focus:border-[#4C2F5E]"
-                    placeholder="Enter current password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setModalVisibility((p) => ({
-                        ...p,
-                        current: !p.current,
-                      }))
-                    }
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  >
-                    {modalVisibility.current ? (
-                      <Eye size={18} />
-                    ) : (
-                      <EyeOff size={18} />
-                    )}
-                  </button>
-                </div>
-              </div>
+            <div className="mt-6 space-y-5">
+              {passwordFields.map(({ label, field }) => {
+                const isVisible = showPasswords[field];
 
-              {/* New Password */}
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700">
-                  New Password:
-                </label>
-                <div className="relative">
-                  <input
-                    type={modalVisibility.new ? "text" : "password"}
-                    value={passwordForm.newPassword}
-                    autoComplete="new-password"
-                    onChange={(e) =>
-                      setPasswordForm((p) => ({
-                        ...p,
-                        newPassword: e.target.value,
-                      }))
-                    }
-                    className="w-full p-3 pr-10 border rounded-xl bg-gray-50/50 focus:outline-none border-gray-200 focus:border-[#4C2F5E]"
-                    placeholder="Enter new password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setModalVisibility((p) => ({ ...p, new: !p.new }))
-                    }
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  >
-                    {modalVisibility.new ? (
-                      <Eye size={18} />
-                    ) : (
-                      <EyeOff size={18} />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Confirm Password */}
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700">
-                  Confirm New Password:
-                </label>
-                <div className="relative">
-                  <input
-                    type={modalVisibility.confirm ? "text" : "password"}
-                    value={passwordForm.confirmPassword}
-                    autoComplete="new-password"
-                    onChange={(e) =>
-                      setPasswordForm((p) => ({
-                        ...p,
-                        confirmPassword: e.target.value,
-                      }))
-                    }
-                    className="w-full p-3 pr-10 border rounded-xl bg-gray-50/50 focus:outline-none border-gray-200 focus:border-[#4C2F5E]"
-                    placeholder="Confirm new password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setModalVisibility((p) => ({
-                        ...p,
-                        confirm: !p.confirm,
-                      }))
-                    }
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  >
-                    {modalVisibility.confirm ? (
-                      <Eye size={18} />
-                    ) : (
-                      <EyeOff size={18} />
-                    )}
-                  </button>
-                </div>
-              </div>
+                return (
+                  <div key={field}>
+                    <label className="mb-2 block text-sm font-medium text-[var(--foreground)]">
+                      {label}
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={isVisible ? "text" : "password"}
+                        value={passwordForm[field]}
+                        onChange={(e) =>
+                          setPasswordForm((prev) => ({ ...prev, [field]: e.target.value }))
+                        }
+                        autoComplete="new-password"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        data-lpignore="true"
+                        data-1p-ignore="true"
+                        className="w-full rounded-[16px] border border-[var(--border-subtle)] bg-[var(--background-surface)] py-3 pl-4 pr-12 text-[15px] text-[var(--heading)] outline-none transition focus:border-[var(--primary)]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => togglePasswordVisibility(field)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--icon-muted)] transition hover:text-[var(--primary)]"
+                      >
+                        {isVisible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
-            <div className="mt-8 flex gap-3">
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <button
                 type="button"
                 onClick={() => {
                   setShowPasswordModal(false);
                   resetPasswordForm();
                 }}
-                className="flex-1 py-3 rounded-full border border-gray-200 font-bold text-gray-500 hover:bg-gray-50 transition"
+                className="flex-1 rounded-full border border-[var(--border-subtle)] bg-[var(--background-surface)] px-6 py-3 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--background-card-nested)]"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                disabled={isSaving}
                 onClick={handleSavePassword}
-                className="flex-1 py-3 rounded-full text-white font-bold transition active:scale-95 shadow-lg disabled:opacity-50"
-                style={{ backgroundColor: accent }}
+                disabled={isSaving}
+                className="flex-1 rounded-full bg-[var(--primary)] px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSaving ? "Updating..." : "Submit"}
+                {isSaving ? "Submitting..." : "Submit"}
               </button>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

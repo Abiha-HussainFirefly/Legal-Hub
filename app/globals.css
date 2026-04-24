@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap');
 @import "tailwindcss";
 
 @variant dark (&:where(.dark, .dark *));
@@ -6,16 +7,14 @@
    1. TAILWIND CONFIGURATION
    ========================================= */
 @theme {
-  --font-sans: var(--font-geist-sans), sans-serif;
+  --font-sans: 'DM Sans', sans-serif;
+  --font-display: 'Playfair Display', serif;
   --font-mono: var(--font-geist-mono), monospace;
 
-  /* --- Semantic Colors --- */
   --color-page: var(--background-page);
   --color-surface: var(--background-surface);
-
   --color-card: var(--background-card);
   --color-card-nested: var(--background-card-nested);
-
   --color-foreground: var(--foreground);
   --color-heading: var(--heading);
   --color-muted: var(--text-muted);
@@ -26,106 +25,468 @@
   --color-light-text: var(--light-text);
   --color-input-border: var(--input-border);
   --color-dark-sidebar: var(--dark-sidebar-color);
-  
   --color-pending: var(--pending);
   --color-success: var(--success);
   --color-error: var(--error);
 
-  /* --- Gradient Config --- */
-  --background-image-gradient: linear-gradient(to right,
-      var(--gradient-start),
-      var(--gradient-end));
+  --background-image-gradient: linear-gradient(to right, var(--gradient-start), var(--gradient-end));
   --color-gradient-start: var(--gradient-start);
   --color-gradient-end: var(--gradient-end);
 }
 
 /* =========================================
-   2. COLOR VALUES (The Source of Truth)
+   2. COLOR VALUES
    ========================================= */
 :root {
-  /* ====== LIGHT MODE (Only Mode Supported for now) ====== */
-  --background-page: #F3F0F4;
-  /* Main BG (Greyish Purple common in project) */
+  --background-page: #f8f6fb;
   --background-surface: #ffffff;
-  /* Sidebar/Nav */
-
-  /* Card System */
   --background-card: #ffffff;
-  /* Main Card (White) */
-  --background-card-nested: #F9FAFB;
-  /* Nested Card (Lightest Grey) */
+  --background-card-nested: #f4eff8;
+  --heading: #332043;
+  --foreground: #594a67;
+  --text-muted: #756783;
+  --border-subtle: #e3dbe9;
+  --icon-muted: #8a7b99;
+  --primary: #4c2f5e;
+  --accent: #6f5484;
+  --light-text: #ffffff;
+  --input-border: #d4cadf;
+  --dark-sidebar-color: #3d254d;
+  --pending: #d18a2f;
+  --success: #1b7a5a;
+  --error: #c0564f;
+  --gradient-start: #4c2f5e;
+  --gradient-end: #6f5484;
 
-  --heading: #4C2F5E;
-  /* Main Deep Purple brand color */
-  --foreground: #374151;
-  /* Standard Dark text */
-  --text-muted: #6E7D7D;
-  /* Muted text used extensively in lawyer/admin dash */
-  --icon-muted: #adadad80;
-  --light-text: #979797;
-  --input-border: #D1D5DB;
-  --dark-sidebar-color: #000000;
+  --lh-purple-deep: #3d254d;
+  --lh-purple-brand: #4c2f5e;
+  --lh-purple-mid: #6f5484;
+  --lh-purple-accent: #8d74a3;
+  --lh-purple-light: #e8e0ee;
+  --lh-purple-pale: #f4eff8;
+  --lh-purple-ghost: #fbf9fd;
 
-  --primary: #4C2F5E;
-  /* Primary Deep Purple */
-  --accent: #9F63C4;
-  /* Secondary Lighter Purple */
-  --border-subtle: #E2E8F0;
+  --lh-gold: #6f5484;
+  --lh-gold-light: #ece4f2;
 
-  --gradient-start: #4C2F5E;
-  /* Brand Deep Purple */
-  --gradient-end: #9F63C4;
-  /* Brand Light Purple */
+  --shadow-card: 0 8px 20px rgba(76, 47, 94, 0.06);
+  --shadow-card-hover: 0 12px 28px rgba(76, 47, 94, 0.08);
+  --shadow-elevated: 0 14px 36px rgba(76, 47, 94, 0.1);
+}
 
-  /* Status Colors identified in project */
-  --pending: #EEA62B;
-  --success: #16A34A;
-  --error: #EF4444;
+html[data-theme='dark'] {
+  --background-page: #140f1b;
+  --background-surface: #1a1423;
+  --background-card: #20192b;
+  --background-card-nested: #2a2236;
+  --heading: #f2ecf8;
+  --foreground: #c7bdd2;
+  --text-muted: #a698b8;
+  --border-subtle: #3a3047;
+  --icon-muted: #b4a7c4;
+  --primary: #cdb8df;
+  --accent: #8d74a3;
+  --light-text: #ffffff;
+  --input-border: #4b4059;
+  --dark-sidebar-color: #120d19;
+  --pending: #d9a34a;
+  --success: #4bb68e;
+  --error: #e07b74;
+  --gradient-start: #2b1d38;
+  --gradient-end: #4c2f5e;
+  --lh-purple-deep: #f2ecf8;
+  --lh-purple-brand: #cdb8df;
+  --lh-purple-mid: #a88dc1;
+  --lh-purple-accent: #8d74a3;
+  --lh-purple-light: #31273d;
+  --lh-purple-pale: #231b2d;
+  --lh-purple-ghost: #19131f;
+  --lh-gold: #bba4d0;
+  --lh-gold-light: #2d2338;
+  --shadow-card: 0 12px 26px rgba(0, 0, 0, 0.28);
+  --shadow-card-hover: 0 16px 34px rgba(0, 0, 0, 0.32);
+  --shadow-elevated: 0 24px 46px rgba(0, 0, 0, 0.34);
 }
 
 /* =========================================
-   3. GLOBAL DEFAULTS
+   3. BASE STYLES
    ========================================= */
-@layer base {
-  body {
-    background-color: var(--background-page);
-    color: var(--foreground);
-    -webkit-font-smoothing: antialiased;
-  }
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background-color: var(--background-page);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.01em;
+  background-image:
+    radial-gradient(circle at top left, rgba(76, 47, 94, 0.08), transparent 24%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(248, 246, 251, 0) 18%);
 }
 
-@layer utilities {
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
+/* =========================================
+   4. TYPOGRAPHY
+   ========================================= */
+.font-display { font-family: 'Playfair Display', serif; }
 
-  .no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-  
-  .animate-in {
-    animation-duration: 300ms;
-    animation-fill-mode: forwards;
-    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  }
+h1, h2, h3 { letter-spacing: -0.02em; }
 
-  .fade-in {
-    animation-name: fadeIn;
-  }
+/* =========================================
+   5. SCROLLBAR
+   ========================================= */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--lh-purple-light); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--lh-purple-accent); }
 
-  .slide-in-from-right-8 {
-    animation-name: slideInFromRight;
-  }
+/* =========================================
+   6. ANIMATIONS
+   ========================================= */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-
 @keyframes fadeIn {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
-
-@keyframes slideInFromRight {
-  from { transform: translateX(2rem); }
-  to   { transform: translateX(0); }
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes pulse-ring {
+  0%   { transform: scale(1); opacity: 0.8; }
+  50%  { transform: scale(1.05); opacity: 0.4; }
+  100% { transform: scale(1); opacity: 0.8; }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-4px); }
 }
 
+.animate-fadeInUp     { animation: fadeInUp 0.4s ease both; }
+.animate-fadeIn       { animation: fadeIn 0.3s ease both; }
+.animate-slideInRight { animation: slideInRight 0.35s ease both; }
+
+/* Staggered card animations */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.10s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.20s; }
+.stagger-5 { animation-delay: 0.25s; }
+
+/* =========================================
+   7. COMPONENT TOKENS
+   ========================================= */
+
+.lh-card {
+  background: white;
+  border-radius: 20px;
+  border: 1px solid rgba(76, 47, 94, 0.1);
+  box-shadow: var(--shadow-card);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.lh-card:hover {
+  border-color: rgba(76, 47, 94, 0.18);
+  box-shadow: var(--shadow-card-hover);
+}
+.lh-card-interactive:hover {
+  transform: none;
+}
+
+.lh-btn-primary {
+  background: var(--lh-purple-brand);
+  color: white;
+  border: 1px solid var(--lh-purple-brand);
+  border-radius: 14px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+.lh-btn-primary:hover {
+  background: #432853;
+  border-color: #432853;
+}
+
+.lh-input {
+  font-family: 'DM Sans', sans-serif;
+  border: 1.5px solid var(--input-border);
+  border-radius: 14px;
+  background: white;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  outline: none;
+}
+.lh-input:focus {
+  border-color: var(--lh-purple-brand);
+  box-shadow: 0 0 0 4px rgba(76, 47, 94, 0.1);
+}
+
+.lh-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: 'DM Sans', sans-serif;
+  line-height: 1;
+}
+.lh-pill-category {
+  background: #f4eff8;
+  color: var(--lh-purple-brand);
+  border: 1px solid #e3dbe9;
+}
+
+.lh-skeleton {
+  background: linear-gradient(90deg, #F0EAF7 25%, #E8DFEF 50%, #F0EAF7 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease infinite;
+  border-radius: 8px;
+}
+
+.discussion-card {
+  background: white;
+  border-radius: 20px;
+  border: 1px solid rgba(76, 47, 94, 0.1);
+  transition: border-color 0.2s ease, background 0.2s ease;
+  overflow: hidden;
+}
+.discussion-card:hover {
+  background: #fcfbfd;
+  border-color: rgba(76, 47, 94, 0.18);
+}
+
+.lh-navbar {
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(76, 47, 94, 0.1);
+}
+
+.lh-nav-link {
+  position: relative;
+  color: #594a67;
+  font-weight: 500;
+  transition: color 0.15s ease;
+}
+.lh-nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0; right: 0;
+  height: 2px;
+  background: var(--lh-purple-brand);
+  border-radius: 1px;
+  transform: scaleX(0);
+  transition: transform 0.2s ease;
+}
+.lh-nav-link:hover::after { transform: scaleX(1); }
+
+.lh-sidebar-section {
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #EDE8F3;
+}
+
+.reaction-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 100px;
+  border: 1.5px solid #e3dbe9;
+  font-size: 12px;
+  font-weight: 600;
+  color: #67597a;
+  background: white;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.lh-modal-backdrop {
+  background: rgba(76, 47, 94, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+.lh-search {
+  background: white;
+  border: 1.5px solid rgba(76, 47, 94, 0.12);
+  border-radius: 18px;
+}
+
+.featured-card {
+  border-radius: 14px;
+  overflow: hidden;
+  transition: transform 0.2s ease;
+}
+
+.answer-card {
+  background: white;
+  border-radius: 20px;
+  border: 1px solid rgba(76, 47, 94, 0.1);
+  margin-bottom: 16px;
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+.text-gradient {
+  background: linear-gradient(135deg, var(--lh-purple-brand) 0%, var(--lh-purple-accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.bg-mesh {
+  background-color: #4c2f5e;
+  background-image:
+    radial-gradient(at 20% 50%, rgba(141,116,163,0.22) 0px, transparent 50%),
+    radial-gradient(at 80% 20%, rgba(111,84,132,0.34) 0px, transparent 50%),
+    radial-gradient(at 60% 80%, rgba(61,37,77,0.5) 0px, transparent 50%);
+}
+
+/* Verified badge glow */
+.verified-glow {
+  filter: drop-shadow(0 0 3px rgba(159,99,196,0.5));
+}
+
+/* Divider */
+.lh-divider {
+  border: none;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(12,26,42,0.1) 20%, rgba(12,26,42,0.1) 80%, transparent);
+}
+
+.legal-panel {
+  border-radius: 24px;
+  border: 1px solid rgba(76, 47, 94, 0.1);
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.legal-soft-panel {
+  border-radius: 24px;
+  border: 1px solid rgba(76, 47, 94, 0.1);
+  background: white;
+}
+
+.legal-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(76, 47, 94, 0.14);
+  background: rgba(76, 47, 94, 0.06);
+  padding: 0.45rem 0.85rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #5b456f;
+}
+
+.legal-section-title {
+  color: #332043;
+  font-size: clamp(1.65rem, 2.6vw, 2.7rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.04;
+}
+
+.legal-section-copy {
+  color: #756783;
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+.legal-button-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  border-radius: 9999px;
+  border: 1px solid #4c2f5e;
+  background: #4c2f5e;
+  color: white;
+  padding: 0.85rem 1.35rem;
+  font-weight: 600;
+  transition: background 0.18s ease, border-color 0.18s ease, opacity 0.18s ease;
+}
+
+.legal-button-primary:hover {
+  background: #432853;
+  border-color: #432853;
+}
+
+.legal-button-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(76, 47, 94, 0.14);
+  background: white;
+  color: #4c2f5e;
+  padding: 0.85rem 1.35rem;
+  font-weight: 600;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.legal-button-secondary:hover {
+  background: #faf7fc;
+  border-color: rgba(76, 47, 94, 0.24);
+}
+
+.legal-field {
+  width: 100%;
+  border-radius: 18px;
+  border: 1.5px solid rgba(76, 47, 94, 0.12);
+  background: white;
+  color: #332043;
+  padding: 0.95rem 1rem;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+
+.legal-field::placeholder {
+  color: #9789a6;
+}
+
+.legal-field:focus {
+  outline: none;
+  border-color: rgba(76, 47, 94, 0.6);
+  box-shadow: 0 0 0 4px rgba(76, 47, 94, 0.1);
+  background: white;
+}
+
+.legal-table-wrap {
+  border-radius: 24px;
+  border: 1px solid rgba(76, 47, 94, 0.1);
+  background: white;
+  overflow: hidden;
+}
+
+.legal-table thead tr {
+  background: #4c2f5e;
+  color: white;
+}
+
+.legal-table tbody tr:hover {
+  background: rgba(76, 47, 94, 0.03);
+}
+
+.legal-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 9999px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
