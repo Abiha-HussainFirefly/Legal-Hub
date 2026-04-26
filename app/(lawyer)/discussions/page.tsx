@@ -202,15 +202,11 @@ export default function LegalDiscussionsPage() {
           cache: 'no-store',
         });
 
-        if (!data.authenticated) {
-          router.replace('/lawyerlogin');
-          return;
-        }
-
         setUser(data.user ?? null);
-        setIsReady(true);
       } catch {
-        router.replace('/lawyerlogin');
+        setUser(null);
+      } finally {
+        setIsReady(true);
       }
     }
 
@@ -468,7 +464,7 @@ export default function LegalDiscussionsPage() {
                   {communityBrief?.verifiedLawyers ?? topLawyers.length} trusted voices
                 </div>
               </div>
-              <button onClick={() => setIsModalOpen(true)} className="legal-button-primary text-sm">
+              <button onClick={() => user ? setIsModalOpen(true) : router.push('/lawyerlogin')} className="legal-button-primary text-sm">
                 Start discussion
               </button>
             </div>

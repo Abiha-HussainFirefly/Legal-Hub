@@ -5,6 +5,7 @@ import ProfileHoverLink from '@/app/components/lawyer/discussions/profile-hover-
 import { apiRequest } from '@/lib/api-client';
 import { ChevronDown, ChevronUp, CornerDownRight, Loader2, Send } from 'lucide-react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 interface Author {
@@ -76,6 +77,7 @@ function CommentItem({
   currentUser?: Author | null;
   depth?: number;
 }) {
+  const router = useRouter();
   const [showReply, setShowReply] = useState(false);
   const [showReplies, setShowReplies] = useState(true);
   const [replyText, setReplyText] = useState('');
@@ -171,9 +173,15 @@ function CommentItem({
 
           <p className="text-xs leading-relaxed text-[#374151]">{comment.body}</p>
 
-          {currentViewer?.id && depth < 2 ? (
+          {depth < 2 ? (
             <button
-              onClick={() => setShowReply((current) => !current)}
+              onClick={() => {
+                if (currentViewer?.id) {
+                  setShowReply((current) => !current);
+                } else {
+                  router.push('/lawyerlogin');
+                }
+              }}
               className="mt-1 flex items-center gap-1 text-[11px] text-gray-400 transition hover:text-[#9F63C4]"
             >
               <CornerDownRight className="h-3 w-3" />
@@ -234,6 +242,7 @@ function CommentItem({
 }
 
 export default function CommentThread({ comments, discussionId, answerId, currentUser }: Props) {
+  const router = useRouter();
   const [localComments, setLocalComments] = useState<Comment[]>(comments);
   const [newBody, setNewBody] = useState('');
   const [posting, setPosting] = useState(false);
@@ -291,43 +300,50 @@ export default function CommentThread({ comments, discussionId, answerId, curren
         />
       ))}
 
-      {currentViewer?.id ? (
-        <div className="mt-3">
-          {!showForm ? (
-            <button onClick={() => setShowForm(true)} className="text-xs font-medium text-[#9F63C4] hover:opacity-70">
-              + Add a comment
-            </button>
-          ) : (
-            <div className="lh-form-enter flex items-start gap-2">
-              <textarea
-                value={newBody}
-                onChange={(event) => setNewBody(event.target.value)}
-                placeholder="Add a comment..."
-                rows={2}
-                autoFocus
-                className="flex-1 resize-none rounded-lg border border-gray-200 px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-purple-300"
-              />
-              <div className="flex flex-col gap-1">
-                <Tooltip content={posting ? 'Posting comment' : 'Post comment'}>
-                  <button
-                    onClick={submitComment}
-                    disabled={posting || !newBody.trim()}
-                    className={`rounded-lg bg-[#9F63C4] p-2 text-white transition hover:opacity-90 disabled:opacity-50 ${posting ? 'lh-action-bump' : ''}`}
-                    aria-label={posting ? 'Posting comment' : 'Post comment'}
-                  >
-                    {posting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                  </button>
-                </Tooltip>
-                <Tooltip content="Cancel">
-                  <button onClick={() => setShowForm(false)} className="p-2 text-xs text-gray-400 hover:text-gray-600" aria-label="Cancel">
+      <div className="mt-3">
+        {!showForm ? (
+          <button
+            onClick={() => {
+              if (currentViewer?.id) {
+                setShowForm(true);
+              } else {
+                router.push('/lawyerlogin');
+              }
+            }}
+            className="text-xs font-medium text-[#9F63C4] hover:opacity-70"
+          >
+            + Add a comment
+          </button>
+        ) : currentViewer?.id ? (
+          <div className="lh-form-enter flex items-start gap-2">
+            <textarea
+              value={newBody}
+              onChange={(event) => setNewBody(event.target.value)}
+              placeholder="Add a comment..."
+              rows={2}
+              autoFocus
+              className="flex-1 resize-none rounded-lg border border-gray-200 px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-purple-300"
+            />
+            <div className="flex flex-col gap-1">
+              <Tooltip content={posting ? 'Posting comment' : 'Post comment'}>
+                <button
+                  onClick={submitComment}
+                  disabled={posting || !newBody.trim()}
+                  className={`rounded-lg bg-[#9F63C4] p-2 text-white transition hover:opacity-90 disabled:opacity-50 ${posting ? 'lh-action-bump' : ''}`}
+                  aria-label={posting ? 'Posting comment' : 'Post comment'}
+                >
+                  {posting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                </button>
+              </Tooltip>
+              <Tooltip content="Cancel">
+                <button onClick={() => setShowForm(false)} className="p-2 text-xs text-gray-400 hover:text-gray-600" aria-label="Cancel">
                   ×
                 </button>
-                </Tooltip>
-              </div>
+              </Tooltip>
             </div>
-          )}
-        </div>
-      ) : null}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

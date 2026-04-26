@@ -291,7 +291,11 @@ export default function DiscussionDetailPage({
   }, [actionPulse]);
 
   async function updateReaction(body: { reactionType: string; emoji?: string }) {
-    if (!user || !discussion || reactionPending) return;
+    if (!user) {
+      router.push('/lawyerlogin');
+      return;
+    }
+    if (!discussion || reactionPending) return;
 
     setReactionPending(true);
 
@@ -520,7 +524,7 @@ export default function DiscussionDetailPage({
               <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-[#2F1D3B]/8 pt-4">
                 <button
                   onClick={() => updateReaction({ reactionType: 'UPVOTE' })}
-                  disabled={!user || reactionPending}
+                  disabled={reactionPending}
                   className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold transition ${
                     myReaction === 'UPVOTE' && !myEmoji
                       ? 'border-[#4C2F5E]/16 bg-[#F1EAF6] text-[#4C2F5E]'
@@ -535,9 +539,12 @@ export default function DiscussionDetailPage({
                   <Tooltip content="React">
                     <button
                       onClick={() => {
-                        if (user) setShowEmojiPicker((current) => !current);
+                        if (user) {
+                          setShowEmojiPicker((current) => !current);
+                        } else {
+                          router.push('/lawyerlogin');
+                        }
                       }}
-                      disabled={!user}
                       className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#2F1D3B]/8 bg-white text-[#6B5C79] transition hover:bg-[#F8F6FB] disabled:opacity-40"
                       aria-label="React"
                     >

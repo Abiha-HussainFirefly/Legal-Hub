@@ -17,7 +17,7 @@ function getSessionToken(req: NextRequest): string | undefined {
   return undefined;
 }
 
-export function proxy(req: NextRequest) {
+export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const token     = getSessionToken(req);
@@ -27,8 +27,7 @@ export function proxy(req: NextRequest) {
   const isLawyerAuth   = pathname === "/lawyerlogin" || pathname === "/lawyerregister";
 
   const isAdminProtected  = pathname.startsWith("/dashboard");
-  const isLawyerProtected = pathname.startsWith("/discussions");
-
+  const isLawyerProtected = pathname.startsWith("/cases") || pathname.startsWith("/topics") || pathname.startsWith("/saved") || pathname === "/profile" || pathname.startsWith("/profile/edit") || pathname.startsWith("/profile/setup") || pathname.startsWith("/profile/stats");
 
   if (isAdminProtected && !isLoggedIn) {
     return NextResponse.redirect(new URL("/adminlogin", req.url));
@@ -37,7 +36,6 @@ export function proxy(req: NextRequest) {
   if (isLawyerProtected && !isLoggedIn) {
     return NextResponse.redirect(new URL("/lawyerlogin", req.url));
   }
-
 
   if (isAdminAuth && isLoggedIn) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
@@ -54,6 +52,10 @@ export const config = {
   matcher: [
     "/dashboard/:path*",
     "/discussions/:path*",
+    "/cases/:path*",
+    "/topics/:path*",
+    "/saved/:path*",
+    "/profile/:path*",
     "/adminlogin",
     "/lawyerlogin",
     "/lawyerregister",

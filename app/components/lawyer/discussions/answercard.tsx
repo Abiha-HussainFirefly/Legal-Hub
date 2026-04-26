@@ -4,6 +4,7 @@ import Tooltip from '@/app/components/ui/tooltip';
 import ProfileHoverLink from '@/app/components/lawyer/discussions/profile-hover-link';
 import { apiRequest } from '@/lib/api-client';
 import { ArrowDown, ArrowUp, CheckCircle2, ChevronDown, ChevronUp, Loader2, MessageSquare } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import CommentThread from './commentthread';
 
@@ -90,6 +91,8 @@ export default function AnswerCard({
   const isVerified = author.lawyerProfile?.verificationStatus === 'VERIFIED';
   const authorProfileHref = `/profile/user/${author.id}`;
 
+  const router = useRouter();
+
   useEffect(() => {
     if (!actionPulse) return;
     const timeout = window.setTimeout(() => setActionPulse(null), 320);
@@ -97,7 +100,12 @@ export default function AnswerCard({
   }, [actionPulse]);
 
   async function react(type: string) {
-    if (!currentUserId || reactPend) return;
+    if (!currentUserId) {
+      router.push('/lawyerlogin');
+      return;
+    }
+    if (reactPend) return;
+    
     setReactP(true);
     const prev = myReac;
     const wasMe = myReac === type;
@@ -159,7 +167,7 @@ export default function AnswerCard({
             <Tooltip content="Upvote answer">
               <button
                 onClick={() => react('UPVOTE')}
-                disabled={!currentUserId || reactPend}
+                disabled={reactPend}
                 className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition disabled:opacity-40 ${
                   myReac === 'UPVOTE'
                     ? 'border-[#4C2F5E]/20 bg-[#F1EAF6] text-[#4C2F5E]'
@@ -176,7 +184,7 @@ export default function AnswerCard({
             <Tooltip content="Downvote answer">
               <button
                 onClick={() => react('DOWNVOTE')}
-                disabled={!currentUserId || reactPend}
+                disabled={reactPend}
                 className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition disabled:opacity-40 ${
                   myReac === 'DOWNVOTE'
                     ? 'border-red-200 bg-red-50 text-red-500'

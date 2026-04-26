@@ -3,7 +3,7 @@
 import { Building2, MapPin, Scale, ShieldCheck, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
-import { type CSSProperties, type FocusEvent, type ReactNode, useEffect, useRef, useState } from 'react';
+import { Children, type CSSProperties, type FocusEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 
 interface ProfileHoverLinkProps {
   href?: string | null;
@@ -62,7 +62,10 @@ export default function ProfileHoverLink({
   const [panelStyle, setPanelStyle] = useState<CSSProperties | null>(null);
 
   const summary = headline || practiceArea || (isLawyer ? 'Legal Hub lawyer profile' : 'Legal Hub member profile');
-  const triggerClassName = className ?? 'inline-flex';
+  const layoutClassName = className ?? 'inline-flex items-center gap-3';
+  const childArray = Children.toArray(children);
+  const triggerChild = childArray[0] ?? null;
+  const contentChildren = childArray.slice(1);
 
   function clearCloseTimer() {
     if (closeTimerRef.current !== null) {
@@ -236,24 +239,27 @@ export default function ProfileHoverLink({
     : null;
 
   const trigger = href ? (
-    <Link href={href} className={triggerClassName}>
-      {children}
+    <Link href={href} className="inline-flex shrink-0">
+      {triggerChild}
     </Link>
   ) : (
-    <div className={triggerClassName}>{children}</div>
+    <div className="inline-flex shrink-0">{triggerChild}</div>
   );
 
   return (
     <>
-      <div
-        ref={wrapperRef}
-        className="relative max-w-full"
-        onMouseEnter={openPanel}
-        onMouseLeave={scheduleClose}
-        onFocusCapture={openPanel}
-        onBlurCapture={handleBlur}
-      >
-        {trigger}
+      <div className={`max-w-full ${layoutClassName}`}>
+        <div
+          ref={wrapperRef}
+          className="relative inline-flex shrink-0"
+          onMouseEnter={openPanel}
+          onMouseLeave={scheduleClose}
+          onFocusCapture={openPanel}
+          onBlurCapture={handleBlur}
+        >
+          {trigger}
+        </div>
+        {contentChildren}
       </div>
       {panel}
     </>
