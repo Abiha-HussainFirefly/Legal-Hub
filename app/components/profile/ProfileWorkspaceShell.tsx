@@ -80,9 +80,9 @@ export default function ProfileWorkspaceShell({
 
   return (
     <div className="mx-auto max-w-[1320px] px-4 py-6 md:px-6 lg:px-8 lh-page-enter">
-      <section className="workspace-header p-5 md:p-6 lh-page-enter lh-delay-1">
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-          <div className="flex flex-col gap-5">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
+        <section className="workspace-header p-5 md:p-6 lh-page-enter lh-delay-1">
+          <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-start">
               <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-[26px] border border-[#4C2F5E]/12 bg-[#4C2F5E] text-2xl font-semibold tracking-[-0.04em] text-white shadow-[0_16px_32px_rgba(76,47,94,0.18)]">
                 {profile.avatarUrl ? (
@@ -138,88 +138,90 @@ export default function ProfileWorkspaceShell({
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <AnimatedLink href={primaryAction.href} className="legal-button-primary text-sm">
-                <CheckCircle2 className="h-4 w-4" />
+            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
+              <AnimatedLink href={primaryAction.href} className="legal-button-primary justify-center text-sm w-full sm:w-auto">
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
                 {primaryAction.label}
               </AnimatedLink>
-              <AnimatedLink href="/profile/edit" className="legal-button-secondary text-sm">
-                <Pencil className="h-4 w-4" />
+              <AnimatedLink href="/profile/edit" className="legal-button-secondary justify-center text-sm w-full sm:w-auto">
+                <Pencil className="h-4 w-4 shrink-0" />
                 Edit details
               </AnimatedLink>
               {profile.username ? (
                 <AnimatedLink
                   href={`/profile/${profile.username}`}
-                  className="inline-flex items-center gap-2 rounded-full border border-[#4C2F5E]/12 bg-white px-4 py-2 text-sm font-semibold text-[#4C2F5E] transition hover:bg-[#F7F3FA]"
+                  className="inline-flex justify-center items-center gap-2 rounded-full border border-[#4C2F5E]/12 bg-white px-4 py-2 text-sm font-semibold text-[#4C2F5E] transition hover:bg-[#F7F3FA] w-full sm:w-auto"
                 >
-                  <ExternalLink className="h-4 w-4" />
+                  <ExternalLink className="h-4 w-4 shrink-0" />
                   View public profile
                 </AnimatedLink>
               ) : null}
             </div>
           </div>
+        </section>
 
-          <aside className="workspace-sidebar p-5 lh-page-enter lh-delay-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8B7D99]">
-              Profile readiness
-            </p>
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-[#2F1D3B]">Complete your account</h2>
-              <span className="text-2xl font-semibold tracking-[-0.04em] text-[#4C2F5E]">
-                {profile.completionPercentage}%
-              </span>
-            </div>
-            <p className="mt-2 text-sm leading-7 text-[#736683]">
-              Keep identity, professional trust signals, and public-facing details current in one place.
-            </p>
+        <aside className="workspace-sidebar p-5 lh-page-enter lh-delay-2">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8B7D99]">
+            Profile readiness
+          </p>
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-[#2F1D3B]">Complete your account</h2>
+            <span className="text-2xl font-semibold tracking-[-0.04em] text-[#4C2F5E]">
+              {profile.completionPercentage}%
+            </span>
+          </div>
+          <p className="mt-2 text-sm leading-7 text-[#736683]">
+            Keep identity, professional trust signals, and public-facing details current in one place.
+          </p>
 
-            <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#E9E1F0]">
-              <div
-                className="h-full rounded-full bg-[linear-gradient(90deg,#4C2F5E_0%,#8D74A3_100%)] transition-[width] duration-500"
-                style={{ width: `${profile.completionPercentage}%` }}
-              />
-            </div>
+          <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#E9E1F0]">
+            <div
+              className="h-full rounded-full bg-[linear-gradient(90deg,#4C2F5E_0%,#8D74A3_100%)] transition-[width] duration-500"
+              style={{ width: `${profile.completionPercentage}%` }}
+            />
+          </div>
 
-            <div className="mt-4 space-y-2">
-              {profile.missingChecklist.length > 0 ? (
-                profile.missingChecklist.slice(0, 4).map((item) => (
-                  <div
-                    key={item}
-                    className="flex items-start gap-2 rounded-[14px] border border-[#4C2F5E]/8 bg-[#F8F6FB] px-3 py-2.5 text-sm text-[#5F506D]"
-                  >
-                    <Circle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#8D74A3]" />
-                    <span>{item}</span>
-                  </div>
-                ))
-              ) : (
-                <div className="flex items-start gap-2 rounded-[14px] border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-700">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>Your profile is complete and ready for public trust building.</span>
+          <div className="mt-4 space-y-2">
+            {profile.missingChecklist.length > 0 ? (
+              profile.missingChecklist.slice(0, 4).map((item) => (
+                <div
+                  key={item}
+                  className="flex items-start gap-2 rounded-[14px] border border-[#4C2F5E]/8 bg-[#F8F6FB] px-3 py-2.5 text-sm text-[#5F506D]"
+                >
+                  <Circle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#8D74A3]" />
+                  <span>{item}</span>
                 </div>
-              )}
-            </div>
+              ))
+            ) : (
+              <div className="flex items-start gap-2 rounded-[14px] border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-700">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>Your profile is complete and ready for public trust building.</span>
+              </div>
+            )}
+          </div>
 
-            <div className="mt-4 rounded-[16px] border border-[#4C2F5E]/8 bg-white px-4 py-3 text-sm text-[#736683]">
-              Member since <span className="font-semibold text-[#2F1D3B]">{formatMemberSince(profile.createdAt)}</span>
-            </div>
-          </aside>
+          <div className="mt-4 rounded-[16px] border border-[#4C2F5E]/8 bg-white px-4 py-3 text-sm text-[#736683]">
+            Member since <span className="font-semibold text-[#2F1D3B]">{formatMemberSince(profile.createdAt)}</span>
+          </div>
+        </aside>
+      </div>
+
+      <div className="mt-6 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 rounded-[18px] border border-[#4C2F5E]/10 bg-white p-2 shadow-[0_12px_24px_rgba(76,47,94,0.05)] lh-page-enter lh-delay-2">
+        <div className="flex flex-1 sm:flex-none gap-2">
+          <TabLink
+            href="/profile"
+            label="Profile"
+            icon={<Pencil className="h-4 w-4 shrink-0" />}
+            active={activeTab === "profile"}
+          />
+          <TabLink
+            href="/profile/stats"
+            label="Stats"
+            icon={<BarChart3 className="h-4 w-4 shrink-0" />}
+            active={activeTab === "stats"}
+          />
         </div>
-      </section>
-
-      <div className="mt-6 flex flex-wrap items-center gap-2 rounded-[18px] border border-[#4C2F5E]/10 bg-white p-2 shadow-[0_12px_24px_rgba(76,47,94,0.05)] lh-page-enter lh-delay-2">
-        <TabLink
-          href="/profile"
-          label="Profile"
-          icon={<Pencil className="h-4 w-4" />}
-          active={activeTab === "profile"}
-        />
-        <TabLink
-          href="/profile/stats"
-          label="Stats"
-          icon={<BarChart3 className="h-4 w-4" />}
-          active={activeTab === "stats"}
-        />
-        <div className="ml-auto rounded-[14px] bg-[#F8F6FB] px-3 py-2 text-xs font-semibold text-[#736683]">
+        <div className="sm:ml-auto rounded-[14px] bg-[#F8F6FB] px-3 py-2 text-xs font-semibold text-[#736683] text-center">
           {needsSetup ? `${profile.missingChecklist.length} checklist item${profile.missingChecklist.length === 1 ? "" : "s"} pending` : "Profile complete"}
         </div>
       </div>

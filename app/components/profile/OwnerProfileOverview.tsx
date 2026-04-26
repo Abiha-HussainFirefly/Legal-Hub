@@ -29,7 +29,7 @@ function SectionCard({
 }) {
   return (
     <section className={`workspace-sidebar p-5 lh-page-enter lh-surface-lift ${className}`}>
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-4">
         <div className="flex items-start gap-3">
           {icon ? (
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-[#F1EAF6] text-[#4C2F5E]">
@@ -42,7 +42,7 @@ function SectionCard({
           </div>
         </div>
         {actions.length > 0 ? (
-          <div className="flex shrink-0 flex-wrap justify-end gap-2">
+          <div className="flex flex-wrap gap-2">
             {actions.map((action) => (
               <Link
                 key={`${title}-${action.href}-${action.label}`}
