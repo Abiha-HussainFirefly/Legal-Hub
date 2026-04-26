@@ -1,5 +1,6 @@
 'use client';
 
+import Tooltip from '@/app/components/ui/tooltip';
 import { AlertCircle, CheckCircle2, Sparkles, X } from 'lucide-react';
 
 interface AISummaryData {
@@ -52,11 +53,15 @@ export default function AISummaryModal({ isOpen, onClose, summaryData, discussio
             </div>
             <h2 className="text-[16px] font-bold text-gray-900">AI Summary</h2>
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition cursor-pointer">
-            <X className="w-4 h-4" />
-          </button>
+          <Tooltip content="Close">
+            <button
+              onClick={onClose}
+              className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition cursor-pointer"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </Tooltip>
         </div>
 
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">

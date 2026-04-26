@@ -8,6 +8,7 @@ import { useState } from "react";
 import { z } from "zod";
 import { EmailSchema, NameSchema, PasswordSchema } from "@/utils/validation";
 import { Button } from "@/app/components/ui/button";
+import Tooltip from "@/app/components/ui/tooltip";
 import { useToast } from "@/app/components/ui/toast/toast-context";
 import { FacebookIcon, GoogleIcon } from "@/public/icons/google-facebook-icon";
 import { commonInputClass, commonLabelClass } from "@/utils/custom-styling/input-label";
@@ -189,18 +190,24 @@ export default function ClientRegister() {
               </h2>
 
               <div className="flex gap-3 mb-5">
-                <button
-                  type="button"
-                  className="flex-1 flex items-center justify-center p-3 border-[1.5px] border-gray-200 rounded-[10px] bg-white hover:bg-gray-50 transition-colors cursor-pointer"
-                >
-                  <GoogleIcon />
-                </button>
-                <button
-                  type="button"
-                  className="flex-1 flex items-center justify-center p-3 border-[1.5px] border-gray-200 rounded-[10px] bg-white hover:bg-gray-50 transition-colors cursor-pointer"
-                >
-                  <FacebookIcon />
-                </button>
+                <Tooltip content="Continue with Google">
+                  <button
+                    type="button"
+                    className="flex-1 flex items-center justify-center p-3 border-[1.5px] border-gray-200 rounded-[10px] bg-white hover:bg-gray-50 transition-colors cursor-pointer"
+                    aria-label="Continue with Google"
+                  >
+                    <GoogleIcon />
+                  </button>
+                </Tooltip>
+                <Tooltip content="Continue with Facebook">
+                  <button
+                    type="button"
+                    className="flex-1 flex items-center justify-center p-3 border-[1.5px] border-gray-200 rounded-[10px] bg-white hover:bg-gray-50 transition-colors cursor-pointer"
+                    aria-label="Continue with Facebook"
+                  >
+                    <FacebookIcon />
+                  </button>
+                </Tooltip>
               </div>
 
               <div className="relative mb-5">
@@ -264,13 +271,16 @@ export default function ClientRegister() {
                       onChange={(e) => handleChange("password", e.target.value)}
                       onBlur={() => handleBlur("password")}
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-                    >
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
+                    <Tooltip content={showPassword ? "Hide password" : "Show password"}>
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </Tooltip>
                   </div>
                   {formData.password && pwStrength && (
                     <div className="mt-2">

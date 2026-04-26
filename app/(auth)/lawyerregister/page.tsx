@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckSquare, Eye, EyeOff, XCircle, CheckCircle2 } from "lucide-react";
+import { CheckSquare, Eye, EyeOff, XCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -9,6 +9,7 @@ import { z } from "zod";
 import { signIn } from "next-auth/react";
 import { EmailSchema, NameSchema, PasswordSchema } from "@/utils/validation";
 import { Button } from "@/app/components/ui/button";
+import Tooltip from "@/app/components/ui/tooltip";
 import { useToast } from "@/app/components/ui/toast/toast-context";
 import { FacebookIcon, GoogleIcon } from "@/public/icons/google-facebook-icon";
 import { commonInputClass, commonLabelClass } from "@/utils/custom-styling/input-label";
@@ -249,21 +250,27 @@ export default function LawyerRegister() {
             </h2>
 
             <div className="flex gap-3 mb-4.5">
-              <button
-                type="button"
-                onClick={() =>
-                  signIn("google", { callbackUrl: "/discussions" })
-                }
-                className="flex-1 flex items-center justify-center p-3 border-[1.5px] border-gray-200 rounded-[10px] bg-white cursor-pointer hover:bg-gray-50 transition-colors"
-              >
-                <GoogleIcon />
-              </button>
-              <button
-                type="button"
-                className="flex-1 flex items-center justify-center p-3 border-[1.5px] border-gray-200 rounded-[10px] bg-white cursor-pointer hover:bg-gray-50 transition-colors"
-              >
-                <FacebookIcon />
-              </button>
+              <Tooltip content="Continue with Google">
+                <button
+                  type="button"
+                  onClick={() =>
+                    signIn("google", { callbackUrl: "/discussions" })
+                  }
+                  className="flex-1 flex items-center justify-center p-3 border-[1.5px] border-gray-200 rounded-[10px] bg-white cursor-pointer hover:bg-gray-50 transition-colors"
+                  aria-label="Continue with Google"
+                >
+                  <GoogleIcon />
+                </button>
+              </Tooltip>
+              <Tooltip content="Continue with Facebook">
+                <button
+                  type="button"
+                  className="flex-1 flex items-center justify-center p-3 border-[1.5px] border-gray-200 rounded-[10px] bg-white cursor-pointer hover:bg-gray-50 transition-colors"
+                  aria-label="Continue with Facebook"
+                >
+                  <FacebookIcon />
+                </button>
+              </Tooltip>
             </div>
 
             <div className="relative mb-4.5">
@@ -330,13 +337,16 @@ export default function LawyerRegister() {
                     onBlur={() => handleBlur("password")}
                     required
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
+                  <Tooltip content={showPassword ? "Hide password" : "Show password"}>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </Tooltip>
                 </div>
 
                 {formData.password && pwStrength && (

@@ -22,6 +22,50 @@ function buildEmojiStats(
   }, {});
 }
 
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ slug: string }> }
+) {
+  try {
+    const session = await auth();
+    const { slug } = await params;
+
+    const discussion = await prisma.discussion.findUnique({
+      where: { slug },
+      select: { id: true },
+    });
+
+    if (!discussion) {
+      return NextResponse.json({ error: 'Discussion not found' }, { status: 404 });
+    }
+
+    const reactions = await prisma.discussionReaction.findMany({
+      where: { discussionId: discussion.id },
+      select: {
+        reactionType: true,
+        emoji: true,
+        userId: true,
+        user: { select: { displayName: true } },
+      },
+    });
+
+    const viewerReaction = reactions.find((reaction) => reaction.userId === session?.user?.id) ?? null;
+
+    return NextResponse.json({
+      data: buildEmojiStats(reactions),
+      viewerReaction: viewerReaction
+        ? {
+            reactionType: viewerReaction.reactionType,
+            emoji: viewerReaction.emoji,
+          }
+        : null,
+    });
+  } catch (error) {
+    console.error('[GET /api/discussions/[slug]/reactions]', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 // POST /api/discussions/[slug]/reactions
 // Body: { reactionType: 'UPVOTE' | 'DOWNVOTE' | 'LIKE' | ... }
 // Toggles: if same reaction exists → remove it; if different → replace it

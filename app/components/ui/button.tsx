@@ -44,7 +44,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     ref,
   ) => {
     const baseClass =
-      "inline-flex items-center justify-center rounded-[14px] transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#4C2F5E]/10 disabled:pointer-events-none disabled:opacity-50 cursor-pointer whitespace-nowrap gap-2 font-inherit";
+      "inline-flex min-w-0 items-center justify-center rounded-[14px] transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#4C2F5E]/10 disabled:pointer-events-none disabled:opacity-50 cursor-pointer whitespace-nowrap gap-2 leading-tight font-inherit [&>svg]:shrink-0";
 
     const variantClass = variants[variant];
     const sizeClass = sizes[size];

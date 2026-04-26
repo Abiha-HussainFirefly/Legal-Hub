@@ -12,6 +12,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { Button } from "@/app/components/ui/button";
+import Tooltip from "@/app/components/ui/tooltip";
 import { useToast } from "@/app/components/ui/toast/toast-context";
 import { commonInputClass, commonLabelClass } from "@/utils/custom-styling/input-label";
 
@@ -157,7 +158,7 @@ function ResetPasswordForm() {
               <p className="text-gray-500 text-sm mb-8 leading-relaxed">
                 This reset link is missing or invalid. Please request a new one.
               </p>
-              <Link href="/forgot-password" size={16} className="w-full">
+              <Link href="/forgot-password" className="w-full">
                 <button className="w-full py-3.5 bg-[#9F63C4] text-white rounded-[10px] text-lg font-semibold hover:bg-[#8e54b3] transition-colors">
                   Request New Link
                 </button>
@@ -211,13 +212,16 @@ function ResetPasswordForm() {
                       className={`${commonInputClass(false)} pr-11`}
                       required
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPass(!showPass)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
-                    >
-                      {showPass ? <EyeOff size={20} /> : <Eye size={20} />}
-                    </button>
+                    <Tooltip content={showPass ? "Hide password" : "Show password"}>
+                      <button
+                        type="button"
+                        onClick={() => setShowPass(!showPass)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
+                        aria-label={showPass ? "Hide password" : "Show password"}
+                      >
+                        {showPass ? <EyeOff size={20} /> : <Eye size={20} />}
+                      </button>
+                    </Tooltip>
                   </div>
                 </div>
 
@@ -235,13 +239,16 @@ function ResetPasswordForm() {
                       className={`${commonInputClass(false)} pr-11`}
                       required
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirm(!showConfirm)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
-                    >
-                      {showConfirm ? <EyeOff size={20} /> : <Eye size={20} />}
-                    </button>
+                    <Tooltip content={showConfirm ? "Hide password" : "Show password"}>
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirm(!showConfirm)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
+                        aria-label={showConfirm ? "Hide password" : "Show password"}
+                      >
+                        {showConfirm ? <EyeOff size={20} /> : <Eye size={20} />}
+                      </button>
+                    </Tooltip>
                   </div>
                 </div>
 

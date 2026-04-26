@@ -24,6 +24,8 @@ import {
   Trash2,
   UserRound,
 } from "lucide-react";
+import Tooltip from "@/app/components/ui/tooltip";
+import { optimizeProfileImage } from "@/lib/optimize-profile-image";
 import Link from "next/link";
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 
@@ -231,30 +233,25 @@ export default function ProfilePage({
     fileInputRef.current?.click();
   };
 
-  const handleAvatarChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const handleAvatarChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
-      alert("Please choose an image file.");
-      event.target.value = "";
-      return;
-    }
+    try {
+      const result = await optimizeProfileImage(file, {
+        maxWidth: 512,
+        maxHeight: 512,
+        targetBytes: 300 * 1024,
+      });
 
-    if (file.size > 4 * 1024 * 1024) {
-      alert("Please choose an image smaller than 4MB.");
-      event.target.value = "";
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = typeof reader.result === "string" ? reader.result : "";
       setFormData((prev) => ({ ...prev, avatarUrl: result }));
       setIsEditing(true);
-    };
-    reader.readAsDataURL(file);
-    event.target.value = "";
+    } catch (error) {
+      alert(getErrorMessage(error, "Failed to process the selected image."));
+    } finally {
+      input.value = "";
+    }
   };
 
   const handleRemoveAvatar = () => {
@@ -344,13 +341,15 @@ export default function ProfilePage({
       <div className="mx-auto max-w-[1180px] px-4 pb-10 pt-6 md:px-6">
         <div className="flex items-center gap-4">
           {variant === "lawyer" ? (
-            <Link
-              href="/discussions"
-              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--background-surface)] text-[var(--foreground)] shadow-[var(--shadow-card)] transition hover:bg-[var(--background-card-nested)]"
-              aria-label="Back to discussions"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
+            <Tooltip content="Back to discussions">
+              <Link
+                href="/discussions"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--background-surface)] text-[var(--foreground)] shadow-[var(--shadow-card)] transition hover:bg-[var(--background-card-nested)]"
+                aria-label="Back to discussions"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Link>
+            </Tooltip>
           ) : null}
           <h1 className="text-[26px] font-semibold tracking-[-0.03em] text-[var(--heading)]">
             Profile Settings
@@ -655,13 +654,16 @@ export default function ProfilePage({
                         data-1p-ignore="true"
                         className="w-full rounded-[16px] border border-[var(--border-subtle)] bg-[var(--background-surface)] py-3 pl-4 pr-12 text-[15px] text-[var(--heading)] outline-none transition focus:border-[var(--primary)]"
                       />
-                      <button
-                        type="button"
-                        onClick={() => togglePasswordVisibility(field)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--icon-muted)] transition hover:text-[var(--primary)]"
-                      >
-                        {isVisible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                      </button>
+                      <Tooltip content={isVisible ? "Hide password" : "Show password"}>
+                        <button
+                          type="button"
+                          onClick={() => togglePasswordVisibility(field)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--icon-muted)] transition hover:text-[var(--primary)]"
+                          aria-label={isVisible ? "Hide password" : "Show password"}
+                        >
+                          {isVisible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        </button>
+                      </Tooltip>
                     </div>
                   </div>
                 );

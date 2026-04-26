@@ -1,5 +1,7 @@
 'use client';
 
+import Tooltip from '@/app/components/ui/tooltip';
+import { apiRequest } from '@/lib/api-client';
 import { Bell, CheckCheck, MessageSquare, UserCheck, AlertCircle, Award, ThumbsUp } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -55,9 +57,7 @@ export default function NotificationBell() {
     // Only show loading spinner on initial load or manual refresh
     if (items.length === 0) setBusy(true);
     try {
-      const r = await fetch('/api/notifications?limit=15');
-      if (!r.ok) return;
-      const d = await r.json();
+      const d = await apiRequest<{ data?: NotifItem[]; unreadCount?: number }>('/api/notifications?limit=15');
       setItems(d.data ?? []);
       setUnread(d.unreadCount ?? 0);
     } finally { setBusy(false); }
@@ -72,8 +72,7 @@ export default function NotificationBell() {
     setUnread(0);
 
     try {
-      const res = await fetch('/api/notifications', { method: 'PATCH' });
-      if (!res.ok) throw new Error();
+      await apiRequest('/api/notifications', { method: 'PATCH' });
     } catch {
       // Rollback on failure
       setItems(previousItems);
@@ -90,13 +89,11 @@ export default function NotificationBell() {
       setUnread((current) => Math.max(0, current - 1));
 
       try {
-        const res = await fetch('/api/notifications', {
+        await apiRequest('/api/notifications', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ids: [item.id] }),
         });
-
-        if (!res.ok) throw new Error();
       } catch {
         setItems(previousItems);
         setUnread(previousUnread);
@@ -131,21 +128,25 @@ export default function NotificationBell() {
 
   return (
     <div className="relative" ref={ref}>
-      <button
-        onClick={() => { if (!open) load(); setOpen(o => !o); }}
-        aria-label="Notifications"
-        className="relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#4C2F5E]/10 bg-[#F8F4FB] text-[#4C2F5E] transition hover:bg-[#F1EAF6] cursor-pointer"
-      >
-        <Bell className="w-5 h-5" />
-        {unread > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-1 leading-none border-2 border-white">
-            {unread > 9 ? '9+' : unread}
-          </span>
-        )}
-      </button>
+      <Tooltip content="Notifications">
+        <button
+          onClick={() => { if (!open) load(); setOpen(o => !o); }}
+          aria-label="Notifications"
+          className={`relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#4C2F5E]/10 bg-[#F8F4FB] text-[#4C2F5E] transition hover:bg-[#F1EAF6] cursor-pointer ${
+            open ? 'lh-action-bump' : ''
+          }`}
+        >
+          <Bell className="w-5 h-5" />
+          {unread > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-1 leading-none border-2 border-white">
+              {unread > 9 ? '9+' : unread}
+            </span>
+          )}
+        </button>
+      </Tooltip>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-80 overflow-hidden rounded-xl border border-gray-100 bg-white text-left shadow-2xl z-50">
+        <div className="lh-form-enter absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-xl border border-gray-100 bg-white text-left shadow-2xl">
           <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-4 py-3">
             <span className="text-sm font-bold text-[#4C2F5E]">Notifications</span>
             {unread > 0 && (

@@ -1,8 +1,8 @@
 'use client';
 
+import AnimatedLink, { navigateWithTransition } from '@/app/components/ui/animated-link';
 import LawyerTopbar from '@/app/components/lawyer/lawyer-topbar';
 import { ArrowLeft, Eye, Hash, MessagesSquare, Plus, Sparkles, TrendingUp } from 'lucide-react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -98,20 +98,20 @@ export default function MyTopicsPage() {
   const resolvedCount = discussions.filter((d) => d.status === 'RESOLVED').length;
 
   return (
-    <div className="min-h-screen bg-[#F8F6FB]">
+    <div className="legal-workspace-shell">
       <LawyerTopbar activeTab="topics" user={user} onLogout={handleLogout} />
 
-      <div className="mx-auto max-w-[1100px] px-4 py-8 md:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1100px] px-4 py-8 md:px-6 lg:px-8 lh-page-enter">
 
         {/* ── Header ── */}
-        <div className="mb-8 rounded-[28px] border border-[#4C2F5E]/10 bg-white p-6 shadow-[0_12px_32px_rgba(76,47,94,0.06)]">
-          <Link
+        <div className="mb-8 rounded-[28px] border border-[#4C2F5E]/10 bg-white p-6 shadow-[0_12px_32px_rgba(76,47,94,0.06)] lh-page-enter lh-delay-1">
+          <AnimatedLink
             href="/discussions"
             className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#4C2F5E]/12 bg-white px-4 py-2 text-sm font-semibold text-[#4C2F5E] shadow-sm transition hover:bg-[#F7F3FA]"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to discussions
-          </Link>
+          </AnimatedLink>
 
           <div className="mt-6 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -132,7 +132,7 @@ export default function MyTopicsPage() {
             </div>
 
             <button
-              onClick={() => router.push('/discussions')}
+              onClick={() => navigateWithTransition(router, '/discussions')}
               className="inline-flex shrink-0 items-center gap-2 rounded-[16px] bg-[#4C2F5E] px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(76,47,94,0.22)] transition hover:opacity-90"
             >
               <Plus className="h-4 w-4" />
@@ -170,7 +170,7 @@ export default function MyTopicsPage() {
         )}
 
         {/* ── List ── */}
-        <section>
+        <section className="lh-page-enter lh-delay-2">
           {loading ? (
             <div className="space-y-4">
               {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
@@ -185,7 +185,7 @@ export default function MyTopicsPage() {
                 Start a new topic to gather perspectives from verified lawyers and the broader legal community.
               </p>
               <button
-                onClick={() => router.push('/discussions')}
+                onClick={() => navigateWithTransition(router, '/discussions')}
                 className="mt-6 inline-flex items-center gap-2 rounded-[14px] bg-[#4C2F5E] px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
               >
                 <Sparkles className="h-4 w-4" />
@@ -238,11 +238,11 @@ export default function MyTopicsPage() {
                         </div>
 
                         {/* Title */}
-                        <Link href={`/discussions/${d.slug}`} className="mt-3 block">
+                        <AnimatedLink href={`/discussions/${d.slug}`} className="mt-3 block">
                           <h2 className="text-lg font-semibold tracking-[-0.02em] text-[#2F1D3B] transition group-hover:text-[#4C2F5E]">
                             {d.title}
                           </h2>
-                        </Link>
+                        </AnimatedLink>
 
                         {d.excerpt && (
                           <p className="mt-2 line-clamp-2 text-sm leading-7 text-[#736683]">{d.excerpt}</p>
@@ -298,12 +298,12 @@ export default function MyTopicsPage() {
                         </div>
                       </div>
 
-                      <Link
+                      <AnimatedLink
                         href={`/discussions/${d.slug}`}
                         className="flex w-full items-center justify-center gap-2 rounded-[14px] border border-[#4C2F5E]/15 bg-white px-4 py-2.5 text-sm font-semibold text-[#4C2F5E] transition hover:bg-[#F7F3FA]"
                       >
                         Open discussion
-                      </Link>
+                      </AnimatedLink>
                     </div>
                   </div>
                 </article>
@@ -314,19 +314,19 @@ export default function MyTopicsPage() {
 
         {/* ── Footer CTA ── */}
         {!loading && discussions.length > 0 && (
-          <div className="mt-8 flex flex-col items-center justify-between gap-4 rounded-[24px] border border-[#4C2F5E]/15 bg-[linear-gradient(135deg,#4C2F5E_0%,#6F5484_100%)] px-6 py-5 text-white sm:flex-row">
+          <div className="mt-8 flex flex-col items-center justify-between gap-4 rounded-[24px] border border-[#4C2F5E]/15 bg-[linear-gradient(135deg,#4C2F5E_0%,#6F5484_100%)] px-6 py-5 text-white sm:flex-row lh-page-enter lh-delay-3">
             <div className="flex items-center gap-3">
               <TrendingUp className="h-5 w-5 text-white/70" />
               <p className="text-sm leading-6 text-white/80">
                 Consistent contributions improve your visibility in the community leaderboard.
               </p>
             </div>
-            <Link
+            <AnimatedLink
               href="/saved"
               className="shrink-0 rounded-[14px] border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/20"
             >
               Review saved items
-            </Link>
+            </AnimatedLink>
           </div>
         )}
       </div>

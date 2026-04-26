@@ -1,9 +1,9 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 
-export default function AuthError() {
+function AuthErrorRedirect() {
   const searchParams = useSearchParams();
   const router       = useRouter();
   const error        = searchParams.get('error');
@@ -23,5 +23,13 @@ export default function AuthError() {
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
       <p style={{ color: '#9F63C4', fontWeight: 600 }}>Redirecting...</p>
     </div>
+  );
+}
+
+export default function AuthError() {
+  return (
+    <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>Redirecting...</div>}>
+      <AuthErrorRedirect />
+    </Suspense>
   );
 }

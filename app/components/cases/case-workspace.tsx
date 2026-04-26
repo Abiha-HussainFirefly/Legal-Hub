@@ -64,7 +64,7 @@ export default function CaseWorkspace({ children }: { children: React.ReactNode 
 
   return (
     <CaseWorkspaceContext.Provider value={value}>
-      <div className="min-h-screen bg-[#F8F6FB]">
+      <div className="legal-workspace-shell">
         <LawyerTopbar activeTab="cases" user={user} onLogout={handleLogout} />
         {children}
       </div>

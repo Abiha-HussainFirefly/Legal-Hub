@@ -1,8 +1,10 @@
 'use client';
 
+import Tooltip from '@/app/components/ui/tooltip';
 import ProfileHoverLink from '@/app/components/lawyer/discussions/profile-hover-link';
+import { apiRequest } from '@/lib/api-client';
 import { ArrowDown, ArrowUp, CheckCircle2, ChevronDown, ChevronUp, Loader2, MessageSquare } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import CommentThread from './commentthread';
 
 interface Author {
@@ -82,10 +84,17 @@ export default function AnswerCard({
   const [showComments, setShowCom] = useState(false);
   const [reactPend, setReactP] = useState(false);
   const [acceptPend, setAcceptP] = useState(false);
+  const [actionPulse, setActionPulse] = useState<'vote' | 'accept' | null>(null);
 
   const isAuthor = currentUserId === discussionAuthorId;
   const isVerified = author.lawyerProfile?.verificationStatus === 'VERIFIED';
   const authorProfileHref = `/profile/user/${author.id}`;
+
+  useEffect(() => {
+    if (!actionPulse) return;
+    const timeout = window.setTimeout(() => setActionPulse(null), 320);
+    return () => window.clearTimeout(timeout);
+  }, [actionPulse]);
 
   async function react(type: string) {
     if (!currentUserId || reactPend) return;
@@ -102,11 +111,12 @@ export default function AnswerCard({
     setScore((s) => s + delta);
     setMyReac(wasMe ? null : type);
     try {
-      await fetch(`/api/answers/${id}/reactions`, {
+      await apiRequest(`/api/answers/${id}/reactions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reactionType: type }),
       });
+      setActionPulse('vote');
     } catch {
       setScore((s) => s - delta);
       setMyReac(prev);
@@ -119,15 +129,16 @@ export default function AnswerCard({
     if (!isAuthor || acceptPend || accepted) return;
     setAcceptP(true);
     try {
-      const res = await fetch(`/api/answers/${id}/accept`, { method: 'POST' });
-      if (res.ok) setAccepted(true);
+      await apiRequest(`/api/answers/${id}/accept`, { method: 'POST' });
+      setAccepted(true);
+      setActionPulse('accept');
     } finally {
       setAcceptP(false);
     }
   }
 
   return (
-    <div className={`answer-card overflow-hidden ${accepted ? 'border-[#4C2F5E]/20 bg-[#FCFAFD]' : ''}`}>
+    <div className={`answer-card overflow-hidden ${accepted ? 'border-[#4C2F5E]/20 bg-[#FCFAFD]' : ''} lh-page-enter`}>
       <div className="px-5 py-5 md:px-6 md:py-6">
         <div className="mb-4 flex flex-wrap items-center gap-2">
           {accepted ? (
@@ -145,31 +156,37 @@ export default function AnswerCard({
 
         <div className="flex gap-4">
           <div className="flex shrink-0 flex-col items-center gap-2">
-            <button
-              onClick={() => react('UPVOTE')}
-              disabled={!currentUserId || reactPend}
-              className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition disabled:opacity-40 ${
-                myReac === 'UPVOTE'
-                  ? 'border-[#4C2F5E]/20 bg-[#F1EAF6] text-[#4C2F5E]'
-                  : 'border-[#4C2F5E]/10 text-[#6B5C79] hover:bg-[#F7F3FA]'
-              }`}
-            >
-              <ArrowUp className="h-4 w-4" />
-            </button>
+            <Tooltip content="Upvote answer">
+              <button
+                onClick={() => react('UPVOTE')}
+                disabled={!currentUserId || reactPend}
+                className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition disabled:opacity-40 ${
+                  myReac === 'UPVOTE'
+                    ? 'border-[#4C2F5E]/20 bg-[#F1EAF6] text-[#4C2F5E]'
+                    : 'border-[#4C2F5E]/10 text-[#6B5C79] hover:bg-[#F7F3FA]'
+                } ${actionPulse === 'vote' ? 'lh-action-bump' : ''}`}
+                aria-label="Upvote answer"
+              >
+                <ArrowUp className="h-4 w-4" />
+              </button>
+            </Tooltip>
             <span className={`text-sm font-semibold ${curScore > 0 ? 'text-[#4C2F5E]' : curScore < 0 ? 'text-red-500' : 'text-[#6B5C79]'}`}>
               {curScore}
             </span>
-            <button
-              onClick={() => react('DOWNVOTE')}
-              disabled={!currentUserId || reactPend}
-              className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition disabled:opacity-40 ${
-                myReac === 'DOWNVOTE'
-                  ? 'border-red-200 bg-red-50 text-red-500'
-                  : 'border-[#4C2F5E]/10 text-[#6B5C79] hover:bg-[#F7F3FA]'
-              }`}
-            >
-              <ArrowDown className="h-4 w-4" />
-            </button>
+            <Tooltip content="Downvote answer">
+              <button
+                onClick={() => react('DOWNVOTE')}
+                disabled={!currentUserId || reactPend}
+                className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition disabled:opacity-40 ${
+                  myReac === 'DOWNVOTE'
+                    ? 'border-red-200 bg-red-50 text-red-500'
+                    : 'border-[#4C2F5E]/10 text-[#6B5C79] hover:bg-[#F7F3FA]'
+                } ${actionPulse === 'vote' ? 'lh-action-bump' : ''}`}
+                aria-label="Downvote answer"
+              >
+                <ArrowDown className="h-4 w-4" />
+              </button>
+            </Tooltip>
           </div>
 
           <div className="min-w-0 flex-1">
@@ -239,7 +256,9 @@ export default function AnswerCard({
                 <button
                   onClick={accept}
                   disabled={acceptPend}
-                  className="inline-flex items-center gap-2 rounded-[12px] border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-60"
+                  className={`inline-flex items-center gap-2 rounded-[12px] border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-60 ${
+                    actionPulse === 'accept' ? 'lh-action-bump lh-action-flash' : ''
+                  }`}
                 >
                   {acceptPend ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
                   Accept Answer
@@ -248,7 +267,7 @@ export default function AnswerCard({
             </div>
 
             {showComments ? (
-              <div className="mt-4 border-t border-[#4C2F5E]/8 pt-4">
+              <div className="mt-4 border-t border-[#4C2F5E]/8 pt-4 lh-form-enter">
                 <CommentThread comments={comments} answerId={id} currentUser={currentUser} />
               </div>
             ) : null}

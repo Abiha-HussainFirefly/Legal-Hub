@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Tooltip from "@/app/components/ui/tooltip";
 
 export interface LawyerDocument {
   name:       string;
@@ -64,16 +65,18 @@ export default function LawyerVerificationModal({
           <h2 className="text-sm sm:text-base font-bold text-gray-900">
             Lawyer Verification Details
           </h2>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-gray-100 transition text-gray-500"
-            aria-label="Close"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <line x1="18" y1="6"  x2="6"  y2="18" />
-              <line x1="6"  y1="6"  x2="18" y2="18" />
-            </svg>
-          </button>
+          <Tooltip content="Close">
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg hover:bg-gray-100 transition text-gray-500"
+              aria-label="Close"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <line x1="18" y1="6"  x2="6"  y2="18" />
+                <line x1="6"  y1="6"  x2="18" y2="18" />
+              </svg>
+            </button>
+          </Tooltip>
         </div>
 
         {/* Body */}

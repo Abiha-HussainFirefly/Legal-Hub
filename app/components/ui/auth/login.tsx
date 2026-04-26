@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/app/components/ui/button";
+import Tooltip from "@/app/components/ui/tooltip";
 import { useToast } from "@/app/components/ui/toast/toast-context";
 import { GoogleIcon } from "@/public/icons/google-facebook-icon";
 import { commonInputClass, commonLabelClass } from "@/utils/custom-styling/input-label";
@@ -212,13 +213,16 @@ export default function LoginForm({
               {/* Google button — only shown when showSocialLogin is true */}
               {showSocialLogin && (
                 <>
-                  <button
-                    type="button"
-                    onClick={() => signIn("google", { callbackUrl: redirectPath })}
-                    className="w-full flex items-center justify-center p-3 border-[1.5px] border-gray-200 rounded-[10px] bg-white hover:bg-gray-50 transition-colors cursor-pointer mb-5"
-                  >
-                    <GoogleIcon />
-                  </button>
+                  <Tooltip content="Continue with Google">
+                    <button
+                      type="button"
+                      onClick={() => signIn("google", { callbackUrl: redirectPath })}
+                      className="w-full flex items-center justify-center p-3 border-[1.5px] border-gray-200 rounded-[10px] bg-white hover:bg-gray-50 transition-colors cursor-pointer mb-5"
+                      aria-label="Continue with Google"
+                    >
+                      <GoogleIcon />
+                    </button>
+                  </Tooltip>
 
                   <div className="relative mb-5">
                     <div className="absolute inset-0 flex items-center">
@@ -276,13 +280,16 @@ export default function LoginForm({
                       onChange={(e) => handleChange("password", e.target.value)}
                       onBlur={() => handleBlur("password")}
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
-                    >
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
+                    <Tooltip content={showPassword ? "Hide password" : "Show password"}>
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </Tooltip>
                   </div>
                   {fieldErrors.password && (
                     <p className="text-xs text-red-500 mt-1 flex items-center gap-1">

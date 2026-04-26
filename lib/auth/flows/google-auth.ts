@@ -1,4 +1,5 @@
 import { PrismaClient }                              from "@prisma/client";
+import { hashAuditIp }                               from "@/lib/auth/audit";
 import { normalizeEmail }                            from "@/lib/auth/normalize";
 import { createSession }                             from "@/lib/auth/session";
 import { isUserActive, isAdmin }                     from "@/lib/auth/auth-lookup";
@@ -10,6 +11,7 @@ export async function googleAuth(
   input: GoogleAuthInput
 ): Promise<SessionResult> {
   const normalizedEmail = normalizeEmail(input.email);
+  const ipHash = hashAuditIp(input.ip);
  
   
   const existingExternalAccount = await prisma.externalAccount.findUnique({
@@ -77,10 +79,11 @@ export async function googleAuth(
   if (isAdmin(roles)) {
     await prisma.auditLog.create({
       data: {
+        category:     "AUTH",
         action:       "LOGIN_FAILED",
         actorId:      null,
         targetUserId: user.id,
-        ip:           input.ip ?? null,
+        ipHash,
         userAgent:    input.userAgent ?? null,
         meta: {
           authMethod: "google",
@@ -100,10 +103,11 @@ export async function googleAuth(
   if (!isUserActive(user)) {
     await prisma.auditLog.create({
       data: {
+        category:     "AUTH",
         action:       "LOGIN_FAILED",
         actorId:      null,
         targetUserId: user.id,
-        ip:           input.ip ?? null,
+        ipHash,
         userAgent:    input.userAgent ?? null,
         meta: {
           authMethod: "google",
@@ -124,10 +128,11 @@ export async function googleAuth(
     if (existingGoogleAccount.providerAccountId !== input.googleSub) {
       await prisma.auditLog.create({
         data: {
+          category:     "AUTH",
           action:       "LOGIN_FAILED",
           actorId:      null,
           targetUserId: user.id,
-          ip:           input.ip ?? null,
+          ipHash,
           userAgent:    input.userAgent ?? null,
           meta: {
             authMethod:        "google",
@@ -156,6 +161,7 @@ async function handleBranchA(
   userId: string,
   input: GoogleAuthInput
 ): Promise<SessionResult> {
+  const ipHash = hashAuditIp(input.ip);
   const [user, userRoles] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
@@ -183,10 +189,11 @@ async function handleBranchA(
   if (isAdmin(roles)) {
     await prisma.auditLog.create({
       data: {
+        category:     "AUTH",
         action:       "LOGIN_FAILED",
         actorId:      null,
         targetUserId: userId,
-        ip:           input.ip ?? null,
+        ipHash,
         userAgent:    input.userAgent ?? null,
         meta: { authMethod: "google", reason: "admin_google_block" },
       },
@@ -214,7 +221,7 @@ async function handleBranchA(
     });
  
     // INSERT Session
-    const session = await createSession(tx as any, {
+    const session = await createSession(tx, {
       userId,
       ip:          input.ip,
       userAgent:   input.userAgent,
@@ -234,16 +241,17 @@ async function handleBranchA(
     // INSERT AuditLog LOGIN_SUCCESS
     await tx.auditLog.create({
       data: {
+        category:     "AUTH",
         action:       "LOGIN_SUCCESS",
         actorId:      userId,
         targetUserId: userId,
-        ip:           input.ip ?? null,
+        ipHash,
         userAgent:    input.userAgent ?? null,
         meta: {
           authMethod: "google",
           provider:   "google",
           sessionId:  session.id,
-          ip:         input.ip ?? null,
+          ipHash,
         },
       },
     });
@@ -262,6 +270,7 @@ async function handleBranchB(
   normalizedEmail: string,
   input: GoogleAuthInput
 ): Promise<SessionResult> {
+  const ipHash = hashAuditIp(input.ip);
   return await prisma.$transaction(async (tx) => {
     // INSERT User
     const user = await tx.user.create({
@@ -282,6 +291,7 @@ async function handleBranchB(
         userId:     user.id,
         type:       "EMAIL",
         value:      normalizedEmail,
+        normalizedValue: normalizedEmail,
         isPrimary:  true,
         verifiedAt: new Date(),
       },
@@ -297,9 +307,9 @@ async function handleBranchB(
         providerEmail:      normalizedEmail,
         providerDisplayName: input.displayName ?? null,
         providerAvatarUrl:  input.avatarUrl    ?? null,
-        idToken:            input.idToken      ?? null,
-        accessToken:        input.accessToken  ?? null,
-        refreshToken:       input.refreshToken ?? null,
+        idTokenEncrypted:      input.idToken      ?? null,
+        accessTokenEncrypted:  input.accessToken  ?? null,
+        refreshTokenEncrypted: input.refreshToken ?? null,
         scope:              input.scope        ?? null,
         expiresAt:          input.expiresAt    ?? null,
         linkedAt:           new Date(),
@@ -318,12 +328,12 @@ async function handleBranchB(
       data: {
         userId:     user.id,
         roleId:     memberRole.id,
-        assignedBy: null,
+        assignedById: null,
       },
     });
  
     // INSERT Session
-    const session = await createSession(tx as any, {
+    const session = await createSession(tx, {
       userId:      user.id,
       ip:          input.ip,
       userAgent:   input.userAgent,
@@ -333,10 +343,11 @@ async function handleBranchB(
     // INSERT AuditLog USER_CREATED
     await tx.auditLog.create({
       data: {
+        category:     "USER",
         action:       "USER_CREATED",
         actorId:      null,
         targetUserId: user.id,
-        ip:           input.ip        ?? null,
+        ipHash,
         userAgent:    input.userAgent ?? null,
         meta: {
           registrationMethod: "google",
@@ -349,16 +360,17 @@ async function handleBranchB(
     // INSERT AuditLog LOGIN_SUCCESS
     await tx.auditLog.create({
       data: {
+        category:     "AUTH",
         action:       "LOGIN_SUCCESS",
         actorId:      user.id,
         targetUserId: user.id,
-        ip:           input.ip        ?? null,
+        ipHash,
         userAgent:    input.userAgent ?? null,
         meta: {
           authMethod: "google",
           provider:   "google",
           sessionId:  session.id,
-          ip:         input.ip ?? null,
+          ipHash,
         },
       },
     });
@@ -377,6 +389,7 @@ async function handleBranchC(
   normalizedEmail: string,
   input: GoogleAuthInput
 ): Promise<SessionResult> {
+  const ipHash = hashAuditIp(input.ip);
   return await prisma.$transaction(async (tx) => {
     // INSERT ExternalAccount — link Google to existing User
     await tx.externalAccount.create({
@@ -388,9 +401,9 @@ async function handleBranchC(
         providerEmail:       normalizedEmail,
         providerDisplayName: input.displayName ?? null,
         providerAvatarUrl:   input.avatarUrl   ?? null,
-        idToken:             input.idToken      ?? null,
-        accessToken:         input.accessToken  ?? null,
-        refreshToken:        input.refreshToken ?? null,
+        idTokenEncrypted:      input.idToken      ?? null,
+        accessTokenEncrypted:  input.accessToken  ?? null,
+        refreshTokenEncrypted: input.refreshToken ?? null,
         scope:               input.scope        ?? null,
         expiresAt:           input.expiresAt    ?? null,
         linkedAt:            new Date(),
@@ -422,7 +435,7 @@ async function handleBranchC(
     }
  
     // INSERT Session
-    const session = await createSession(tx as any, {
+    const session = await createSession(tx, {
       userId,
       ip:          input.ip,
       userAgent:   input.userAgent,
@@ -442,16 +455,17 @@ async function handleBranchC(
     // INSERT AuditLog LOGIN_SUCCESS
     await tx.auditLog.create({
       data: {
+        category:     "AUTH",
         action:       "LOGIN_SUCCESS",
         actorId:      userId,
         targetUserId: userId,
-        ip:           input.ip        ?? null,
+        ipHash,
         userAgent:    input.userAgent ?? null,
         meta: {
           authMethod: "google",
           provider:   "google",
           sessionId:  session.id,
-          ip:         input.ip ?? null,
+          ipHash,
         },
       },
     });

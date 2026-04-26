@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { EmailSchema, PasswordSchema } from "@/utils/validation";
 import { Button } from "@/app/components/ui/button";
+import Tooltip from "@/app/components/ui/tooltip";
 import { useToast } from "@/app/components/ui/toast/toast-context";
 import { FacebookIcon, GoogleIcon } from "@/public/icons/google-facebook-icon";
 import { commonInputClass, commonLabelClass } from "@/utils/custom-styling/input-label";
@@ -121,7 +122,7 @@ export default function ClientLogin() {
         );
         router.push("/dashboard");
       }, 1500);
-    } catch (err) {
+    } catch {
       setLoading(false);
       addToast("error", "Login Failed", "Invalid email or password.");
     }
@@ -198,12 +199,16 @@ export default function ClientLogin() {
           </h2>
 
           <div className="flex gap-3 mb-5">
-            <button className="flex-1 flex items-center justify-center p-3 border-[1.5px] border-gray-200 rounded-[10px] bg-white cursor-pointer hover:bg-gray-50 transition-colors">
-              <GoogleIcon />
-            </button>
-            <button className="flex-1 flex items-center justify-center p-3 border-[1.5px] border-gray-200 rounded-[10px] bg-white cursor-pointer hover:bg-gray-50 transition-colors">
-              <FacebookIcon />
-            </button>
+            <Tooltip content="Continue with Google">
+              <button className="flex-1 flex items-center justify-center p-3 border-[1.5px] border-gray-200 rounded-[10px] bg-white cursor-pointer hover:bg-gray-50 transition-colors" aria-label="Continue with Google">
+                <GoogleIcon />
+              </button>
+            </Tooltip>
+            <Tooltip content="Continue with Facebook">
+              <button className="flex-1 flex items-center justify-center p-3 border-[1.5px] border-gray-200 rounded-[10px] bg-white cursor-pointer hover:bg-gray-50 transition-colors" aria-label="Continue with Facebook">
+                <FacebookIcon />
+              </button>
+            </Tooltip>
           </div>
 
           <div className="relative mb-5">
@@ -252,13 +257,16 @@ export default function ClientLogin() {
                   onChange={(e) => handleChange("password", e.target.value)}
                   onBlur={() => handleBlur("password")}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
+                <Tooltip content={showPassword ? "Hide password" : "Show password"}>
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </Tooltip>
               </div>
               {formData.password && pwStrength && (
                 <div className="mt-2">
@@ -288,7 +296,6 @@ export default function ClientLogin() {
               </label>
               <Link
                 href="/forgot-password"
-                size={16}
                 className="text-[14px] text-[#9F63C4] font-semibold"
               >
                 Forgot Password?

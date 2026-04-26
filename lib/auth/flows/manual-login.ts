@@ -1,4 +1,5 @@
 import { isUserActive, sharedAuthLookup } from "@/lib/auth/auth-lookup";
+import { hashAuditIp } from "@/lib/auth/audit";
 import { normalizeEmail } from "@/lib/auth/normalize";
 import { verifyPassword } from "@/lib/auth/password";
 import { createSession } from "@/lib/auth/session";
@@ -10,6 +11,7 @@ export async function manualLogin(
   input: ManualLoginInput
 ): Promise<SessionResult> {
   const normalizedEmail = normalizeEmail(input.email);
+  const ipHash = hashAuditIp(input.ip);
 
  
   const lookup = await sharedAuthLookup(prisma, normalizedEmail);
@@ -18,10 +20,11 @@ export async function manualLogin(
   if (lookup.userIdentifier === null || lookup.user === null) {
     await prisma.auditLog.create({
       data: {
+        category:     "AUTH",
         action:       "LOGIN_FAILED",
         actorId:      null,
         targetUserId: null,
-        ip:           input.ip        ?? null,
+        ipHash,
         userAgent:    input.userAgent ?? null,
         meta: {
           authMethod: "manual",
@@ -44,10 +47,11 @@ export async function manualLogin(
   if (!isUserActive(user)) {
     await prisma.auditLog.create({
       data: {
+        category:     "AUTH",
         action:       "LOGIN_FAILED",
         actorId:      user.id,
         targetUserId: user.id,
-        ip:           input.ip        ?? null,
+        ipHash,
         userAgent:    input.userAgent ?? null,
         meta: {
           authMethod: "manual",
@@ -68,10 +72,11 @@ export async function manualLogin(
   if (credential === null && googleAccount !== null) {
     await prisma.auditLog.create({
       data: {
+        category:     "AUTH",
         action:       "LOGIN_FAILED",
         actorId:      user.id,
         targetUserId: user.id,
-        ip:           input.ip        ?? null,
+        ipHash,
         userAgent:    input.userAgent ?? null,
         meta: {
           authMethod: "manual",
@@ -92,10 +97,11 @@ export async function manualLogin(
   if (credential === null) {
     await prisma.auditLog.create({
       data: {
+        category:     "AUTH",
         action:       "LOGIN_FAILED",
         actorId:      user.id,
         targetUserId: user.id,
-        ip:           input.ip        ?? null,
+        ipHash,
         userAgent:    input.userAgent ?? null,
         meta: {
           authMethod: "manual",
@@ -118,10 +124,11 @@ export async function manualLogin(
   if (!passwordValid) {
     await prisma.auditLog.create({
       data: {
+        category:     "AUTH",
         action:       "LOGIN_FAILED",
         actorId:      user.id,   
         targetUserId: user.id,
-        ip:           input.ip        ?? null,
+        ipHash,
         userAgent:    input.userAgent ?? null,
         meta: {
           authMethod: "manual",
@@ -140,7 +147,7 @@ export async function manualLogin(
 
   
   const sessionResult = await prisma.$transaction(async (tx) => {
-    const session = await createSession(tx as any, {
+    const session = await createSession(tx, {
       userId:      user.id,
       ip:          input.ip,
       userAgent:   input.userAgent,
@@ -158,15 +165,16 @@ export async function manualLogin(
 
     await tx.auditLog.create({
       data: {
+        category:     "AUTH",
         action:       "LOGIN_SUCCESS",
         actorId:      user.id,
         targetUserId: user.id,
-        ip:           input.ip        ?? null,
+        ipHash,
         userAgent:    input.userAgent ?? null,
         meta: {
           authMethod: "manual",
           sessionId:  session.id,
-          ip:         input.ip ?? null,
+          ipHash,
         },
       },
     });

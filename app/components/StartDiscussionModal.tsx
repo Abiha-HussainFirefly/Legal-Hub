@@ -13,10 +13,10 @@ import {
   MapPin,
   Shapes,
   Tag,
-  Sparkles,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiRequest, getErrorMessage } from '@/lib/api-client';
 
 interface StartDiscussionModalProps {
   isOpen: boolean;
@@ -74,11 +74,6 @@ const KINDS = [
 ] as const;
 
 const TAG_PREVIEW_COUNT = 12;
-
-function getErrorMessage(error: unknown, fallback: string) {
-  if (error instanceof Error && error.message) return error.message;
-  return fallback;
-}
 
 function SearchableSelect({
   label,
@@ -144,7 +139,7 @@ function SearchableSelect({
               return next;
             })
           }
-          className={`flex w-full items-center justify-between gap-3 rounded-2xl border px-3.5 py-3 text-left text-[13px] transition ${
+          className={`flex w-full min-w-0 items-center justify-between gap-3 rounded-2xl border px-3.5 py-3 text-left text-[13px] transition ${
             isOpen
               ? 'border-[#9F63C4] bg-[#FBF7FE] shadow-[0_0_0_4px_rgba(159,99,196,0.10)]'
               : 'border-gray-200 bg-white hover:border-[#D8C5EA]'
@@ -192,7 +187,7 @@ function SearchableSelect({
                   !selectedValue ? 'bg-[#F7F1FB] font-semibold text-[#7B3FA0]' : 'text-gray-600 hover:bg-gray-50'
                 }`}
               >
-                <span>{emptyLabel}</span>
+                <span className="min-w-0 truncate">{emptyLabel}</span>
                 {!selectedValue ? <Check className="h-4 w-4" /> : null}
               </button>
 
@@ -214,7 +209,7 @@ function SearchableSelect({
                           : 'text-gray-700 hover:bg-gray-50'
                       }`}
                     >
-                      <span>{option.name}</span>
+                      <span className="min-w-0 truncate">{option.name}</span>
                       {selected ? <Check className="h-4 w-4" /> : null}
                     </button>
                   );
@@ -250,10 +245,17 @@ export default function StartDiscussionModal({ isOpen, onClose }: StartDiscussio
 
   useEffect(() => {
     if (!isOpen) return;
-    fetch('/api/discussions/meta')
-      .then((response) => response.json())
+
+    const controller = new AbortController();
+
+    apiRequest<Meta>('/api/discussions/meta', {
+      signal: controller.signal,
+      cache: 'no-store',
+    })
       .then(setMeta)
       .catch(() => {});
+
+    return () => controller.abort();
   }, [isOpen]);
 
   useEffect(() => {
@@ -293,7 +295,7 @@ export default function StartDiscussionModal({ isOpen, onClose }: StartDiscussio
 
     setLoading(true);
     try {
-      const response = await fetch('/api/discussions', {
+      const data = await apiRequest<{ slug: string }>('/api/discussions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -306,9 +308,6 @@ export default function StartDiscussionModal({ isOpen, onClose }: StartDiscussio
           visibility: formData.visibility,
         }),
       });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to post discussion');
 
       onClose();
       router.push(`/discussions/${data.slug}`);
@@ -517,18 +516,18 @@ export default function StartDiscussionModal({ isOpen, onClose }: StartDiscussio
             ) : null}
           </div>
 
-          <div className="flex items-center justify-end gap-2.5 border-t border-gray-100 bg-gray-50 px-6 py-4">
+          <div className="flex flex-col-reverse gap-2.5 border-t border-gray-100 bg-gray-50 px-6 py-4 sm:flex-row sm:items-center sm:justify-end">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-[13px] font-semibold text-gray-600 transition hover:border-gray-300 hover:bg-gray-50"
+              className="rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-[13px] font-semibold text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 sm:w-auto"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex items-center gap-2 rounded-xl bg-[linear-gradient(135deg,#5B2D8E_0%,#9F63C4_100%)] px-6 py-2.5 text-[13px] font-bold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[linear-gradient(135deg,#5B2D8E_0%,#9F63C4_100%)] px-6 py-2.5 text-[13px] font-bold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {loading ? (
                 <>

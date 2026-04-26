@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckSquare, XCircle, CheckCircle2 } from "lucide-react";
+import { CheckSquare, CheckCircle2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useRef, useEffect, Suspense } from "react";
@@ -91,7 +91,7 @@ function VerifyEmailForm() {
       setStep("success");
       addToast("success", "Email Verified", "Redirecting to your dashboard...");
       setTimeout(() => router.push("/lawyerlogin"), 2000);
-    } catch (err) {
+    } catch {
       addToast("error", "Network Error", "Please check your connection.");
       setLoading(false);
     }
@@ -111,7 +111,7 @@ function VerifyEmailForm() {
       } else {
         addToast("error", "Error", "Could not resend code. Please try again later.");
       }
-    } catch (err) {
+    } catch {
       addToast("error", "Network Error", "Please check your connection.");
     } finally {
       setResending(false);
@@ -178,7 +178,9 @@ function VerifyEmailForm() {
                   {code.map((digit, idx) => (
                     <input
                       key={idx}
-                      ref={(el) => (inputRefs.current[idx] = el)}
+                      ref={(el) => {
+                        inputRefs.current[idx] = el;
+                      }}
                       type="text"
                       maxLength={1}
                       value={digit}
@@ -196,7 +198,7 @@ function VerifyEmailForm() {
               </form>
 
               <div className="text-center mt-8">
-                <p className="text-sm text-gray-500 mb-2">Didn't receive the code?</p>
+                <p className="text-sm text-gray-500 mb-2">Didn&apos;t receive the code?</p>
                 <button 
                   onClick={handleResend}
                   disabled={resending}

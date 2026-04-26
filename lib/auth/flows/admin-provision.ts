@@ -47,8 +47,8 @@ export async function provisionAdminAccount(
         userId: user.id,
         type: "EMAIL",
         value: normalizedEmail,
+        normalizedValue: normalizedEmail,
         isPrimary: true,
-        
         verifiedAt: input.trustEmailAtProvisioning ? new Date() : null,
       },
     });
@@ -78,13 +78,14 @@ export async function provisionAdminAccount(
         userId: user.id,
         roleId: adminRole.id,
         assignedAt: new Date(),
-        assignedBy: input.actorUserId,
+        assignedById: input.actorUserId,
       },
     });
 
     // INSERT AuditLog USER_CREATED
     await tx.auditLog.create({
       data: {
+        category: "USER",
         action: "USER_CREATED",
         actorId: input.actorUserId,
         targetUserId: user.id,
@@ -99,6 +100,7 @@ export async function provisionAdminAccount(
     //  INSERT AuditLog ROLE_ASSIGNED
     await tx.auditLog.create({
       data: {
+        category: "USER",
         action: "ROLE_ASSIGNED",
         actorId: input.actorUserId,
         targetUserId: user.id,

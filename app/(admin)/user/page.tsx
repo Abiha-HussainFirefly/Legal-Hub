@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronDown, Eye, Search } from 'lucide-react';
+import { Eye, Search } from 'lucide-react';
 import { useState } from 'react';
 
 const users = [
@@ -84,19 +84,16 @@ export default function UserPage() {
             />
           </div>
 
-          <div className="relative">
-            <select
-              value={roleFilter}
-              onChange={handleRoleFilter}
-              className="legal-field appearance-none w-full sm:w-auto px-4 py-3 pr-10 cursor-pointer text-sm"
-            >
-              <option>All Roles</option>
-              <option>Client</option>
-              <option>Lawyer</option>
-              <option>Admin</option>
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-          </div>
+          <select
+            value={roleFilter}
+            onChange={handleRoleFilter}
+            className="legal-field w-full cursor-pointer px-4 py-3 text-sm sm:w-auto"
+          >
+            <option>All Roles</option>
+            <option>Client</option>
+            <option>Lawyer</option>
+            <option>Admin</option>
+          </select>
         </div>
 
         {/* Table */}

@@ -1,10 +1,11 @@
 'use client';
 
 import Image from 'next/image';
-import Link from 'next/link';
+import AnimatedLink, { navigateWithTransition } from '@/app/components/ui/animated-link';
+import Tooltip from '@/app/components/ui/tooltip';
 import { Bookmark, BriefcaseBusiness, LayoutGrid, LogOut, Menu, MessageSquareText, User, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 type ActiveTab = 'discussions' | 'cases' | 'topics' | 'saved' | 'profile';
 
@@ -19,11 +20,17 @@ interface LawyerTopbarProps {
   extraActions?: React.ReactNode;
 }
 
-const navItems: { id: ActiveTab; href: string; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: 'discussions', href: '/discussions', label: 'Discussions', icon: MessageSquareText },
-  { id: 'cases', href: '/cases', label: 'Case Repository', icon: BriefcaseBusiness },
-  { id: 'topics', href: '/topics', label: 'My Topics', icon: LayoutGrid },
-  { id: 'saved', href: '/saved', label: 'Saved', icon: Bookmark },
+const navItems: Array<{
+  id: ActiveTab;
+  href: string;
+  label: string;
+  shortLabel: string;
+  icon: React.ComponentType<{ className?: string }>;
+}> = [
+  { id: 'discussions', href: '/discussions', label: 'Discussions', shortLabel: 'Ask & answer', icon: MessageSquareText },
+  { id: 'cases', href: '/cases', label: 'Cases', shortLabel: 'Case library', icon: BriefcaseBusiness },
+  { id: 'topics', href: '/topics', label: 'My Topics', shortLabel: 'My activity', icon: LayoutGrid },
+  { id: 'saved', href: '/saved', label: 'Saved', shortLabel: 'Bookmarks', icon: Bookmark },
 ];
 
 function initials(name?: string | null) {
@@ -47,8 +54,8 @@ export default function LawyerTopbar({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-  const displayName = useMemo(() => user?.name || user?.displayName || 'Legal Hub User', [user]);
-  const displayEmail = user?.email || '';
+  const displayName = useMemo(() => user?.displayName || user?.name || 'Legal Hub member', [user]);
+  const displayEmail = user?.email || 'Public legal workspace';
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -62,38 +69,40 @@ export default function LawyerTopbar({
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[#4C2F5E]/10 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4 px-4 py-4 md:px-6 lg:px-8">
-        <div className="flex items-center gap-3">
-          <Link
+    <header className="sticky top-0 z-40 border-b border-[#162033]/8 bg-[rgba(255,255,255,0.92)] backdrop-blur-xl">
+      <div className="mx-auto flex max-w-[1380px] items-center justify-between gap-4 px-4 py-3 md:px-6 lg:px-8">
+        <div className="flex min-w-0 items-center gap-3">
+          <AnimatedLink
             href="/discussions"
-            className="inline-flex items-center rounded-full border border-[#4C2F5E]/10 bg-[#F8F4FB] px-3 py-2 transition hover:bg-[#F3EDF8]"
+            className="inline-flex shrink-0 items-center rounded-full border border-[#4C2F5E]/10 bg-[#F8F4FB] px-3 py-2 transition hover:bg-white"
           >
             <Image
               src="/logo-legal-hub.png"
               alt="Legal Hub"
               width={136}
               height={34}
-              className="h-auto w-[112px]"
+              className="h-auto w-[110px]"
             />
-          </Link>
+          </AnimatedLink>
 
-          <nav className="hidden items-center gap-2 lg:flex">
-            {navItems.map(({ id, href, label, icon: Icon }) => {
+          <nav className="hidden items-center gap-2 xl:flex">
+            {navItems.map(({ id, href, label, shortLabel, icon: Icon }) => {
               const isActive = activeTab === id;
+
               return (
-                <Link
+                <AnimatedLink
                   key={id}
                   href={href}
-                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition ${
+                  className={`inline-flex items-center gap-2.5 rounded-full border px-3.5 py-2 text-sm transition ${
                     isActive
-                      ? 'bg-[#F1EAF6] text-[#4C2F5E] border border-[#4C2F5E]/10'
-                      : 'text-[#6B5C79] hover:bg-[#F7F3FA] hover:text-[#4C2F5E]'
+                      ? 'border-[#4C2F5E]/14 bg-[#F1EAF6] text-[#4C2F5E]'
+                      : 'border-transparent text-[#6B5C79] hover:border-[#4C2F5E]/8 hover:bg-[#F7F3FA] hover:text-[#4C2F5E]'
                   }`}
                 >
-                  <Icon className="h-4 w-4" />
-                  {label}
-                </Link>
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="font-semibold">{label}</span>
+                  <span className="hidden text-xs text-[#8B7D99] 2xl:inline">{shortLabel}</span>
+                </AnimatedLink>
               );
             })}
           </nav>
@@ -106,33 +115,33 @@ export default function LawyerTopbar({
             <>
               <button
                 onClick={() => setIsDropdownOpen((current) => !current)}
-                className="inline-flex cursor-pointer items-center gap-3 rounded-full border border-[#4C2F5E]/10 bg-white px-2 py-2 text-left text-[#4C2F5E] transition hover:bg-[#FBF9FD]"
+                className="inline-flex max-w-[220px] shrink-0 items-center gap-3 rounded-full border border-[#4C2F5E]/10 bg-white px-2 py-2 text-left transition hover:bg-[#FBF9FD] xl:max-w-[260px]"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#4C2F5E] text-sm font-semibold text-white">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#4C2F5E] text-sm font-semibold text-white">
                   {initials(displayName)}
                 </div>
                 <div className="hidden min-w-0 md:block">
-                  <p className="truncate text-sm font-semibold text-[#4C2F5E]">{displayName}</p>
-                  <p className="truncate text-xs text-[#7B6D8A]">{displayEmail || 'Verified legal member'}</p>
+                  <p className="truncate text-sm font-semibold text-[#2F1D3B]">{displayName}</p>
+                  <p className="truncate text-xs text-[#8B7D99]">{displayEmail}</p>
                 </div>
               </button>
 
               {isDropdownOpen ? (
-                <div className="absolute right-4 top-[76px] w-72 rounded-[20px] border border-[#4C2F5E]/10 bg-white p-2 md:right-6 lg:right-8">
-                  <div className="rounded-[16px] bg-[#F6F1FA] p-4">
-                    <p className="text-sm font-semibold text-[#4C2F5E]">{displayName}</p>
-                    <p className="mt-1 text-xs text-[#7B6D8A]">{displayEmail || 'Private legal workspace'}</p>
+                <div className="absolute right-4 top-[68px] w-72 rounded-[18px] border border-[#4C2F5E]/10 bg-white p-2 shadow-[0_18px_36px_rgba(76,47,94,0.08)] md:right-6 lg:right-8 lh-form-enter">
+                  <div className="rounded-[14px] bg-[#F6F1FA] p-4">
+                    <p className="text-sm font-semibold text-[#2F1D3B]">{displayName}</p>
+                    <p className="mt-1 text-xs text-[#8B7D99]">{displayEmail}</p>
                   </div>
 
                   <div className="mt-2 grid gap-1">
                     <button
                       onClick={() => {
                         setIsDropdownOpen(false);
-                        router.push('/profile');
+                        navigateWithTransition(router, '/profile');
                       }}
                       className="inline-flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-[#5F506D] transition hover:bg-[#F7F3FA]"
                     >
-                      <User className="h-4 w-4 text-[#7B6D8A]" />
+                      <User className="h-4 w-4 text-[#8B7D99]" />
                       My profile
                     </button>
                     <button
@@ -150,42 +159,49 @@ export default function LawyerTopbar({
               ) : null}
             </>
           ) : (
-            <Link
+            <AnimatedLink
               href="/lawyerlogin"
-              className="hidden rounded-full border border-[#4C2F5E]/15 bg-[#F6F1FA] px-4 py-2 text-sm font-semibold text-[#4C2F5E] transition hover:bg-[#F1EAF6] md:inline-flex"
+              className="hidden rounded-full border border-[#4C2F5E]/12 bg-[#F1EAF6] px-4 py-2 text-sm font-semibold text-[#4C2F5E] transition hover:bg-white md:inline-flex"
             >
               Sign in
-            </Link>
+            </AnimatedLink>
           )}
 
-          <button
-            onClick={() => setIsMenuOpen((current) => !current)}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#4C2F5E]/10 bg-[#F8F4FB] text-[#4C2F5E] transition hover:bg-[#F3EDF8] lg:hidden"
-          >
-            {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+          <Tooltip content={isMenuOpen ? 'Close menu' : 'Open menu'}>
+            <button
+              onClick={() => setIsMenuOpen((current) => !current)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#4C2F5E]/10 bg-[#F8F4FB] text-[#4C2F5E] transition hover:bg-white xl:hidden"
+              aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
+            >
+              {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </Tooltip>
         </div>
       </div>
 
       {isMenuOpen ? (
-        <div className="border-t border-[#4C2F5E]/10 bg-white px-4 py-3 lg:hidden">
+        <div className="border-t border-[#162033]/8 bg-white px-4 py-3 xl:hidden">
           <div className="grid gap-2">
-            {navItems.map(({ id, href, label, icon: Icon }) => {
+            {navItems.map(({ id, href, label, shortLabel, icon: Icon }) => {
               const isActive = activeTab === id;
+
               return (
-                <Link
+                <AnimatedLink
                   key={id}
                   href={href}
                   onClick={() => setIsMenuOpen(false)}
-                  className={`inline-flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition ${
+                  className={`inline-flex items-center gap-3 rounded-[16px] border px-4 py-3 text-sm transition ${
                     isActive
-                      ? 'bg-[#F1EAF6] text-[#4C2F5E]'
-                      : 'text-[#6B5C79] hover:bg-[#F7F3FA]'
+                      ? 'border-[#4C2F5E]/14 bg-[#F1EAF6] text-[#4C2F5E]'
+                      : 'border-transparent text-[#6B5C79] hover:border-[#4C2F5E]/8 hover:bg-[#F7F3FA]'
                   }`}
                 >
-                  <Icon className="h-4 w-4" />
-                  {label}
-                </Link>
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="font-semibold">{label}</p>
+                    <p className="text-xs text-[#8B7D99]">{shortLabel}</p>
+                  </div>
+                </AnimatedLink>
               );
             })}
           </div>

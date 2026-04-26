@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
+import Tooltip from '../tooltip';
 import { ToastType } from './toast-context';
 import { 
   CheckCircle2, 
@@ -77,13 +78,15 @@ export default function Toast({
         )}
       </div>
 
-      <button
-        onClick={() => onClose(id)}
-        className="text-gray-400 hover:text-gray-600  transition-colors p-1"
-        aria-label="Close"
-      >
-        <X className="w-4 h-4" />
-      </button>
+      <Tooltip content="Close">
+        <button
+          onClick={() => onClose(id)}
+          className="text-gray-400 hover:text-gray-600  transition-colors p-1"
+          aria-label="Close"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </Tooltip>
     </div>
   );
 }

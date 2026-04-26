@@ -1,6 +1,7 @@
 'use client';
 
 import { useSidebar } from '@/app/components/admin/sidebar/SidebarContext';
+import Tooltip from '@/app/components/ui/tooltip';
 import { List, Search, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
@@ -46,9 +47,10 @@ const TYPE_COLORS: Record<string, string> = {
   'Admin Log': 'bg-gray-100 text-gray-600',
 };
 
-export default function Header({ userData }: HeaderProps) {
+export default function Header({ userData: _userData }: HeaderProps) {
   const { isOpen, isMobile, toggle } = useSidebar();
   const router = useRouter();
+  void _userData;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showResults, setShowResults] = useState(false);
@@ -98,46 +100,42 @@ export default function Header({ userData }: HeaderProps) {
 
   const leftOffset = isMobile ? '0px' : (isOpen ? '256px' : '72px');
 
-  const SearchResultsDropdown = () => (
-    <>
-      {showResults && searchQuery.trim().length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-200">
-          {searchResults.length > 0 ? (
-            <>
-              <div className="divide-y divide-gray-50 max-h-[350px] overflow-y-auto">
-                {searchResults.map(item => (
-                  <button
-                    key={item.id}
-                    onClick={() => handleResultClick(item.href)}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-purple-50 transition text-left cursor-pointer group"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-gray-800 group-hover:text-[#4C2F5E] truncate">
-                        {item.label}
-                      </p>
-                      <p className="text-[11px] text-gray-400 truncate">{item.subLabel}</p>
-                    </div>
-                    <span className={`flex-shrink-0 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${TYPE_COLORS[item.type] ?? 'bg-gray-100 text-gray-600'}`}>
-                      {item.type}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <div className="px-4 py-2 border-t border-gray-100 bg-gray-50/50 text-center">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                  {searchResults.length} Result{searchResults.length !== 1 ? 's' : ''} Found
-                </p>
-              </div>
-            </>
-          ) : (
-            <div className="px-4 py-8 text-center">
-              <p className="text-sm text-gray-400 italic">No results found</p>
-            </div>
-          )}
+  const searchResultsDropdown = showResults && searchQuery.trim().length > 0 ? (
+    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-200">
+      {searchResults.length > 0 ? (
+        <>
+          <div className="divide-y divide-gray-50 max-h-[350px] overflow-y-auto">
+            {searchResults.map(item => (
+              <button
+                key={item.id}
+                onClick={() => handleResultClick(item.href)}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-purple-50 transition text-left cursor-pointer group"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-gray-800 group-hover:text-[#4C2F5E] truncate">
+                    {item.label}
+                  </p>
+                  <p className="text-[11px] text-gray-400 truncate">{item.subLabel}</p>
+                </div>
+                <span className={`flex-shrink-0 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${TYPE_COLORS[item.type] ?? 'bg-gray-100 text-gray-600'}`}>
+                  {item.type}
+                </span>
+              </button>
+            ))}
+          </div>
+          <div className="px-4 py-2 border-t border-gray-100 bg-gray-50/50 text-center">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+              {searchResults.length} Result{searchResults.length !== 1 ? 's' : ''} Found
+            </p>
+          </div>
+        </>
+      ) : (
+        <div className="px-4 py-8 text-center">
+          <p className="text-sm text-gray-400 italic">No results found</p>
         </div>
       )}
-    </>
-  );
+    </div>
+  ) : null;
 
   return (
     <header
@@ -147,12 +145,15 @@ export default function Header({ userData }: HeaderProps) {
       <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
         
         <div className="flex items-center flex-1 min-w-0 gap-3 sm:gap-4">
-          <button
-            onClick={toggle}
-            className="flex-shrink-0 p-2 text-gray-600 hover:text-[#4C2F5E] hover:bg-white rounded-lg transition-all cursor-pointer"
-          >
-            <List size={24} />
-          </button>
+          <Tooltip content="Toggle sidebar">
+            <button
+              onClick={toggle}
+              className="flex-shrink-0 p-2 text-gray-600 hover:text-[#4C2F5E] hover:bg-white rounded-lg transition-all cursor-pointer"
+              aria-label="Toggle sidebar"
+            >
+              <List size={24} />
+            </button>
+          </Tooltip>
 
           <div className="relative hidden sm:block w-full max-w-xs lg:max-w-md" ref={searchRef}>
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -167,24 +168,30 @@ export default function Header({ userData }: HeaderProps) {
               className="block w-full pl-11 pr-9 py-2.5 bg-white border-none rounded-xl text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#9F63C4]/20 transition-all shadow-sm"
             />
             {searchQuery && (
-              <button
-                onClick={clearSearch}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <Tooltip content="Clear search">
+                <button
+                  onClick={clearSearch}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 cursor-pointer"
+                  aria-label="Clear search"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </Tooltip>
             )}
-            <SearchResultsDropdown />
+            {searchResultsDropdown}
           </div>
         </div>
 
         <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
-          <button
-            className="sm:hidden p-2.5 rounded-xl bg-white text-gray-500 shadow-sm cursor-pointer"
-            onClick={() => setMobSearch(v => !v)}
-          >
-            {showMobileSearch ? <X size={20} /> : <Search size={20} />}
-          </button>
+          <Tooltip content={showMobileSearch ? 'Close search' : 'Open search'}>
+            <button
+              className="sm:hidden p-2.5 rounded-xl bg-white text-gray-500 shadow-sm cursor-pointer"
+              onClick={() => setMobSearch(v => !v)}
+              aria-label={showMobileSearch ? 'Close search' : 'Open search'}
+            >
+              {showMobileSearch ? <X size={20} /> : <Search size={20} />}
+            </button>
+          </Tooltip>
         </div>
       </div>
 
@@ -208,11 +215,13 @@ export default function Header({ userData }: HeaderProps) {
               autoFocus={showMobileSearch}
             />
             {searchQuery && (
-              <button onClick={clearSearch} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400">
-                <X className="h-4 w-4" />
-              </button>
+              <Tooltip content="Clear search">
+                <button onClick={clearSearch} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400" aria-label="Clear search">
+                  <X className="h-4 w-4" />
+                </button>
+              </Tooltip>
             )}
-            <SearchResultsDropdown />
+            {searchResultsDropdown}
           </div>
         </div>
       </div>

@@ -48,7 +48,7 @@ export default function LawyerShell({
   }
 
   return (
-    <div className="min-h-screen bg-[var(--background-page)]">
+    <div className="legal-workspace-shell">
       <LawyerTopbar activeTab={activeTab} user={user} onLogout={handleLogout} />
       {children}
     </div>
