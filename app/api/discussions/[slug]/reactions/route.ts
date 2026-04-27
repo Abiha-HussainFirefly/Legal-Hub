@@ -66,9 +66,6 @@ export async function GET(
   }
 }
 
-// POST /api/discussions/[slug]/reactions
-// Body: { reactionType: 'UPVOTE' | 'DOWNVOTE' | 'LIKE' | ... }
-// Toggles: if same reaction exists → remove it; if different → replace it
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
@@ -90,7 +87,7 @@ export async function POST(
 
     const discussion = await prisma.discussion.findUnique({
       where: { slug },
-      select: { id: true, score: true },
+      select: { id: true, score: true, reactionCount: true },
     });
 
     if (!discussion) {
@@ -101,90 +98,88 @@ export async function POST(
       where: { discussionId_userId: { discussionId: discussion.id, userId: session.user.id } },
     });
 
-    let action: 'added' | 'updated' | 'removed';
+    let action: 'added' | 'updated' | 'removed' = 'updated';
+    let nextScore = discussion.score;
+    let nextReactionCount = discussion.reactionCount;
+    let viewerReaction: { reactionType: ReactionType; emoji: string | null } | null = {
+      reactionType,
+      emoji,
+    };
 
-    if (existing) {
-      const isSameReaction = existing.reactionType === reactionType && existing.emoji === emoji;
+    await prisma.$transaction(async (tx) => {
+      if (existing) {
+        const isSameReaction = existing.reactionType === reactionType && existing.emoji === emoji;
 
-      if (isSameReaction) {
-        // Toggle off — remove reaction
-        await prisma.discussionReaction.delete({
-          where: { id: existing.id },
-        });
-        const scoreDelta = -getScoreValue(existing.reactionType);
-        await prisma.discussion.update({
-          where: { id: discussion.id },
-          data: {
-            score:         { increment: scoreDelta },
-            reactionCount: { decrement: 1 },
-          },
-        });
-        action = 'removed';
-      } else {
-        // Switch reaction
+        if (isSameReaction) {
+          const scoreDelta = -getScoreValue(existing.reactionType);
+          await tx.discussionReaction.delete({
+            where: { id: existing.id },
+          });
+
+          if (scoreDelta !== 0 || nextReactionCount > 0) {
+            await tx.discussion.update({
+              where: { id: discussion.id },
+              data: {
+                ...(scoreDelta !== 0 ? { score: { increment: scoreDelta } } : {}),
+                reactionCount: { decrement: 1 },
+              },
+            });
+          }
+
+          action = 'removed';
+          nextScore += scoreDelta;
+          nextReactionCount = Math.max(0, nextReactionCount - 1);
+          viewerReaction = null;
+          return;
+        }
+
         const scoreDelta = getScoreValue(reactionType) - getScoreValue(existing.reactionType);
-
-        await prisma.discussionReaction.update({
+        await tx.discussionReaction.update({
           where: { id: existing.id },
           data: { reactionType, emoji },
         });
-        await prisma.discussion.update({
-          where: { id: discussion.id },
-          data: { score: { increment: scoreDelta } },
-        });
+
+        if (scoreDelta !== 0) {
+          await tx.discussion.update({
+            where: { id: discussion.id },
+            data: { score: { increment: scoreDelta } },
+          });
+        }
+
         action = 'updated';
+        nextScore += scoreDelta;
+        return;
       }
-    } else {
-      // New reaction
+
       const scoreDelta = getScoreValue(reactionType);
 
-      await prisma.discussionReaction.create({
+      await tx.discussionReaction.create({
         data: {
           discussionId: discussion.id,
-          userId:       session.user.id,
+          userId: session.user.id,
           reactionType,
           emoji,
         },
       });
-      await prisma.discussion.update({
+
+      await tx.discussion.update({
         where: { id: discussion.id },
         data: {
-          score:         { increment: scoreDelta },
+          ...(scoreDelta !== 0 ? { score: { increment: scoreDelta } } : {}),
           reactionCount: { increment: 1 },
         },
       });
+
       action = 'added';
-    }
-
-    const [updatedDiscussion, reactions] = await prisma.$transaction([
-      prisma.discussion.findUnique({
-        where: { id: discussion.id },
-        select: { score: true, reactionCount: true },
-      }),
-      prisma.discussionReaction.findMany({
-        where: { discussionId: discussion.id },
-        select: {
-          reactionType: true,
-          emoji: true,
-          userId: true,
-          user: { select: { displayName: true } },
-        },
-      }),
-    ]);
-
-    const viewerReaction = reactions.find((reaction) => reaction.userId === session.user.id) ?? null;
+      nextScore += scoreDelta;
+      nextReactionCount += 1;
+    });
 
     return NextResponse.json({
       action,
-      viewerReaction: viewerReaction
-        ? {
-            reactionType: viewerReaction.reactionType,
-            emoji: viewerReaction.emoji,
-          }
-        : null,
-      score: updatedDiscussion?.score ?? 0,
-      reactionCount: updatedDiscussion?.reactionCount ?? 0,
-      emojiStats: buildEmojiStats(reactions),
+      viewerReaction,
+      score: nextScore,
+      reactionCount: nextReactionCount,
     });
   } catch (error) {
     console.error('[POST /api/discussions/[slug]/reactions]', error);

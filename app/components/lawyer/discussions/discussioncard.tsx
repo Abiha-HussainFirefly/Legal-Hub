@@ -4,6 +4,7 @@ import ProfileHoverLink from '@/app/components/lawyer/discussions/profile-hover-
 import AnimatedLink from '@/app/components/ui/animated-link';
 import Tooltip from '@/app/components/ui/tooltip';
 import { apiRequest } from '@/lib/api-client';
+import { applyOptimisticDiscussionReaction } from '@/lib/discussion-reaction-state';
 import { ArrowUp, Bookmark, BookmarkCheck, Check, Eye, MapPin, MessageSquare, Share2, Smile } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -50,11 +51,11 @@ interface Props {
 
 interface ReactionResponse {
   score?: number;
+  reactionCount?: number;
   viewerReaction?: {
     reactionType: string;
     emoji: string | null;
   } | null;
-  emojiStats?: Record<string, { count: number; reactors: string[] }>;
 }
 
 const EMOJI_REACTIONS = [
@@ -151,6 +152,22 @@ export default function DiscussionCard({
   async function updateReaction(body: { reactionType: string; emoji?: string }) {
     if (!isLoggedIn || reactionPending) return;
 
+    const previousState = {
+      score: currentScore,
+      reaction: myReaction ? { reactionType: myReaction, emoji: myEmoji } : null,
+      emojiStats,
+    };
+    const optimisticState = applyOptimisticDiscussionReaction({
+      score: currentScore,
+      viewerReaction: previousState.reaction,
+      emojiStats,
+      nextReaction: body,
+    });
+
+    setCurrentScore(optimisticState.score);
+    setMyReaction(optimisticState.viewerReaction?.reactionType ?? null);
+    setMyEmoji(optimisticState.viewerReaction?.emoji ?? null);
+    setEmojiStats(optimisticState.emojiStats);
     setReactionPending(true);
 
     try {
@@ -160,11 +177,15 @@ export default function DiscussionCard({
         body: JSON.stringify(body),
       });
 
-      setCurrentScore(data.score ?? score);
+      setCurrentScore(data.score ?? optimisticState.score);
       setMyReaction(data.viewerReaction?.reactionType ?? null);
       setMyEmoji(data.viewerReaction?.emoji ?? null);
-      setEmojiStats(data.emojiStats ?? {});
       setShowEmojiPicker(false);
+    } catch {
+      setCurrentScore(previousState.score);
+      setMyReaction(previousState.reaction?.reactionType ?? null);
+      setMyEmoji(previousState.reaction?.emoji ?? null);
+      setEmojiStats(previousState.emojiStats);
     } finally {
       setReactionPending(false);
     }

@@ -1,9 +1,10 @@
 // app/api/discussions/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/services/api-auth";
 import {
   listDiscussions,
   createDiscussion,
+  finalizeDiscussionCreation,
 } from "@/lib/services/discussion.service";
 import type { DiscussionFilters } from "@/types/discussion";
 
@@ -67,6 +68,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Kind required" }, { status: 400 });
 
     const result = await createDiscussion(user.id, body);
+
+    after(async () => {
+      await finalizeDiscussionCreation(result.id, user.id).catch((error) => {
+        console.error("[api/discussions] finalize discussion creation failed", error);
+      });
+    });
 
     return NextResponse.json(result, { status: 201 });
   } catch (e: any) {

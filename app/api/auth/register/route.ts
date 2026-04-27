@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { registerCommand } from "@/lib/actions/auth";
 import { applyGlobalLimit, applyCustomLimit } from "@/lib/auth/rate-limit";
+import { sendVerificationCode } from "@/lib/auth/email";
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? "unknown_ip";
@@ -33,6 +34,14 @@ export async function POST(req: NextRequest) {
 
     if (!result.success) {
       return NextResponse.json({ error: result.error, message: result.message, step: "duplicate_check" }, { status: result.status });
+    }
+
+    if (result.data?.verificationEmail) {
+      after(async () => {
+        await sendVerificationCode(result.data!.verificationEmail!).catch((error) => {
+          console.error("[api/auth/register] verification email failed", error);
+        });
+      });
     }
 
     return NextResponse.json(

@@ -27,4 +27,9 @@ export type LoginResult = AuthResult<{
 export type RegisterResult = AuthResult<{
   userId: string;
   email: string;
+  verificationEmail?: {
+    to: string;
+    name: string;
+    code: string;
+  };
 }>;

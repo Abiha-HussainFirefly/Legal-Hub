@@ -1,4 +1,3 @@
-import { sendVerificationCode } from "@/lib/auth/email";
 import { hashPassword } from "@/lib/auth/password";
 import { prisma } from "@/lib/prisma";
 import { generateUniqueUsername } from "@/lib/services/profile.server";
@@ -23,14 +22,13 @@ function generateVerificationCode() {
 }
 
 export async function registerCommand(input: RegisterInput): Promise<RegisterResult> {
-  // 1. Zod Validation (Command Integrity)
   const validated = RegisterSchema.safeParse(input);
   if (!validated.success) {
-    return { 
-      success: false, 
-      error: "VALIDATION_ERROR", 
-      message: validated.error.issues[0].message, 
-      status: 400 
+    return {
+      success: false,
+      error: "VALIDATION_ERROR",
+      message: validated.error.issues[0].message,
+      status: 400,
     };
   }
 
@@ -38,13 +36,12 @@ export async function registerCommand(input: RegisterInput): Promise<RegisterRes
   const normalizedEmail = email.trim().toLowerCase();
 
   try {
-    // Check for existing user using the precise compound index from your schema
     const existing = await prisma.userIdentifier.findUnique({
-      where: { 
-        type_normalizedValue: { 
-          type: "EMAIL", 
-          normalizedValue: normalizedEmail 
-        } 
+      where: {
+        type_normalizedValue: {
+          type: "EMAIL",
+          normalizedValue: normalizedEmail,
+        },
       },
       include: {
         user: {
@@ -56,7 +53,6 @@ export async function registerCommand(input: RegisterInput): Promise<RegisterRes
       },
     });
 
-    // 2. Existing account handling
     if (existing?.user) {
       if (existing.verifiedAt) {
         return {
@@ -81,63 +77,51 @@ export async function registerCommand(input: RegisterInput): Promise<RegisterRes
         },
       });
 
-      await sendVerificationCode({
-        to: normalizedEmail,
-        name: existing.user.displayName ?? name,
-        code,
-      });
-
       return {
         success: true,
         message: "Registration successful! Please check your inbox for the verification code.",
-        data: { userId: existing.user.id, email: normalizedEmail },
+        data: {
+          userId: existing.user.id,
+          email: normalizedEmail,
+          verificationEmail: {
+            to: normalizedEmail,
+            name: existing.user.displayName ?? name,
+            code,
+          },
+        },
       };
     }
 
     const { hash, algo } = await hashPassword(password);
     const generatedUsername = await generateUniqueUsername(name);
-    
-    // 3. Generate 6-digit code for verification
     const code = generateVerificationCode();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); 
-
-    // --- TERMINAL LOG FOR DEVELOPMENT ---
-    console.log("\n" + "=".repeat(40));
-    console.log("🔑 DEBUG: VERIFICATION CODE");
-    console.log(`📧 Email: ${normalizedEmail}`);
-    console.log(`🔢 Code:  ${code}`);
-    console.log("=".repeat(40) + "\n");
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
     const newUser = await prisma.$transaction(async (tx) => {
-      // Create Base User
       const user = await tx.user.create({
-        data: { 
-          userType: "EXTERNAL", 
-          status: "ACTIVE", 
-          displayName: name.trim(), 
-          locale: "en" 
+        data: {
+          userType: "EXTERNAL",
+          status: "ACTIVE",
+          displayName: name.trim(),
+          locale: "en",
         },
       });
 
-      // Create Identifier (Satisfying the unique constraint on normalizedValue)
       await tx.userIdentifier.create({
-        data: { 
-          userId: user.id, 
-          type: "EMAIL", 
-          value: email.trim(), 
+        data: {
+          userId: user.id,
+          type: "EMAIL",
+          value: email.trim(),
           normalizedValue: normalizedEmail,
-          isPrimary: true, 
-          verifiedAt: null 
+          isPrimary: true,
+          verifiedAt: null,
         },
       });
 
-      // Create Credentials
       await tx.credential.create({
         data: { userId: user.id, passwordHash: hash, passwordAlgo: algo },
       });
 
-      // Public signup on this route is currently the lawyer portal,
-      // so provision the lawyer role by default.
       const lawyerRole = await tx.role.findUnique({ where: { name: "lawyer" } });
       if (!lawyerRole) throw new Error("Role 'lawyer' not found.");
 
@@ -173,32 +157,30 @@ export async function registerCommand(input: RegisterInput): Promise<RegisterRes
         },
       });
 
-      // Create Verification Token
       await tx.verificationToken.create({
         data: {
           userId: user.id,
           purpose: "email_verify",
-          tokenHash: code, // Changed back to 'token' based on standard schema; update to 'tokenHash' if your schema requires it
+          tokenHash: code,
           expiresAt,
           identifierType: "EMAIL",
           identifierValue: normalizedEmail,
         },
       });
 
-      // Audit Log: Fully mapped to your specific schema fields
       await tx.auditLog.create({
         data: {
-          category: "USER", 
+          category: "USER",
           action: "USER_CREATED",
           actorId: user.id,
           targetUserId: user.id,
-          ipHash: ip, 
-          userAgent: userAgent,
-          meta: { 
-            status: "SUCCESS", 
-            email: normalizedEmail, 
-            barCouncilNo, 
-            jurisdiction, 
+          ipHash: ip,
+          userAgent,
+          meta: {
+            status: "SUCCESS",
+            email: normalizedEmail,
+            barCouncilNo,
+            jurisdiction,
             expertise,
             role: "lawyer",
           },
@@ -208,15 +190,19 @@ export async function registerCommand(input: RegisterInput): Promise<RegisterRes
       return user;
     });
 
-    // 4. Send the verification code email (will still attempt to send)
-    await sendVerificationCode({ to: normalizedEmail, name: newUser.displayName ?? name, code });
-
     return {
       success: true,
       message: "Registration successful! Please check your inbox for the verification code.",
-      data: { userId: newUser.id, email: normalizedEmail },
+      data: {
+        userId: newUser.id,
+        email: normalizedEmail,
+        verificationEmail: {
+          to: normalizedEmail,
+          name: newUser.displayName ?? name,
+          code,
+        },
+      },
     };
-
   } catch (err) {
     console.error("[RegisterCommand] Error:", err);
     throw err;

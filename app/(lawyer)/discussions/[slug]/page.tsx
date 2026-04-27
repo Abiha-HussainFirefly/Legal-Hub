@@ -8,6 +8,7 @@ import LawyerTopbar from '@/app/components/lawyer/lawyer-topbar';
 import AnimatedLink from '@/app/components/ui/animated-link';
 import Tooltip from '@/app/components/ui/tooltip';
 import { apiRequest, getErrorMessage } from '@/lib/api-client';
+import { applyOptimisticDiscussionReaction } from '@/lib/discussion-reaction-state';
 import { ArrowUp, ChevronRight, Eye, Loader2, MapPin, MessageSquare, Smile } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { use, useEffect, useRef, useState } from 'react';
@@ -98,11 +99,12 @@ interface AnswersResponse {
 
 interface ReactionsResponse {
   data?: Record<string, { count: number; reactors: string[] }>;
-  emojiStats?: Record<string, { count: number; reactors: string[] }>;
   viewerReaction?: {
     reactionType: string;
     emoji: string | null;
   } | null;
+  score?: number;
+  reactionCount?: number;
 }
 
 interface CurrentUser {
@@ -297,23 +299,41 @@ export default function DiscussionDetailPage({
     }
     if (!discussion || reactionPending) return;
 
+    const previousState = {
+      score,
+      reaction: myReaction ? { reactionType: myReaction, emoji: myEmoji } : null,
+      emojiStats,
+    };
+    const optimisticState = applyOptimisticDiscussionReaction({
+      score,
+      viewerReaction: previousState.reaction,
+      emojiStats,
+      nextReaction: body,
+    });
+
+    setScore(optimisticState.score);
+    setMyReaction(optimisticState.viewerReaction?.reactionType ?? null);
+    setMyEmoji(optimisticState.viewerReaction?.emoji ?? null);
+    setEmojiStats(optimisticState.emojiStats);
     setReactionPending(true);
 
     try {
-      const data = await apiRequest<ReactionsResponse & { score?: number }>(`/api/discussions/${discussion.slug}/reactions`, {
+      const data = await apiRequest<ReactionsResponse>(`/api/discussions/${discussion.slug}/reactions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
 
-      setScore(data.score ?? score);
+      setScore(data.score ?? optimisticState.score);
       setMyReaction(data.viewerReaction?.reactionType ?? null);
       setMyEmoji(data.viewerReaction?.emoji ?? null);
-      setEmojiStats(data.data ?? data.emojiStats ?? {});
       setShowEmojiPicker(false);
       setActionPulse(true);
     } catch {
-      // Keep current state if the mutation fails.
+      setScore(previousState.score);
+      setMyReaction(previousState.reaction?.reactionType ?? null);
+      setMyEmoji(previousState.reaction?.emoji ?? null);
+      setEmojiStats(previousState.emojiStats);
     } finally {
       setReactionPending(false);
     }

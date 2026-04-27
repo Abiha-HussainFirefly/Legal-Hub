@@ -55,6 +55,38 @@ export const AUTHOR_SELECT = {
   lawyerProfile: { select: { verificationStatus: true, barCouncil: true, firmName: true } },
 } as const;
 
+export async function finalizeDiscussionCreation(discussionId: string, authorId: string) {
+  const now = new Date();
+
+  await prisma.$transaction(async (tx) => {
+    await tx.userStats.upsert({
+      where: { userId: authorId },
+      update: { discussionCount: { increment: 1 }, lastContributionAt: now },
+      create: { userId: authorId, discussionCount: 1, lastContributionAt: now },
+    });
+
+    await tx.gamificationEvent.create({
+      data: {
+        userId: authorId,
+        eventType: 'DISCUSSION_CREATED',
+        pointsDelta: PTS.DISCUSSION_CREATED,
+        discussionId,
+      },
+    });
+
+    await tx.userGamification.upsert({
+      where: { userId: authorId },
+      update: { totalPoints: { increment: PTS.DISCUSSION_CREATED }, lastContributionAt: now },
+      create: { userId: authorId, totalPoints: PTS.DISCUSSION_CREATED, lastContributionAt: now },
+    });
+
+    await upsertUserActivityDaily(tx, authorId, {
+      discussionCount: 1,
+      engagementScore: PTS.DISCUSSION_CREATED,
+    }, now);
+  });
+}
+
 // ── DW-01: Create Discussion ──────────────────────────────────
 export async function createDiscussion(authorId: string, input: CreateDiscussionInput) {
   const slug = makeSlug(input.title);
@@ -90,35 +122,18 @@ export async function createDiscussion(authorId: string, input: CreateDiscussion
         sourceUrl: input.sourceUrl ?? null,
         effectiveDate: input.effectiveDate ? new Date(input.effectiveDate) : null,
       },
+      select: {
+        id: true,
+        slug: true,
+      },
     });
 
     if (input.tagIds?.length) {
       await tx.discussionTag.createMany({
-        data: input.tagIds.map(tagId => ({ discussionId: disc.id, tagId })),
+        data: input.tagIds.map((tagId) => ({ discussionId: disc.id, tagId })),
         skipDuplicates: true,
       });
     }
-
-    await tx.userStats.upsert({
-      where:  { userId: authorId },
-      update: { discussionCount: { increment: 1 }, lastContributionAt: new Date() },
-      create: { userId: authorId, discussionCount: 1, lastContributionAt: new Date() },
-    });
-
-    await tx.gamificationEvent.create({
-      data: { userId: authorId, eventType: 'DISCUSSION_CREATED', pointsDelta: PTS.DISCUSSION_CREATED, discussionId: disc.id },
-    });
-
-    await tx.userGamification.upsert({
-      where:  { userId: authorId },
-      update: { totalPoints: { increment: PTS.DISCUSSION_CREATED }, lastContributionAt: new Date() },
-      create: { userId: authorId, totalPoints: PTS.DISCUSSION_CREATED, lastContributionAt: new Date() },
-    });
-
-    await upsertUserActivityDaily(tx, authorId, {
-      discussionCount: 1,
-      engagementScore: PTS.DISCUSSION_CREATED,
-    });
 
     return disc;
   });

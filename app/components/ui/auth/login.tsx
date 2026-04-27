@@ -11,7 +11,7 @@ import { signIn } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import { z } from "zod";
 
 const loginSchema = z.object({
@@ -74,6 +74,10 @@ export default function LoginForm({
       router.replace(`/${loginType.toLowerCase()}login`);
     }
   }, [searchParams, addToast, router, loginType]);
+
+  useEffect(() => {
+    router.prefetch(redirectPath);
+  }, [redirectPath, router]);
 
   const validateField = (field: keyof LoginFormData, value: string) => {
     const result = loginSchema.shape[field].safeParse(value);
@@ -141,8 +145,11 @@ export default function LoginForm({
       }
 
       setStep("success");
-      addToast("success", "Access Granted", "Welcome back! Redirecting...");
-      setTimeout(() => router.push(redirectPath), 1800);
+      addToast("success", "Access Granted", "Welcome back.");
+      startTransition(() => {
+        router.replace(redirectPath);
+        router.refresh();
+      });
     } catch {
       setStep("form");
       addToast("error", "Network Error", "Please check your connection.");
