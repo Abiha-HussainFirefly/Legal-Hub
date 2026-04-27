@@ -1,12 +1,10 @@
 // lib/services/api-auth.ts
 import { NextRequest } from "next/server";
 import { getCurrentUserQuery } from "@/lib/actions/auth";
+import { readSessionToken } from "@/lib/auth/session-cookie";
 
 export async function getSessionUser(req: NextRequest) {
-  const token =
-    req.cookies.get("session_token")?.value ||
-    req.cookies.get("next-auth.session-token")?.value || // fallback
-    req.cookies.get("__Secure-next-auth.session-token")?.value; // prod fallback
+  const token = readSessionToken(req);
 
   if (!token) return null;
 

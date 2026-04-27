@@ -29,12 +29,16 @@ export default function LawyerShell({
 
     fetch("/api/auth/me")
       .then(async (response) => {
-        if (!response.ok) throw new Error("Unauthorized");
+        if (!mounted) return;
+        if (!response.ok) {
+          setUser(null);
+          return;
+        }
         const data = await response.json();
         if (mounted) setUser(data.user ?? null);
       })
       .catch(() => {
-        if (mounted) router.replace("/lawyerlogin");
+        if (mounted) setUser(null);
       });
 
     return () => {
