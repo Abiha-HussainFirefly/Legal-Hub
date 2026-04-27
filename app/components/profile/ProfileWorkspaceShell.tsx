@@ -89,17 +89,17 @@ export default function ProfileWorkspaceShell({
           <div className="relative h-28 md:h-36" style={{ background: coverBackground }}>
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.16),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.08),transparent_24%)]" />
           </div>
-          <div className="px-5 pb-5 pt-0 md:px-6 md:pb-6">
-            <div className="-mt-12 flex flex-col gap-6 md:-mt-14">
+          <div className="px-5 pb-5 pt-5 md:px-6 md:pb-6 md:pt-6">
+            <div className="flex flex-col gap-6">
               <div className="flex flex-col gap-4 md:flex-row md:items-start">
-                <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-[26px] border border-[#4C2F5E]/12 bg-[#4C2F5E] text-2xl font-semibold tracking-[-0.04em] text-white shadow-[0_16px_32px_rgba(76,47,94,0.18)]">
+                <div className="-mt-16 flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-[26px] border border-[#4C2F5E]/12 bg-[#4C2F5E] text-2xl font-semibold tracking-[-0.04em] text-white shadow-[0_16px_32px_rgba(76,47,94,0.18)] md:-mt-20">
                   {profile.avatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={profile.avatarUrl} alt={profile.displayName} className="h-full w-full object-cover" />
                   ) : (
-                  getInitials(profile.displayName)
-                )}
-              </div>
+                    getInitials(profile.displayName)
+                  )}
+                </div>
 
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
