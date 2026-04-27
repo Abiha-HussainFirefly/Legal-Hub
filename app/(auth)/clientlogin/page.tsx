@@ -3,9 +3,11 @@
 import { CheckSquare, Eye, EyeOff, XCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import AuthShell from "@/app/components/ui/auth/auth-shell";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
+import { signIn } from "next-auth/react";
 import { EmailSchema, PasswordSchema } from "@/utils/validation";
 import { Button } from "@/app/components/ui/button";
 import Tooltip from "@/app/components/ui/tooltip";
@@ -129,85 +131,20 @@ export default function ClientLogin() {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row lg:p-3.5 lg:gap-3.5 h-screen w-full bg-white box-border overflow-hidden">
-      {/* LEFT PANEL */}
-      <div className="hidden lg:flex lg:w-[62%] h-full p-[58px_46px] rounded-[24px] relative flex-col items-center justify-center overflow-hidden text-white shrink-0">
-        <div className="absolute inset-0 bg-[url('/bg.jpg')] bg-cover bg-center z-0" />
-        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(76,47,94,0.91)_0%,rgba(130,81,160,0.97)_65%,rgba(159,99,196,1)_100%)] z-10" />
-
-        <div className="relative z-30 text-center w-full">
-          <div className="mb-[38px]">
-            <Image
-              src="/logo-legal-hub.png"
-              alt="Legal Hub"
-              width={220}
-              height={65}
-              className="mx-auto brightness-0 invert"
-            />
-          </div>
-          <h1 className="text-[32px] font-bold mb-4 leading-tight">
-            Join the Legal Community
-          </h1>
-          <p className="text-lg leading-relaxed mb-10 text-center text-white/90 w-full whitespace-nowrap">
-            Connect with verified lawyers, get legal advice, and manage your
-            case all one place
-          </p>
-          <div className="flex flex-col items-center gap-3">
-            <div className="flex justify-center gap-5">
-              <div className="flex items-center gap-3">
-                <CheckSquare
-                  size={16}
-                  className="fill-[#4C2F5E] stroke-white stroke-[2px] shrink-0"
-                />
-                <span className="text-lg font-medium">AI-Powered Matching</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <CheckSquare
-                  size={16}
-                  className="fill-[#4C2F5E] stroke-white stroke-[2px] shrink-0"
-                />
-                <span className="text-lg font-medium">Regional Expertise</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <CheckSquare
-                size={16}
-                className="fill-[#4C2F5E] stroke-white stroke-[2px] shrink-0"
-              />
-              <span className="text-lg font-medium">
-                Verified Professionals
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* RIGHT PANEL */}
-      <div className="w-full lg:w-[calc(38%-14px)] h-full p-10 lg:p-[58px_46px] rounded-[24px] bg-[#FCFCFF] flex items-center justify-center overflow-y-auto no-scrollbar shrink-0">
-        <div className="w-full max-w-[340px]">
+    <AuthShell title="Welcome Back" description="Sign in to access your dashboard and continue your work.">
           <div className="text-center mb-[18px]">
-            <Image
-              src="/logo-legal-hub.png"
-              alt="Legal Hub"
-              width={155}
-              height={44}
-              className="mx-auto"
-            />
+            <Image src="/logo-legal-hub.png" alt="Legal Hub" width={155} height={44} className="mx-auto lg:hidden" />
           </div>
           <h2 className="text-center text-[22px] font-bold text-[#9F63C4] mb-6">
             Login
           </h2>
 
-          <div className="flex gap-3 mb-5">
+          <div className="flex flex-col gap-3 mb-5">
             <Tooltip content="Continue with Google">
-              <button className="flex-1 flex items-center justify-center p-3 border-[1.5px] border-gray-200 rounded-[10px] bg-white cursor-pointer hover:bg-gray-50 transition-colors" aria-label="Continue with Google">
-                <GoogleIcon />
-              </button>
+              <button type="button" onClick={() => signIn("google", { callbackUrl: "/discussions" })} className="w-full flex items-center justify-center gap-3 p-3 border-[1.5px] border-gray-200 rounded-xl bg-white hover:bg-gray-50 hover:border-[#4C2F5E]/30 transition-all cursor-pointer shadow-sm text-sm font-bold text-[#332043]"><GoogleIcon /> Continue with Google</button>
             </Tooltip>
             <Tooltip content="Continue with Facebook">
-              <button className="flex-1 flex items-center justify-center p-3 border-[1.5px] border-gray-200 rounded-[10px] bg-white cursor-pointer hover:bg-gray-50 transition-colors" aria-label="Continue with Facebook">
-                <FacebookIcon />
-              </button>
+              <button type="button" className="w-full flex items-center justify-center gap-3 p-3 border-[1.5px] border-gray-200 rounded-xl bg-white hover:bg-gray-50 hover:border-[#4C2F5E]/30 transition-all cursor-pointer shadow-sm text-sm font-bold text-[#332043]"><FacebookIcon /> Continue with Facebook</button>
             </Tooltip>
           </div>
 
@@ -313,8 +250,5 @@ export default function ClientLogin() {
               Sign up
             </Link>
           </p>
-        </div>
-      </div>
-    </div>
-  );
+        </AuthShell>);
 }

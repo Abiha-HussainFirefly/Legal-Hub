@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { startTransition, useEffect, useState } from "react";
 import { z } from "zod";
+import AuthShell from "@/app/components/ui/auth/auth-shell";
 
 const loginSchema = z.object({
   email: EmailSchema,
@@ -157,51 +158,22 @@ export default function LoginForm({
   };
 
   return (
-    <div className="flex flex-col lg:flex-row lg:p-3.5 lg:gap-3.5 h-screen w-full bg-white box-border overflow-hidden">
-      {/* LEFT PANEL */}
-      <div className="hidden lg:flex lg:w-[62%] h-full p-[58px_46px] rounded-[24px] relative flex-col items-center justify-center overflow-hidden text-white">
-        <div className="absolute inset-0 bg-[url('/bg.jpg')] bg-cover bg-center z-0" />
-        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(76,47,94,0.91)_0%,rgba(130,81,160,0.97)_65%,rgba(159,99,196,1)_100%)] z-10" />
-
-        <div className="relative z-30 text-center w-full">
-          <div className="mb-[38px]">
-            <Image
-              src="/logo-legal-hub.png"
-              alt="Legal Hub"
-              width={220}
-              height={65}
-              className="mx-auto brightness-0 invert"
-            />
-          </div>
-          <h1 className="text-[32px] font-bold mb-4 leading-tight">
-            Join the Legal Community
-          </h1>
-          <p className="text-lg leading-relaxed mb-10 text-center w-full">
-            Connect with verified lawyers, get legal advice, and manage your
-            case all one place
-          </p>
-          <div className="flex flex-col items-center gap-3">
-            <div className="flex justify-center gap-5">
-              <div className="flex items-center gap-3">
-                <CheckSquare size={16} className="fill-[#4C2F5E] stroke-white stroke-[2px]" />
-                <span className="text-lg font-medium">AI-Powered Matching</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <CheckSquare size={16} className="fill-[#4C2F5E] stroke-white stroke-[2px]" />
-                <span className="text-lg font-medium">Regional Expertise</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <CheckSquare size={16} className="fill-[#4C2F5E] stroke-white stroke-[2px]" />
-              <span className="text-lg font-medium">Verified Professionals</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* RIGHT PANEL */}
-      <div className="w-full lg:w-[calc(38%-14px)] h-full overflow-y-auto no-scrollbar px-6 py-10 lg:px-10 lg:py-8 rounded-[24px] bg-[#FCFCFF] flex items-center justify-center">
-        <div className="w-full max-w-[340px] my-auto">
+    <AuthShell
+      portalLabel={loginType === "LAWYER" ? "Lawyer Portal" : loginType === "ADMIN" ? "Admin Portal" : "Client Portal"}
+      title="Welcome Back"
+      description={`Sign in to access your ${loginType.toLowerCase()} account and contribute your experience.`}
+      footer={
+        registerPath ? (
+          <>
+            Don&apos;t have an account?{" "}
+            <Link href={registerPath} className="text-[#9F63C4] font-bold hover:underline">
+              Sign up
+            </Link>
+          </>
+        ) : null
+      }
+    >
+      <div className="w-full max-w-[340px] mx-auto">
           {(step === "form" || step === "processing") && (
             <>
               <div className="text-center mb-3.5">
@@ -220,7 +192,7 @@ export default function LoginForm({
               {/* Google button — only shown when showSocialLogin is true */}
               {showSocialLogin && (
                 <>
-                  <Tooltip content="Continue with Google">
+                  <Tooltip className="w-full" content="Continue with Google">
                     <button
                       type="button"
                       onClick={() => signIn("google", { callbackUrl: redirectPath })}
@@ -332,14 +304,6 @@ export default function LoginForm({
                 </Button>
               </form>
 
-              {registerPath && (
-                <p className="text-center text-base text-black mt-4">
-                  Don&apos;t have an account?{" "}
-                  <Link href={registerPath} className="text-[#9F63C4] font-bold">
-                    Sign up
-                  </Link>
-                </p>
-              )}
             </>
           )}
 
@@ -356,8 +320,7 @@ export default function LoginForm({
               </p>
             </div>
           )}
-        </div>
       </div>
-    </div>
+    </AuthShell>
   );
 }
