@@ -679,14 +679,33 @@ export default function ProfileEditForm({
 
               <div className="rounded-[24px] border border-[var(--border-subtle)] bg-[var(--background-card-nested)] p-4">
                 <FieldLabel>Cover image</FieldLabel>
+                <div
+                  className="mb-4 h-32 overflow-hidden rounded-[18px] border border-[#4C2F5E]/10 bg-[#F4EEF8]"
+                  style={{
+                    background:
+                      form.coverImageUrl?.trim()
+                        ? `linear-gradient(rgba(26,14,33,0.32), rgba(26,14,33,0.58)), url(${form.coverImageUrl}) center/cover`
+                        : "linear-gradient(135deg,#27162F 0%,#4B2E5F 48%,#7B5B96 100%)",
+                  }}
+                />
                 <button
                   type="button"
                   onClick={() => coverInputRef.current?.click()}
                   className="legal-button-secondary w-full text-sm"
                 >
                   <Camera className="h-4 w-4" />
-                  Upload cover
+                  {form.coverImageUrl?.trim() ? "Change cover" : "Upload cover"}
                 </button>
+                {form.coverImageUrl?.trim() ? (
+                  <button
+                    type="button"
+                    onClick={() => setForm((current) => ({ ...current, coverImageUrl: "" }))}
+                    className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-full border border-[#4C2F5E]/10 bg-white px-4 py-2 text-sm font-semibold text-[#5F506D] transition hover:bg-[#F7F3FA]"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Remove cover
+                  </button>
+                ) : null}
               </div>
             </div>
 

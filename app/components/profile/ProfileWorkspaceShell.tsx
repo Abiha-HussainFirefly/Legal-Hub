@@ -77,85 +77,94 @@ export default function ProfileWorkspaceShell({
     ? { href: "/profile/setup", label: "Complete profile" }
     : { href: "/profile/edit", label: "Edit profile" };
   const location = [profile.city, profile.regionName].filter(Boolean).join(", ");
+  const coverBackground =
+    profile.coverImageUrl && profile.coverImageUrl.trim()
+      ? `linear-gradient(rgba(26,14,33,0.48), rgba(26,14,33,0.72)), url(${profile.coverImageUrl}) center/cover`
+      : "linear-gradient(135deg,#27162F 0%,#4B2E5F 48%,#7B5B96 100%)";
 
   return (
     <div className="mx-auto max-w-[1320px] px-4 py-6 md:px-6 lg:px-8 lh-page-enter">
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
-        <section className="workspace-header p-5 md:p-6 lh-page-enter lh-delay-1">
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-col gap-4 md:flex-row md:items-start">
-              <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-[26px] border border-[#4C2F5E]/12 bg-[#4C2F5E] text-2xl font-semibold tracking-[-0.04em] text-white shadow-[0_16px_32px_rgba(76,47,94,0.18)]">
-                {profile.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={profile.avatarUrl} alt={profile.displayName} className="h-full w-full object-cover" />
-                ) : (
+        <section className="workspace-header overflow-hidden p-0 lh-page-enter lh-delay-1">
+          <div className="relative h-28 md:h-36" style={{ background: coverBackground }}>
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.16),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.08),transparent_24%)]" />
+          </div>
+          <div className="px-5 pb-5 pt-0 md:px-6 md:pb-6">
+            <div className="-mt-12 flex flex-col gap-6 md:-mt-14">
+              <div className="flex flex-col gap-4 md:flex-row md:items-start">
+                <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-[26px] border border-[#4C2F5E]/12 bg-[#4C2F5E] text-2xl font-semibold tracking-[-0.04em] text-white shadow-[0_16px_32px_rgba(76,47,94,0.18)]">
+                  {profile.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={profile.avatarUrl} alt={profile.displayName} className="h-full w-full object-cover" />
+                  ) : (
                   getInitials(profile.displayName)
                 )}
               </div>
 
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="legal-kicker">
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Account workspace
-                  </span>
-                  {profile.verificationStatus === "VERIFIED" ? (
-                    <span className="workspace-pill border-emerald-200 bg-emerald-50 text-emerald-700">
-                      <ShieldCheck className="h-3.5 w-3.5" />
-                      Verified
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="legal-kicker">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Account workspace
                     </span>
-                  ) : null}
-                </div>
+                    {profile.verificationStatus === "VERIFIED" ? (
+                      <span className="workspace-pill border-emerald-200 bg-emerald-50 text-emerald-700">
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        Verified
+                      </span>
+                    ) : null}
+                  </div>
 
-                <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-[#2F1D3B] md:text-[2.6rem]">
-                  {profile.displayName}
-                </h1>
+                  <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-[#2F1D3B] md:text-[2.6rem]">
+                    {profile.displayName}
+                  </h1>
 
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-[#736683]">
-                  {profile.username ? <span>@{profile.username}</span> : null}
-                  {profile.headline ? <span>{profile.headline}</span> : null}
-                  {profile.firmName || profile.company ? (
-                    <span>{profile.roleTitle ? `${profile.roleTitle} at ` : ""}{profile.firmName || profile.company}</span>
-                  ) : null}
-                </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-[#736683]">
+                    {profile.username ? <span>@{profile.username}</span> : null}
+                    {profile.headline ? <span>{profile.headline}</span> : null}
+                    {profile.firmName || profile.company ? (
+                      <span>{profile.roleTitle ? `${profile.roleTitle} at ` : ""}{profile.firmName || profile.company}</span>
+                    ) : null}
+                  </div>
 
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {location ? (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {location ? (
+                      <span className="workspace-pill border-[#4C2F5E]/8 bg-white text-[#736683]">
+                        <MapPin className="h-3.5 w-3.5" />
+                        {location}
+                      </span>
+                    ) : null}
                     <span className="workspace-pill border-[#4C2F5E]/8 bg-white text-[#736683]">
-                      <MapPin className="h-3.5 w-3.5" />
-                      {location}
+                      <Mail className="h-3.5 w-3.5" />
+                      {profile.email || "Email not added"}
                     </span>
-                  ) : null}
-                  <span className="workspace-pill border-[#4C2F5E]/8 bg-white text-[#736683]">
-                    <Mail className="h-3.5 w-3.5" />
-                    {profile.email || "Email not added"}
-                  </span>
-                  <span className="workspace-pill border-[#4C2F5E]/8 bg-white text-[#736683]">
-                    <ShieldCheck className="h-3.5 w-3.5" />
-                    {consultationStatus}
-                  </span>
+                    <span className="workspace-pill border-[#4C2F5E]/8 bg-white text-[#736683]">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      {consultationStatus}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
-              <AnimatedLink href={primaryAction.href} className="legal-button-primary justify-center text-sm w-full sm:w-auto">
-                <CheckCircle2 className="h-4 w-4 shrink-0" />
-                {primaryAction.label}
-              </AnimatedLink>
-              <AnimatedLink href="/profile/edit" className="legal-button-secondary justify-center text-sm w-full sm:w-auto">
-                <Pencil className="h-4 w-4 shrink-0" />
-                Edit details
-              </AnimatedLink>
-              {profile.username ? (
-                <AnimatedLink
-                  href={`/profile/${profile.username}`}
-                  className="inline-flex justify-center items-center gap-2 rounded-full border border-[#4C2F5E]/12 bg-white px-4 py-2 text-sm font-semibold text-[#4C2F5E] transition hover:bg-[#F7F3FA] w-full sm:w-auto"
-                >
-                  <ExternalLink className="h-4 w-4 shrink-0" />
-                  View public profile
+              <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
+                <AnimatedLink href={primaryAction.href} className="legal-button-primary justify-center text-sm w-full sm:w-auto">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  {primaryAction.label}
                 </AnimatedLink>
-              ) : null}
+                <AnimatedLink href="/profile/edit" className="legal-button-secondary justify-center text-sm w-full sm:w-auto">
+                  <Pencil className="h-4 w-4 shrink-0" />
+                  Edit details
+                </AnimatedLink>
+                {profile.username ? (
+                  <AnimatedLink
+                    href={`/profile/${profile.username}`}
+                    className="inline-flex justify-center items-center gap-2 rounded-full border border-[#4C2F5E]/12 bg-white px-4 py-2 text-sm font-semibold text-[#4C2F5E] transition hover:bg-[#F7F3FA] w-full sm:w-auto"
+                  >
+                    <ExternalLink className="h-4 w-4 shrink-0" />
+                    View public profile
+                  </AnimatedLink>
+                ) : null}
+              </div>
             </div>
           </div>
         </section>

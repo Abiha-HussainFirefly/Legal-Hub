@@ -7,7 +7,9 @@ import { useRouter } from 'next/navigation';
 interface WorkspaceUser {
   id?: string;
   name?: string | null;
+  displayName?: string | null;
   email?: string | null;
+  avatarUrl?: string | null;
   roles?: string[];
 }
 
@@ -33,7 +35,7 @@ export default function CaseWorkspace({ children }: { children: React.ReactNode 
   useEffect(() => {
     let mounted = true;
 
-    fetch('/api/auth/me')
+    fetch('/api/auth/me', { cache: 'no-store' })
       .then(async (response) => {
         if (!mounted) return;
         if (!response.ok) {

@@ -15,6 +15,7 @@ interface LawyerTopbarProps {
     name?: string | null;
     displayName?: string | null;
     email?: string | null;
+    avatarUrl?: string | null;
   } | null;
   onLogout?: () => Promise<void> | void;
   extraActions?: React.ReactNode;
@@ -117,8 +118,17 @@ export default function LawyerTopbar({
                 onClick={() => setIsDropdownOpen((current) => !current)}
                 className="inline-flex max-w-[220px] shrink-0 items-center gap-3 rounded-full border border-[#4C2F5E]/10 bg-white px-2 py-2 text-left transition hover:bg-[#FBF9FD] xl:max-w-[260px]"
               >
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#4C2F5E] text-sm font-semibold text-white">
-                  {initials(displayName)}
+                <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-[#4C2F5E] text-sm font-semibold text-white">
+                  {user?.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={user.avatarUrl}
+                      alt={displayName}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    initials(displayName)
+                  )}
                 </div>
                 <div className="hidden min-w-0 md:block">
                   <p className="truncate text-sm font-semibold text-[#2F1D3B]">{displayName}</p>
@@ -128,9 +138,23 @@ export default function LawyerTopbar({
 
               {isDropdownOpen ? (
                 <div className="absolute right-4 top-[68px] w-72 rounded-[18px] border border-[#4C2F5E]/10 bg-white p-2 shadow-[0_18px_36px_rgba(76,47,94,0.08)] md:right-6 lg:right-8 lh-form-enter">
-                  <div className="rounded-[14px] bg-[#F6F1FA] p-4">
-                    <p className="text-sm font-semibold text-[#2F1D3B]">{displayName}</p>
-                    <p className="mt-1 text-xs text-[#8B7D99]">{displayEmail}</p>
+                  <div className="flex items-center gap-3 rounded-[14px] bg-[#F6F1FA] p-4">
+                    <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-[#4C2F5E] text-sm font-semibold text-white">
+                      {user?.avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={user.avatarUrl}
+                          alt={displayName}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        initials(displayName)
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-[#2F1D3B]">{displayName}</p>
+                      <p className="mt-1 truncate text-xs text-[#8B7D99]">{displayEmail}</p>
+                    </div>
                   </div>
 
                   <div className="mt-2 grid gap-1">
