@@ -92,7 +92,7 @@ export default function ProfileWorkspaceShell({
           <div className="px-5 pb-5 pt-5 md:px-6 md:pb-6 md:pt-6">
             <div className="flex flex-col gap-6">
               <div className="flex flex-col gap-4 md:flex-row md:items-start">
-                <div className="-mt-16 flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-[26px] border border-[#4C2F5E]/12 bg-[#4C2F5E] text-2xl font-semibold tracking-[-0.04em] text-white shadow-[0_16px_32px_rgba(76,47,94,0.18)] md:-mt-20">
+                <div className="relative z-10 -mt-16 flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-[26px] border border-[#4C2F5E]/12 bg-[#4C2F5E] text-2xl font-semibold tracking-[-0.04em] text-white shadow-[0_16px_32px_rgba(76,47,94,0.18)] md:-mt-20">
                   {profile.avatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={profile.avatarUrl} alt={profile.displayName} className="h-full w-full object-cover" />
