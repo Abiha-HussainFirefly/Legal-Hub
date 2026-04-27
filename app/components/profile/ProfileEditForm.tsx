@@ -7,6 +7,7 @@ import AnimatedLink from "@/app/components/ui/animated-link";
 import Tooltip from "@/app/components/ui/tooltip";
 import { optimizeProfileImage } from "@/lib/optimize-profile-image";
 import type {
+  ProfileEditorSection,
   ProfileEditMeta,
   ProfileFormInput,
   ProfileVisibility,
@@ -85,6 +86,15 @@ const wizardSteps = [
 ] as const;
 
 type WizardStepId = (typeof wizardSteps)[number]["id"];
+
+const stepSaveMessages: Record<WizardStepId, string> = {
+  identity: "Identity section saved.",
+  summary: "Summary section saved.",
+  expertise: "Expertise section saved.",
+  background: "Background section saved.",
+  trust: "Trust section saved.",
+  review: "Profile updated successfully.",
+};
 
 function resolveStepIndex(step?: string) {
   const index = wizardSteps.findIndex((item) => item.id === step);
@@ -557,17 +567,25 @@ export default function ProfileEditForm({
     setSuccess("");
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = ({
+    section = currentStepMeta.id,
+    redirectToProfile = false,
+  }: {
+    section?: ProfileEditorSection;
+    redirectToProfile?: boolean;
+  } = {}) => {
     setError("");
     setSuccess("");
 
     startTransition(async () => {
       try {
-        const result = await saveProfileAction(form);
-        setSuccess("Profile updated successfully.");
-        router.push("/profile");
-        if (mode === "setup" && result.username) {
-          router.refresh();
+        await saveProfileAction(form, section);
+        setSuccess(stepSaveMessages[section]);
+        router.refresh();
+
+        if (redirectToProfile) {
+          router.push("/profile");
+          return;
         }
       } catch (submissionError) {
         setError(
@@ -1584,18 +1602,23 @@ export default function ProfileEditForm({
 
                 <button
                   type="button"
-                  onClick={handleSubmit}
+                  onClick={() => handleSubmit({ section: currentStepMeta.id })}
                   disabled={isPending}
                   className="legal-button-secondary text-sm disabled:opacity-60"
                 >
                   <Save className="h-4 w-4" />
-                  {isPending ? "Saving..." : "Save draft"}
+                  {isPending ? "Saving..." : currentStep === wizardSteps.length - 1 ? "Save all" : "Save section"}
                 </button>
 
                 {currentStep === wizardSteps.length - 1 ? (
                   <button
                     type="button"
-                    onClick={handleSubmit}
+                    onClick={() =>
+                      handleSubmit({
+                        section: "review",
+                        redirectToProfile: true,
+                      })
+                    }
                     disabled={isPending}
                     className="legal-button-primary text-sm disabled:opacity-60"
                   >

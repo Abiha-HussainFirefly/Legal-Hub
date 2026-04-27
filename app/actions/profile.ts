@@ -2,17 +2,22 @@
 
 import { auth } from "@/auth";
 import { saveProfessionalProfile } from "@/lib/services/profile.server";
-import type { ProfileFormInput } from "@/types/profile";
+import type { ProfileEditorSection, ProfileFormInput } from "@/types/profile";
 import { revalidatePath } from "next/cache";
 
-export async function saveProfileAction(input: ProfileFormInput) {
+export async function saveProfileAction(
+  input: ProfileFormInput,
+  section?: ProfileEditorSection,
+) {
   const session = await auth();
 
   if (!session?.user?.id) {
     throw new Error("Unauthorized");
   }
 
-  const result = await saveProfessionalProfile(session.user.id, input);
+  const result = await saveProfessionalProfile(session.user.id, input, {
+    section,
+  });
 
   revalidatePath("/profile");
   revalidatePath("/profile/edit");

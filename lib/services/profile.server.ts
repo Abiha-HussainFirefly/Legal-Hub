@@ -5,6 +5,7 @@ import {
 } from "@/lib/services/user-activity";
 import type {
   ConsultationAvailability,
+  ProfileEditorSection,
   ProfileContributionLink,
   ProfileEditMeta,
   ProfileFormInput,
@@ -1060,7 +1061,11 @@ function sanitizeLineItems<T extends { id?: string }>(
   return items.filter(predicate);
 }
 
-export async function saveProfessionalProfile(userId: string, input: ProfileFormInput) {
+export async function saveProfessionalProfile(
+  userId: string,
+  input: ProfileFormInput,
+  options?: { section?: ProfileEditorSection },
+) {
   const displayName = input.displayName.trim();
   if (displayName.length < 2) {
     throw new Error("Display name must be at least 2 characters");
@@ -1077,17 +1082,20 @@ export async function saveProfessionalProfile(userId: string, input: ProfileForm
     throw new Error("Username is required");
   }
 
-  const existingProfile = await prisma.userProfile.findUnique({
-    where: { userId },
-    select: {
-      username: true,
-    },
-  });
-
-  const existingUsername = await prisma.userProfile.findUnique({
-    where: { username: requestedUsername },
-    select: { userId: true },
-  });
+  const [existingProfile, existingUsername, userWithLawyer] = await Promise.all([
+    prisma.userProfile.findUnique({
+      where: { userId },
+      select: { username: true },
+    }),
+    prisma.userProfile.findUnique({
+      where: { username: requestedUsername },
+      select: { userId: true },
+    }),
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { lawyerProfile: { select: { id: true } } },
+    }),
+  ]);
 
   if (existingUsername && existingUsername.userId !== userId) {
     throw new Error("That username is already taken");
@@ -1103,7 +1111,12 @@ export async function saveProfessionalProfile(userId: string, input: ProfileForm
   const linkedInUrl = normalizeOptionalUrl(input.linkedInUrl, "LinkedIn URL", {
     requireLinkedInHost: true,
   });
-
+  const credentialUrls = input.certifications.map((item) =>
+    normalizeOptionalUrl(item.credentialUrl, "Credential URL"),
+  );
+  const awardUrls = input.awards.map((item) =>
+    normalizeOptionalUrl(item.awardUrl, "Award URL"),
+  );
   const safeVisibility = buildVisibilitySettings(input.visibility);
   const safeSkills = sanitizeLineItems(
     input.skills.map((item) => ({
@@ -1135,16 +1148,18 @@ export async function saveProfessionalProfile(userId: string, input: ProfileForm
     (item) => item.institution.length > 0,
   );
   const safeCertifications = sanitizeLineItems(
-    input.certifications.map((item) => ({
+    input.certifications.map((item, index) => ({
       ...item,
       name: item.name.trim(),
+      credentialUrl: credentialUrls[index] ?? null,
     })),
     (item) => item.name.length > 0,
   );
   const safeAwards = sanitizeLineItems(
-    input.awards.map((item) => ({
+    input.awards.map((item, index) => ({
       ...item,
       title: item.title.trim(),
+      awardUrl: awardUrls[index] ?? null,
     })),
     (item) => item.title.length > 0,
   );
@@ -1157,22 +1172,33 @@ export async function saveProfessionalProfile(userId: string, input: ProfileForm
     (item) => item.url.length > 0,
   );
 
+  const headline = input.headline?.trim() || null;
+  const bio = input.bio?.trim() || null;
+  const company = input.company?.trim() || null;
+  const roleTitle = input.roleTitle?.trim() || null;
+  const city = input.city?.trim() || null;
+  const countryCode = input.countryCode?.trim() || "PK";
+  const primaryRegionId = input.primaryRegionId?.trim() || null;
+  const officeAddress = input.officeAddress?.trim() || null;
+  const consultationStatus = input.consultationStatus ?? null;
+  const isLawyer = Boolean(userWithLawyer?.lawyerProfile);
+
   const previewRecord = {
     displayName,
     avatarUrl: avatarUrl ?? null,
     profile: {
       username: requestedUsername,
-      headline: input.headline?.trim() || null,
-      bio: input.bio?.trim() || null,
-      company: input.company?.trim() || null,
-      roleTitle: input.roleTitle?.trim() || null,
+      headline,
+      bio,
+      company,
+      roleTitle,
       websiteUrl: websiteUrl ?? null,
       linkedInUrl: linkedInUrl ?? null,
-      city: input.city?.trim() || null,
+      city,
       yearsExperience: input.yearsExperience ?? null,
     },
     lawyerProfile: {
-      firmName: input.company?.trim() || null,
+      firmName: company,
     },
     experiences: safeExperiences,
     educations: safeEducations,
@@ -1181,231 +1207,309 @@ export async function saveProfessionalProfile(userId: string, input: ProfileForm
   } as unknown as ProfileRecord;
 
   const completion = calculateProfileCompletion(previewRecord);
+  const profileLifecycleData = {
+    isLawyer,
+    completionPercentage: completion.percentage,
+    completionState: completion.state,
+    onboardingStep:
+      completion.state === ProfileCompletionState.COMPLETED
+        ? "completed"
+        : "profile_setup",
+    onboardingChecklist: completion.missingChecklist,
+    onboardingCompletedAt:
+      completion.state === ProfileCompletionState.COMPLETED ? new Date() : null,
+  };
 
-  await prisma.$transaction(async (tx) => {
-    const userWithLawyer = await tx.user.findUnique({
-      where: { id: userId },
-      select: { lawyerProfile: { select: { id: true } } },
-    });
+  const fullProfileCreateData = {
+    userId,
+    username: requestedUsername,
+    headline,
+    bio,
+    company,
+    roleTitle,
+    websiteUrl,
+    linkedInUrl,
+    coverImageUrl: coverImageUrl ?? null,
+    countryCode,
+    city,
+    officeAddress,
+    primaryRegionId,
+    yearsExperience: input.yearsExperience ?? null,
+    consultationStatus,
+    ...profileLifecycleData,
+  };
 
-    await tx.user.update({
-      where: { id: userId },
-      data: {
-        displayName,
-        ...(avatarUrl !== undefined ? { avatarUrl } : {}),
-      },
-    });
+  const saveIdentitySection = async () => {
+    const queries: Prisma.PrismaPromise<unknown>[] = [
+      prisma.user.update({
+        where: { id: userId },
+        data: {
+          displayName,
+          ...(avatarUrl !== undefined ? { avatarUrl } : {}),
+        },
+      }),
+      prisma.userProfile.upsert({
+        where: { userId },
+        update: {
+          username: requestedUsername,
+          headline,
+          company,
+          roleTitle,
+          ...(coverImageUrl !== undefined ? { coverImageUrl } : {}),
+          countryCode,
+          city,
+          primaryRegionId,
+          yearsExperience: input.yearsExperience ?? null,
+          consultationStatus,
+          ...profileLifecycleData,
+        },
+        create: fullProfileCreateData,
+      }),
+    ];
 
-    await tx.userProfile.upsert({
-      where: { userId },
-      update: {
-        username: requestedUsername,
-        headline: input.headline?.trim() || null,
-        bio: input.bio?.trim() || null,
-        company: input.company?.trim() || null,
-        roleTitle: input.roleTitle?.trim() || null,
-        websiteUrl,
-        linkedInUrl,
-        ...(coverImageUrl !== undefined ? { coverImageUrl } : {}),
-        countryCode: input.countryCode?.trim() || "PK",
-        city: input.city?.trim() || null,
-        officeAddress: input.officeAddress?.trim() || null,
-        primaryRegionId: input.primaryRegionId?.trim() || null,
-        yearsExperience: input.yearsExperience ?? null,
-        consultationStatus: input.consultationStatus ?? null,
-        isLawyer: Boolean(userWithLawyer?.lawyerProfile),
-        completionPercentage: completion.percentage,
-        completionState: completion.state,
-        onboardingStep:
-          completion.state === ProfileCompletionState.COMPLETED
-            ? "completed"
-            : "profile_setup",
-        onboardingChecklist: completion.missingChecklist,
-        onboardingCompletedAt:
-          completion.state === ProfileCompletionState.COMPLETED ? new Date() : null,
-      },
-      create: {
-        userId,
-        username: requestedUsername,
-        headline: input.headline?.trim() || null,
-        bio: input.bio?.trim() || null,
-        company: input.company?.trim() || null,
-        roleTitle: input.roleTitle?.trim() || null,
-        websiteUrl,
-        linkedInUrl,
-        coverImageUrl: coverImageUrl ?? null,
-        countryCode: input.countryCode?.trim() || "PK",
-        city: input.city?.trim() || null,
-        officeAddress: input.officeAddress?.trim() || null,
-        primaryRegionId: input.primaryRegionId?.trim() || null,
-        yearsExperience: input.yearsExperience ?? null,
-        consultationStatus: input.consultationStatus ?? null,
-        isLawyer: Boolean(userWithLawyer?.lawyerProfile),
-        completionPercentage: completion.percentage,
-        completionState: completion.state,
-        onboardingStep:
-          completion.state === ProfileCompletionState.COMPLETED
-            ? "completed"
-            : "profile_setup",
-        onboardingChecklist: completion.missingChecklist,
-        onboardingCompletedAt:
-          completion.state === ProfileCompletionState.COMPLETED ? new Date() : null,
-      },
-    });
-
-    await tx.userProfileVisibility.upsert({
-      where: { userId },
-      update: safeVisibility,
-      create: {
-        userId,
-        ...safeVisibility,
-      },
-    });
-
-    await tx.userExperience.deleteMany({ where: { userId } });
-    await tx.userEducation.deleteMany({ where: { userId } });
-    await tx.userCertification.deleteMany({ where: { userId } });
-    await tx.userSkill.deleteMany({ where: { userId } });
-    await tx.userLanguage.deleteMany({ where: { userId } });
-    await tx.userAward.deleteMany({ where: { userId } });
-    await tx.userSocialLink.deleteMany({ where: { userId } });
-
-    if (safeExperiences.length > 0) {
-      await tx.userExperience.createMany({
-        data: safeExperiences.map((item, index) => ({
-          userId,
-          title: item.title,
-          organization: item.organization,
-          location: item.location?.trim() || null,
-          employmentType: item.employmentType?.trim() || null,
-          description: item.description?.trim() || null,
-          startDate: normalizeDateInput(item.startDate),
-          endDate: item.isCurrent ? null : normalizeDateInput(item.endDate),
-          isCurrent: Boolean(item.isCurrent),
-          sortOrder: index,
-        })),
-      });
+    if (isLawyer) {
+      queries.push(
+        prisma.lawyerProfile.update({
+          where: { userId },
+          data: { firmName: company },
+        }),
+      );
     }
 
-    if (safeEducations.length > 0) {
-      await tx.userEducation.createMany({
-        data: safeEducations.map((item, index) => ({
-          userId,
-          institution: item.institution,
-          degree: item.degree?.trim() || null,
-          fieldOfStudy: item.fieldOfStudy?.trim() || null,
-          description: item.description?.trim() || null,
-          startDate: normalizeDateInput(item.startDate),
-          endDate: normalizeDateInput(item.endDate),
-          sortOrder: index,
-        })),
-      });
+    await prisma.$transaction(queries);
+  };
+
+  const saveSummarySection = async () => {
+    const queries: Prisma.PrismaPromise<unknown>[] = [
+      prisma.userProfile.upsert({
+        where: { userId },
+        update: {
+          bio,
+          websiteUrl,
+          linkedInUrl,
+          officeAddress,
+          ...profileLifecycleData,
+        },
+        create: fullProfileCreateData,
+      }),
+    ];
+
+    if (isLawyer) {
+      queries.push(
+        prisma.lawyerProfile.update({
+          where: { userId },
+          data: { chamberAddress: officeAddress },
+        }),
+      );
     }
 
-    if (safeCertifications.length > 0) {
-      await tx.userCertification.createMany({
-        data: safeCertifications.map((item, index) => ({
-          userId,
-          name: item.name,
-          issuer: item.issuer?.trim() || null,
-          credentialId: item.credentialId?.trim() || null,
-          credentialUrl:
-            normalizeOptionalUrl(item.credentialUrl, "Credential URL") ?? null,
-          issuedAt: normalizeDateInput(item.issuedAt),
-          expiresAt: normalizeDateInput(item.expiresAt),
-          description: item.description?.trim() || null,
-          sortOrder: index,
-        })),
-      });
-    }
+    await prisma.$transaction(queries);
+  };
+
+  const saveExpertiseSection = async () => {
+    const queries: Prisma.PrismaPromise<unknown>[] = [
+      prisma.userProfile.upsert({
+        where: { userId },
+        update: profileLifecycleData,
+        create: fullProfileCreateData,
+      }),
+      prisma.userSkill.deleteMany({ where: { userId } }),
+      prisma.userLanguage.deleteMany({ where: { userId } }),
+    ];
 
     if (safeSkills.length > 0) {
-      await tx.userSkill.createMany({
-        data: safeSkills.map((item, index) => ({
-          userId,
-          name: item.name,
-          yearsExperience: item.yearsExperience ?? null,
-          sortOrder: index,
-        })),
-        skipDuplicates: true,
-      });
+      queries.push(
+        prisma.userSkill.createMany({
+          data: safeSkills.map((item, index) => ({
+            userId,
+            name: item.name,
+            yearsExperience: item.yearsExperience ?? null,
+            sortOrder: index,
+          })),
+          skipDuplicates: true,
+        }),
+      );
     }
 
     if (safeLanguages.length > 0) {
-      await tx.userLanguage.createMany({
-        data: safeLanguages.map((item, index) => ({
-          userId,
-          name: item.name,
-          proficiency: item.proficiency?.trim() || null,
-          sortOrder: index,
-        })),
-        skipDuplicates: true,
-      });
-    }
-
-    if (safeAwards.length > 0) {
-      await tx.userAward.createMany({
-        data: safeAwards.map((item, index) => ({
-          userId,
-          title: item.title,
-          issuer: item.issuer?.trim() || null,
-          description: item.description?.trim() || null,
-          awardUrl: normalizeOptionalUrl(item.awardUrl, "Award URL") ?? null,
-          awardedAt: normalizeDateInput(item.awardedAt),
-          sortOrder: index,
-        })),
-      });
-    }
-
-    if (safeSocialLinks.length > 0) {
-      await tx.userSocialLink.createMany({
-        data: safeSocialLinks.map((item, index) => ({
-          userId,
-          platform: item.platform,
-          label: item.label?.trim() || null,
-          url: item.url,
-          sortOrder: index,
-        })),
-      });
-    }
-
-    if (userWithLawyer?.lawyerProfile) {
-      await tx.lawyerProfile.update({
-        where: { userId },
-        data: {
-          firmName: input.company?.trim() || null,
-          chamberAddress: input.officeAddress?.trim() || null,
-        },
-      });
-
-      await tx.lawyerPracticeArea.deleteMany({
-        where: {
-          lawyerProfile: {
+      queries.push(
+        prisma.userLanguage.createMany({
+          data: safeLanguages.map((item, index) => ({
             userId,
-          },
-        },
-      });
+            name: item.name,
+            proficiency: item.proficiency?.trim() || null,
+            sortOrder: index,
+          })),
+          skipDuplicates: true,
+        }),
+      );
+    }
+
+    if (userWithLawyer?.lawyerProfile?.id) {
+      queries.push(
+        prisma.lawyerPracticeArea.deleteMany({
+          where: { lawyerProfileId: userWithLawyer.lawyerProfile.id },
+        }),
+      );
 
       if (input.practiceAreaCategoryIds.length > 0) {
-        const lawyerProfile = await tx.lawyerProfile.findUnique({
-          where: { userId },
-          select: { id: true },
-        });
-
-        if (lawyerProfile) {
-          await tx.lawyerPracticeArea.createMany({
+        queries.push(
+          prisma.lawyerPracticeArea.createMany({
             data: input.practiceAreaCategoryIds.map((categoryId, index) => ({
-              lawyerProfileId: lawyerProfile.id,
+              lawyerProfileId: userWithLawyer.lawyerProfile!.id,
               categoryId,
               isPrimary: index === 0,
               yearsExperience: input.yearsExperience ?? null,
             })),
             skipDuplicates: true,
-          });
-        }
+          }),
+        );
       }
     }
-  });
+
+    await prisma.$transaction(queries);
+  };
+
+  const saveBackgroundSection = async () => {
+    const queries: Prisma.PrismaPromise<unknown>[] = [
+      prisma.userProfile.upsert({
+        where: { userId },
+        update: profileLifecycleData,
+        create: fullProfileCreateData,
+      }),
+      prisma.userExperience.deleteMany({ where: { userId } }),
+      prisma.userEducation.deleteMany({ where: { userId } }),
+    ];
+
+    if (safeExperiences.length > 0) {
+      queries.push(
+        prisma.userExperience.createMany({
+          data: safeExperiences.map((item, index) => ({
+            userId,
+            title: item.title,
+            organization: item.organization,
+            location: item.location?.trim() || null,
+            employmentType: item.employmentType?.trim() || null,
+            description: item.description?.trim() || null,
+            startDate: normalizeDateInput(item.startDate),
+            endDate: item.isCurrent ? null : normalizeDateInput(item.endDate),
+            isCurrent: Boolean(item.isCurrent),
+            sortOrder: index,
+          })),
+        }),
+      );
+    }
+
+    if (safeEducations.length > 0) {
+      queries.push(
+        prisma.userEducation.createMany({
+          data: safeEducations.map((item, index) => ({
+            userId,
+            institution: item.institution,
+            degree: item.degree?.trim() || null,
+            fieldOfStudy: item.fieldOfStudy?.trim() || null,
+            description: item.description?.trim() || null,
+            startDate: normalizeDateInput(item.startDate),
+            endDate: normalizeDateInput(item.endDate),
+            sortOrder: index,
+          })),
+        }),
+      );
+    }
+
+    await prisma.$transaction(queries);
+  };
+
+  const saveTrustSection = async () => {
+    const queries: Prisma.PrismaPromise<unknown>[] = [
+      prisma.userProfile.upsert({
+        where: { userId },
+        update: profileLifecycleData,
+        create: fullProfileCreateData,
+      }),
+      prisma.userProfileVisibility.upsert({
+        where: { userId },
+        update: safeVisibility,
+        create: {
+          userId,
+          ...safeVisibility,
+        },
+      }),
+      prisma.userCertification.deleteMany({ where: { userId } }),
+      prisma.userAward.deleteMany({ where: { userId } }),
+      prisma.userSocialLink.deleteMany({ where: { userId } }),
+    ];
+
+    if (safeCertifications.length > 0) {
+      queries.push(
+        prisma.userCertification.createMany({
+          data: safeCertifications.map((item, index) => ({
+            userId,
+            name: item.name,
+            issuer: item.issuer?.trim() || null,
+            credentialId: item.credentialId?.trim() || null,
+            credentialUrl: item.credentialUrl,
+            issuedAt: normalizeDateInput(item.issuedAt),
+            expiresAt: normalizeDateInput(item.expiresAt),
+            description: item.description?.trim() || null,
+            sortOrder: index,
+          })),
+        }),
+      );
+    }
+
+    if (safeAwards.length > 0) {
+      queries.push(
+        prisma.userAward.createMany({
+          data: safeAwards.map((item, index) => ({
+            userId,
+            title: item.title,
+            issuer: item.issuer?.trim() || null,
+            description: item.description?.trim() || null,
+            awardUrl: item.awardUrl,
+            awardedAt: normalizeDateInput(item.awardedAt),
+            sortOrder: index,
+          })),
+        }),
+      );
+    }
+
+    if (safeSocialLinks.length > 0) {
+      queries.push(
+        prisma.userSocialLink.createMany({
+          data: safeSocialLinks.map((item, index) => ({
+            userId,
+            platform: item.platform,
+            label: item.label?.trim() || null,
+            url: item.url,
+            sortOrder: index,
+          })),
+        }),
+      );
+    }
+
+    await prisma.$transaction(queries);
+  };
+
+  const targetSection = options?.section ?? "review";
+
+  if (targetSection === "identity") {
+    await saveIdentitySection();
+  } else if (targetSection === "summary") {
+    await saveSummarySection();
+  } else if (targetSection === "expertise") {
+    await saveExpertiseSection();
+  } else if (targetSection === "background") {
+    await saveBackgroundSection();
+  } else if (targetSection === "trust") {
+    await saveTrustSection();
+  } else {
+    await saveIdentitySection();
+    await saveSummarySection();
+    await saveExpertiseSection();
+    await saveBackgroundSection();
+    await saveTrustSection();
+  }
 
   return {
     username: requestedUsername,

@@ -214,3 +214,11 @@ export interface ProfileEditMeta {
   regions: Array<{ id: string; name: string }>;
   practiceAreas: Array<{ id: string; name: string }>;
 }
+
+export type ProfileEditorSection =
+  | "identity"
+  | "summary"
+  | "expertise"
+  | "background"
+  | "trust"
+  | "review";
