@@ -17,17 +17,25 @@ function getSessionToken(req: NextRequest): string | undefined {
   return undefined;
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  const token     = getSessionToken(req);
+  const token = getSessionToken(req);
   const isLoggedIn = !!token;
 
-  const isAdminAuth    = pathname === "/adminlogin";
-  const isLawyerAuth   = pathname === "/lawyerlogin" || pathname === "/lawyerregister";
+  const isAdminAuth = pathname === "/adminlogin";
+  const isLawyerAuth =
+    pathname === "/lawyerlogin" || pathname === "/lawyerregister";
 
-  const isAdminProtected  = pathname.startsWith("/dashboard");
-  const isLawyerProtected = pathname.startsWith("/cases") || pathname.startsWith("/topics") || pathname.startsWith("/saved") || pathname === "/profile" || pathname.startsWith("/profile/edit") || pathname.startsWith("/profile/setup") || pathname.startsWith("/profile/stats");
+  const isAdminProtected = pathname.startsWith("/dashboard");
+  const isLawyerProtected =
+    pathname.startsWith("/cases") ||
+    pathname.startsWith("/topics") ||
+    pathname.startsWith("/saved") ||
+    pathname === "/profile" ||
+    pathname.startsWith("/profile/edit") ||
+    pathname.startsWith("/profile/setup") ||
+    pathname.startsWith("/profile/stats");
 
   if (isAdminProtected && !isLoggedIn) {
     return NextResponse.redirect(new URL("/adminlogin", req.url));
