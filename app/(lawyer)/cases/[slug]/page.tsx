@@ -8,6 +8,7 @@ import CasePageHero from '@/app/components/cases/case-page-hero';
 import CaseUserLink from '@/app/components/cases/case-user-link';
 import { useCaseWorkspace } from '@/app/components/cases/case-workspace';
 import { useToast } from '@/app/components/ui/toast/toast-context';
+import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from '@/lib/auth/roles';
 import type { CaseRepositoryRecord } from '@/types/case';
 import { BadgeCheck, Bookmark, ChevronRight, Eye, FileSearch, GitBranch, Landmark, Link2, MessageSquareText, PencilLine, Send, Share2, ShieldCheck, Users } from 'lucide-react';
 import Link from 'next/link';
@@ -56,6 +57,16 @@ export default function CaseDetailPage() {
   const [loading, setLoading] = useState(true);
   const [savePending, setSavePending] = useState(false);
   const [submitPending, setSubmitPending] = useState(false);
+  const userRoles = user?.roles ?? [];
+  const userPermissions = user?.permissions ?? [];
+  const canBookmarkCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_BOOKMARK);
+  const canShareCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_SHARE);
+  const canEditOwnCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_EDIT_OWN);
+  const canSubmitOwnCases = canAccessLawyerPermission(
+    userRoles,
+    userPermissions,
+    LAWYER_PERMISSION_KEYS.CASES_SUBMIT_OWN_FOR_REVIEW,
+  );
 
   const loadRecord = useCallback(async () => {
     try {
@@ -85,7 +96,7 @@ export default function CaseDetailPage() {
   }, [loadRecord]);
 
   async function handleToggleSave() {
-    if (!record || savePending) return;
+    if (!record || !canBookmarkCases || savePending) return;
 
     try {
       setSavePending(true);
@@ -111,7 +122,7 @@ export default function CaseDetailPage() {
   }
 
   async function handleSubmitForReview() {
-    if (!record || submitPending) return;
+    if (!record || !canSubmitOwnCases || submitPending) return;
 
     try {
       setSubmitPending(true);
@@ -136,7 +147,7 @@ export default function CaseDetailPage() {
   }
 
   async function handleShare() {
-    if (!record) return;
+    if (!record || !canShareCases) return;
 
     const url = typeof window === 'undefined' ? '' : `${window.location.origin}/cases/${record.slug}`;
 
@@ -180,8 +191,8 @@ export default function CaseDetailPage() {
 
   const isAuthor = user?.id === record.author.id;
   const isReviewer = user?.roles?.some((role) => ['ADMIN', 'REVIEWER'].includes(role)) ?? false;
-  const canEdit = isAuthor || isReviewer;
-  const canSubmitForReview = isAuthor && ['DRAFT', 'REJECTED'].includes(record.status);
+  const canEdit = canEditOwnCases && (isAuthor || isReviewer);
+  const canSubmitForReview = canSubmitOwnCases && isAuthor && ['DRAFT', 'REJECTED'].includes(record.status);
   const breadcrumbItems = [
     { label: 'Cases', href: '/cases' },
     ...(record.category?.name ? [{ label: record.category.name, href: `/cases?category=${encodeURIComponent(record.category.name)}` }] : []),
@@ -242,25 +253,29 @@ export default function CaseDetailPage() {
         }
         actions={
           <>
-            <button
-              type="button"
-              onClick={handleToggleSave}
-              disabled={savePending}
-              className={`inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition ${
-                record.viewerState.saved ? 'bg-white text-[#4C2F5E]' : 'border border-white/15 bg-white/10 text-white hover:bg-white/14'
-              }`}
-            >
-              <Bookmark className="h-4 w-4" />
-              {savePending ? 'Saving...' : record.viewerState.saved ? 'Saved' : 'Save case'}
-            </button>
-            <button
-              type="button"
-              onClick={handleShare}
-              className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/14"
-            >
-              <Share2 className="h-4 w-4" />
-              Share
-            </button>
+            {canBookmarkCases ? (
+              <button
+                type="button"
+                onClick={handleToggleSave}
+                disabled={savePending}
+                className={`inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition ${
+                  record.viewerState.saved ? 'bg-white text-[#4C2F5E]' : 'border border-white/15 bg-white/10 text-white hover:bg-white/14'
+                }`}
+              >
+                <Bookmark className="h-4 w-4" />
+                {savePending ? 'Saving...' : record.viewerState.saved ? 'Saved' : 'Save case'}
+              </button>
+            ) : null}
+            {canShareCases ? (
+              <button
+                type="button"
+                onClick={handleShare}
+                className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/14"
+              >
+                <Share2 className="h-4 w-4" />
+                Share
+              </button>
+            ) : null}
           </>
         }
         aside={

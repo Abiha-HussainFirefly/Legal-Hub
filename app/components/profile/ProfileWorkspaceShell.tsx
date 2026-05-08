@@ -1,4 +1,5 @@
 import AnimatedLink from "@/app/components/ui/animated-link";
+import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from "@/lib/auth/roles";
 import type { ProfessionalProfile } from "@/types/profile";
 import {
   BarChart3,
@@ -65,14 +66,21 @@ function TabLink({
 export default function ProfileWorkspaceShell({
   profile,
   activeTab,
+  roles = [],
+  permissions = [],
   children,
 }: {
   profile: ProfessionalProfile;
   activeTab: "profile" | "stats";
+  roles?: string[];
+  permissions?: string[];
   children: React.ReactNode;
 }) {
   const consultationStatus = formatConsultationStatus(profile.consultationStatus);
   const needsSetup = profile.completionPercentage < 100 || profile.missingChecklist.length > 0;
+  const canSetupProfile = canAccessLawyerPermission(roles, permissions, LAWYER_PERMISSION_KEYS.PROFILE_SETUP_SELF);
+  const canEditProfile = canAccessLawyerPermission(roles, permissions, LAWYER_PERMISSION_KEYS.PROFILE_EDIT_SELF);
+  const canViewStats = canAccessLawyerPermission(roles, permissions, LAWYER_PERMISSION_KEYS.PROFILE_STATS_VIEW_SELF);
   const primaryAction = needsSetup
     ? { href: "/profile/setup", label: "Complete profile" }
     : { href: "/profile/edit", label: "Edit profile" };
@@ -146,10 +154,26 @@ export default function ProfileWorkspaceShell({
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
+            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
+              {(needsSetup ? canSetupProfile : canEditProfile) ? (
                 <AnimatedLink href={primaryAction.href} className="legal-button-primary justify-center text-sm w-full sm:w-auto">
                   <CheckCircle2 className="h-4 w-4 shrink-0" />
                   {primaryAction.label}
+                </AnimatedLink>
+              ) : null}
+              {canEditProfile ? (
+                <AnimatedLink href="/profile/edit" className="legal-button-secondary justify-center text-sm w-full sm:w-auto">
+                  <Pencil className="h-4 w-4 shrink-0" />
+                  Edit details
+                </AnimatedLink>
+              ) : null}
+              {profile.username ? (
+                <AnimatedLink
+                  href={`/profile/${profile.username}`}
+                  className="inline-flex justify-center items-center gap-2 rounded-full border border-[#4C2F5E]/12 bg-white px-4 py-2 text-sm font-semibold text-[#4C2F5E] transition hover:bg-[#F7F3FA] w-full sm:w-auto"
+                >
+                  <ExternalLink className="h-4 w-4 shrink-0" />
+                  View public profile
                 </AnimatedLink>
                 <AnimatedLink href="/profile/edit" className="legal-button-secondary justify-center text-sm w-full sm:w-auto">
                   <Pencil className="h-4 w-4 shrink-0" />
@@ -223,12 +247,14 @@ export default function ProfileWorkspaceShell({
             icon={<Pencil className="h-4 w-4 shrink-0" />}
             active={activeTab === "profile"}
           />
-          <TabLink
-            href="/profile/stats"
-            label="Stats"
-            icon={<BarChart3 className="h-4 w-4 shrink-0" />}
-            active={activeTab === "stats"}
-          />
+          {canViewStats ? (
+            <TabLink
+              href="/profile/stats"
+              label="Stats"
+              icon={<BarChart3 className="h-4 w-4 shrink-0" />}
+              active={activeTab === "stats"}
+            />
+          ) : null}
         </div>
         <div className="sm:ml-auto rounded-[14px] bg-[#F8F6FB] px-3 py-2 text-xs font-semibold text-[#736683] text-center">
           {needsSetup ? `${profile.missingChecklist.length} checklist item${profile.missingChecklist.length === 1 ? "" : "s"} pending` : "Profile complete"}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
+import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from '@/lib/auth/roles';
 import { prisma } from '@/lib/prisma';
 import { AUTHOR_SELECT } from '@/lib/services/discussion.service';
 
@@ -13,6 +14,11 @@ export async function GET(
 ) {
   try {
     const session = await auth();
+    const roles = session?.user?.roles ?? [];
+    const permissions = session?.user?.permissions ?? [];
+    if (!canAccessLawyerPermission(roles, permissions, LAWYER_PERMISSION_KEYS.ANSWERS_VIEW)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const { slug } = await params;
     const { searchParams } = new URL(req.url);
     const page  = Math.max(parseInt(searchParams.get('page')  ?? '1',  10), 1);
@@ -111,7 +117,10 @@ export async function POST(
 ) {
   try {
     const session = await auth();
-    if (!session?.user?.id) {
+    const roles = session?.user?.roles ?? [];
+    const permissions = session?.user?.permissions ?? [];
+
+    if (!session?.user?.id || !canAccessLawyerPermission(roles, permissions, LAWYER_PERMISSION_KEYS.ANSWERS_CREATE)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

@@ -14,7 +14,12 @@ export default async function LawyerProfileStatsPage() {
 
   return (
     <LawyerShell activeTab="profile">
-      <ProfileWorkspaceShell profile={profile} activeTab="stats">
+      <ProfileWorkspaceShell
+        profile={profile}
+        activeTab="stats"
+        roles={session.user.roles}
+        permissions={session.user.permissions ?? []}
+      >
         <OwnerProfileStatsView profile={profile} />
       </ProfileWorkspaceShell>
     </LawyerShell>

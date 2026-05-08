@@ -8,6 +8,7 @@ import DiscussionsFeaturedSection from '@/app/components/lawyer/discussions/disc
 import NotificationBell from '@/app/components/lawyer/discussions/notificationbell';
 import LawyerTopbar from '@/app/components/lawyer/lawyer-topbar';
 import { apiRequest, getErrorMessage } from '@/lib/api-client';
+import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from '@/lib/auth/roles';
 import { MessageSquareText, ShieldCheck, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
@@ -144,6 +145,8 @@ interface CurrentUser {
   name?: string;
   displayName?: string;
   email?: string;
+  roles?: string[];
+  permissions?: string[];
 }
 
 interface QuickFilterOption {
@@ -191,6 +194,13 @@ export default function LegalDiscussionsPage() {
   const [pageError, setPageError] = useState('');
 
   const deferredSearch = useDeferredValue(searchQuery.trim());
+  const userRoles = user?.roles ?? [];
+  const userPermissions = user?.permissions ?? [];
+  const canCreateDiscussion = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_CREATE);
+  const canViewNotifications = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.NOTIFICATIONS_VIEW_SELF);
+  const canReactToDiscussions = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_REACT);
+  const canBookmarkDiscussions = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_BOOKMARK);
+  const canViewAiSummaries = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_AI_SUMMARY_VIEW);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -431,7 +441,7 @@ export default function LegalDiscussionsPage() {
         activeTab="discussions"
         user={user}
         onLogout={handleLogout}
-        extraActions={<NotificationBell />}
+        extraActions={canViewNotifications ? <NotificationBell /> : null}
       />
 
       <div className="mx-auto max-w-[1380px] px-4 py-6 md:px-6 lg:px-8 lh-page-enter">
@@ -464,9 +474,11 @@ export default function LegalDiscussionsPage() {
                   {communityBrief?.verifiedLawyers ?? topLawyers.length} trusted voices
                 </div>
               </div>
-              <button onClick={() => user ? setIsModalOpen(true) : router.push('/lawyerlogin')} className="legal-button-primary text-sm">
-                Start discussion
-              </button>
+              {canCreateDiscussion ? (
+                <button onClick={() => user ? setIsModalOpen(true) : router.push('/lawyerlogin')} className="legal-button-primary text-sm">
+                  Start discussion
+                </button>
+              ) : null}
             </div>
           </div>
         </section>
@@ -532,9 +544,9 @@ export default function LegalDiscussionsPage() {
             ) : null}
 
             {loading ? (
-              <div className="workspace-sidebar overflow-hidden p-0">
+              <div className="space-y-4">
                 {[1, 2, 3, 4].map((item) => (
-                  <div key={item} className="lh-skeleton h-40 border-b border-[#2F1D3B]/8 last:border-b-0" />
+                  <div key={item} className="lh-skeleton h-40 rounded-[24px] border border-[#2F1D3B]/8 bg-white" />
                 ))}
               </div>
             ) : discussions.length === 0 ? (
@@ -548,7 +560,7 @@ export default function LegalDiscussionsPage() {
                 </button>
               </div>
             ) : (
-              <div className="workspace-sidebar overflow-hidden p-0">
+              <div className="space-y-4">
                 {discussions.map((discussion) => (
                   <DiscussionCard
                     key={discussion.id}
@@ -571,6 +583,9 @@ export default function LegalDiscussionsPage() {
                     tags={discussion.tags}
                     isSaved={Boolean(discussion.bookmarks?.length)}
                     isLoggedIn={Boolean(user)}
+                    canReact={canReactToDiscussions}
+                    canBookmark={canBookmarkDiscussions}
+                    canViewAiSummary={canViewAiSummaries}
                     initialEmojiStats={buildEmojiStats(discussion.reactions)}
                     userReaction={(() => {
                       const currentReaction = discussion.reactions?.find((reaction) => reaction.userId === user?.id);
@@ -589,7 +604,7 @@ export default function LegalDiscussionsPage() {
         </div>
       </div>
 
-      <StartDiscussionModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      {canCreateDiscussion ? <StartDiscussionModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} /> : null}
     </div>
   );
 }

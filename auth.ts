@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
+import { resolveEffectivePermissions } from "@/lib/auth/roles";
 import { prisma } from "@/lib/prisma";
 import { CustomPrismaAdapter } from "@/lib/auth-adapter";
 
@@ -42,15 +43,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       if (dbUser) {
         if (dbUser.status === "SUSPENDED") return "/adminlogin?error=ACCOUNT_SUSPENDED";
-        const roles = dbUser.roles.map((r) => r.role.name.toLowerCase());
+        const roles = dbUser.roles.filter((assignment) => assignment.role.isActive).map((r) => r.role.name.toLowerCase());
 
         if (roles.includes("admin") && (account?.provider === "google")) {
           return "/adminlogin?error=ADMIN_SOCIAL_BLOCKED";
         }
 
         if (!roles.includes("lawyer") && account?.provider === "google") {
-          const lawyerRole = await prisma.role.findUnique({ where: { name: "lawyer" } });
-          if (lawyerRole) {
+          const lawyerRole = await prisma.role.findUnique({
+            where: { name: "lawyer" },
+            select: { id: true, isActive: true },
+          });
+          if (lawyerRole?.isActive) {
             await prisma.userRole.upsert({
               where: { userId_roleId: { userId: dbUser.id, roleId: lawyerRole.id } },
               update: {},
@@ -66,9 +70,40 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.id = user.id;
         const dbUser = await prisma.user.findUnique({
           where: { id: user.id },
-          include: { roles: { include: { role: true } } },
+          include: {
+            roles: {
+              include: {
+                role: {
+                  select: {
+                    name: true,
+                    isActive: true,
+                    permissions: {
+                      include: {
+                        permission: {
+                          select: {
+                            key: true,
+                            isActive: true,
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
         });
-        (session.user as any).roles = dbUser?.roles.map((r) => r.role.name.toUpperCase()) ?? [];
+        const activeRoleAssignments = dbUser?.roles.filter((assignment) => assignment.role.isActive) ?? [];
+        const roles = activeRoleAssignments.map((assignment) => assignment.role.name.toUpperCase());
+        const assignedPermissionKeys =
+          activeRoleAssignments.flatMap((assignment) =>
+            assignment.role.permissions
+              .filter((binding) => binding.isActive && binding.permission.isActive)
+              .map((binding) => binding.permission.key),
+          );
+
+        (session.user as any).roles = roles;
+        (session.user as any).permissions = resolveEffectivePermissions(roles, assignedPermissionKeys);
         (session.user as any).status = dbUser?.status ?? "ACTIVE";
       }
       return session;

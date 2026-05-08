@@ -13,8 +13,13 @@ export default async function LawyerProfilePage() {
   if (!profile) redirect("/lawyerlogin");
 
   return (
-    <LawyerShell activeTab="profile">
-      <ProfileWorkspaceShell profile={profile} activeTab="profile">
+      <LawyerShell activeTab="profile">
+      <ProfileWorkspaceShell
+        profile={profile}
+        activeTab="profile"
+        roles={session.user.roles}
+        permissions={session.user.permissions ?? []}
+      >
         <OwnerProfileOverview profile={profile} />
       </ProfileWorkspaceShell>
     </LawyerShell>

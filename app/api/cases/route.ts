@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { LAWYER_PERMISSION_KEYS } from '@/lib/auth/roles';
 import { getSessionUser } from '@/lib/services/api-auth';
+import { userHasLawyerPermission } from '@/lib/services/api-auth';
 import { createCaseDraft, listCaseRecords } from '@/lib/services/case-repository.server';
 import type { CaseSourceType, CaseVisibility } from '@/types/case';
 
@@ -10,6 +12,20 @@ export async function GET(req: NextRequest) {
     const authorId = params.get('authorId');
     const reviewQueue = params.get('reviewQueue') === 'true';
     const isAdmin = user?.roles?.some((role) => role.toUpperCase() === 'ADMIN') ?? false;
+    const isOwnCasesRequest = authorId === 'me';
+    const isSavedCasesRequest = params.get('savedBy') === 'me';
+
+    if (isOwnCasesRequest) {
+      if (!userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.CASES_VIEW_OWN_DASHBOARD)) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+    } else if (isSavedCasesRequest) {
+      if (!userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.CASES_VIEW_SAVED_OWN)) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+    } else if (!reviewQueue && !userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.CASES_VIEW)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const data = await listCaseRecords({
       viewerId: user?.id,
@@ -39,11 +55,14 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const user = await getSessionUser(req);
-    if (!user?.id) {
+    if (!user?.id || !userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.CASES_CREATE_DRAFT)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await req.json();
+    if (body?.intent === 'submit' && !userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.CASES_SUBMIT_OWN_FOR_REVIEW)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const created = await createCaseDraft(user.id, body);
 
     return NextResponse.json({ data: created }, { status: 201 });

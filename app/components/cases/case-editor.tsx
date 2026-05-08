@@ -39,6 +39,8 @@ interface CaseEditorProps {
   courts: CourtOption[];
   onSaveDraft?: (payload: CaseDraftPayload) => Promise<void>;
   onSubmitForReview?: (payload: CaseDraftPayload) => Promise<void>;
+  canSaveDraft?: boolean;
+  canSubmitForReview?: boolean;
 }
 
 const sourceTypeOptions: CaseSourceType[] = [
@@ -141,6 +143,8 @@ export default function CaseEditor({
   courts,
   onSaveDraft,
   onSubmitForReview,
+  canSaveDraft = true,
+  canSubmitForReview = true,
 }: CaseEditorProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [title, setTitle] = useState(initialCase?.title ?? '');
@@ -171,6 +175,8 @@ export default function CaseEditor({
   const [submitting, setSubmitting] = useState<'draft' | 'submit' | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const canPersistDraft = canSaveDraft && typeof onSaveDraft === 'function';
+  const canSubmitDraft = canSubmitForReview && typeof onSubmitForReview === 'function';
 
   const readiness = useMemo(() => {
     const checks = [
@@ -1049,16 +1055,18 @@ export default function CaseEditor({
                 <ChevronLeft className="h-4 w-4" />
                 Back
               </button>
-              <button
-                type="button"
-                onClick={() => handlePersist('draft')}
-                disabled={submitting !== null}
-                className="legal-button-secondary text-sm disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Save className="h-4 w-4" />
-                {submitting === 'draft' ? 'Saving draft...' : 'Save draft'}
-              </button>
-              {currentStep === editorSteps.length - 1 ? (
+              {canPersistDraft ? (
+                <button
+                  type="button"
+                  onClick={() => handlePersist('draft')}
+                  disabled={submitting !== null}
+                  className="legal-button-secondary text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Save className="h-4 w-4" />
+                  {submitting === 'draft' ? 'Saving draft...' : 'Save draft'}
+                </button>
+              ) : null}
+              {currentStep === editorSteps.length - 1 && canSubmitDraft ? (
                 <button
                   type="button"
                   onClick={() => handlePersist('submit')}
@@ -1068,7 +1076,7 @@ export default function CaseEditor({
                   <Send className="h-4 w-4" />
                   {submitting === 'submit' ? 'Submitting...' : 'Submit for review'}
                 </button>
-              ) : (
+              ) : currentStep === editorSteps.length - 1 ? null : (
                 <button
                   type="button"
                   onClick={() => goToStep(currentStep + 1)}

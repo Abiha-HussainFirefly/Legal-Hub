@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { resolveEffectivePermissions } from "@/lib/auth/roles";
 import { createHash } from "crypto";
 
 export interface GetCurrentUserResult {
@@ -9,6 +10,7 @@ export interface GetCurrentUserResult {
     displayName: string | null;
     email: string | null;
     roles: string[];
+    permissions: string[];
     primaryRole: string | null;
     avatarUrl: string | null;
     username: string | null;
@@ -55,7 +57,24 @@ export async function getCurrentUserQuery(
             displayName: true,
             avatarUrl: true,
             roles: {
-              include: { role: { select: { name: true } } },
+              include: {
+                role: {
+                  select: {
+                    name: true,
+                    isActive: true,
+                    permissions: {
+                      include: {
+                        permission: {
+                          select: {
+                            key: true,
+                            isActive: true,
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
             },
             identifiers: {
               where: { type: "EMAIL", isPrimary: true },
@@ -98,7 +117,14 @@ export async function getCurrentUserQuery(
       return { authenticated: false };
     }
 
-    const roles = session.user?.roles?.map((r) => r.role.name) ?? [];
+    const activeRoleAssignments = session.user?.roles?.filter((assignment) => assignment.role.isActive) ?? [];
+    const roles = activeRoleAssignments.map((r) => r.role.name);
+    const assignedPermissionKeys =
+      activeRoleAssignments.flatMap((assignment) =>
+        assignment.role.permissions
+          .filter((binding) => binding.isActive && binding.permission.isActive)
+          .map((binding) => binding.permission.key),
+      );
 
     return {
       authenticated: true,
@@ -108,6 +134,7 @@ export async function getCurrentUserQuery(
         displayName: session.user?.displayName ?? null,
         email: session.user?.identifiers?.[0]?.value ?? null,
         roles,
+        permissions: resolveEffectivePermissions(roles, assignedPermissionKeys),
         primaryRole: roles[0] ?? null,
         avatarUrl: session.user?.avatarUrl ?? null,
         username: session.user?.profile?.username ?? null,

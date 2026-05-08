@@ -1,12 +1,18 @@
 // app/api/answers/[id]/comments/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { LAWYER_PERMISSION_KEYS } from '@/lib/auth/roles';
 import { getSessionUser } from '@/lib/services/api-auth';
+import { userHasLawyerPermission } from '@/lib/services/api-auth';
 import { prisma } from '@/lib/prisma';
 import { AUTHOR_SELECT, createComment } from '@/lib/services/discussion.service';
 type P = { params: Promise<{ id: string }> };
 
 export async function GET(req: NextRequest, { params }: P) {
   try {
+    const user = await getSessionUser(req);
+    if (!userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.COMMENTS_VIEW)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const { id: answerId } = await params;
     const sp=new URL(req.url).searchParams, page=Math.max(1,parseInt(sp.get('page')||'1')), limit=Math.min(50,parseInt(sp.get('limit')||'20')), skip=(page-1)*limit;
     const [total,data]=await prisma.$transaction([
@@ -24,7 +30,9 @@ export async function POST(req: NextRequest, { params }: P) {
   try {
     const { id: answerId } = await params;
     const user=await getSessionUser(req);
-    if (!user?.id) return NextResponse.json({error:'Unauthorized'},{status:401});
+    if (!user?.id || !userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.COMMENTS_CREATE)) {
+      return NextResponse.json({error:'Unauthorized'},{status:401});
+    }
     const {body,parentId}=await req.json();
     if (!body?.trim()) return NextResponse.json({error:'Body required'},{status:400});
     const created = await createComment(user.id,undefined,answerId,parentId,{body});

@@ -1,225 +1,327 @@
-'use client';
+import { getAdminReportsData } from "@/lib/services/admin.server";
+import { AlertTriangle, BarChart3, Gavel, ShieldAlert, Users } from "lucide-react";
+import Link from "next/link";
 
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import { Download } from 'lucide-react';
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("en-US").format(value);
+}
 
-const newUserData = [
-  { month: 'Jan', users: 4000 },
-  { month: 'Feb', users: 4000 },
-  { month: 'Mar', users: 4300 },
-  { month: 'Apr', users: 3500 },
-  { month: 'May', users: 2500 },
-  { month: 'Jun', users: 4900 },
-];
+function formatTimestamp(value: Date) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(value);
+}
 
-const regionalData = [
-  { region: 'Islamabad',  cases: 180 },
-  { region: 'Karachi',    cases: 120 },
-  { region: 'Lahore',     cases: 160 },
-  { region: 'Peshawar',   cases: 80  },
-  { region: 'Quetta',     cases: 110 },
-];
+function maxValue(values: number[]) {
+  return Math.max(...values, 1);
+}
 
-export default function ReportsPage() {
-  const handleDownload = () => {
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const pageW = doc.internal.pageSize.getWidth();
-    const now = new Date();
-    const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-
-    // Header banner //
-    doc.setFillColor(76, 47, 94);
-    doc.rect(0, 0, pageW, 28, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Legal Hub — Reports & Insights', 14, 12);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Generated: ${dateStr}`, 14, 22);
-
-    //  AI Summary section //
-    doc.setTextColor(30, 30, 30);
-    doc.setFontSize(13);
-    doc.setFont('helvetica', 'bold');
-    doc.text('AI Summary', 14, 40);
-
-    doc.setDrawColor(159, 99, 196);
-    doc.setLineWidth(0.5);
-    doc.line(14, 43, pageW - 14, 43);
-
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(50, 50, 50);
-    doc.text('• Increased cases in family law sector, Islamabad region', 16, 51);
-    doc.text('• User growth +18%, case resolutions +12% this month', 16, 59);
-
-    // New Users Over Time table //
-    doc.setFontSize(13);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(30, 30, 30);
-    doc.text('New Users Over Time', 14, 74);
-    doc.setDrawColor(159, 99, 196);
-    doc.line(14, 77, pageW - 14, 77);
-
-    autoTable(doc, {
-      startY: 81,
-      head: [['Month', 'New Users']],
-      body: newUserData.map(d => [d.month, d.users.toLocaleString()]),
-      headStyles: { fillColor: [76, 47, 94], textColor: 255, fontStyle: 'bold', fontSize: 10 },
-      bodyStyles: { fontSize: 10, textColor: [40, 40, 40] },
-      alternateRowStyles: { fillColor: [248, 245, 252] },
-      columnStyles: { 1: { halign: 'right' } },
-      margin: { left: 14, right: 14 },
-      tableWidth: 'auto',
-    });
-
-    // Regional Legal Trends table //
-    const afterFirstTable = (doc as any).lastAutoTable.finalY + 12;
-
-    doc.setFontSize(13);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(30, 30, 30);
-    doc.text('Regional Legal Trends', 14, afterFirstTable);
-    doc.setDrawColor(159, 99, 196);
-    doc.line(14, afterFirstTable + 3, pageW - 14, afterFirstTable + 3);
-
-    autoTable(doc, {
-      startY: afterFirstTable + 7,
-      head: [['Region', 'Cases']],
-      body: regionalData.map(d => [d.region, d.cases.toLocaleString()]),
-      headStyles: { fillColor: [76, 47, 94], textColor: 255, fontStyle: 'bold', fontSize: 10 },
-      bodyStyles: { fontSize: 10, textColor: [40, 40, 40] },
-      alternateRowStyles: { fillColor: [248, 245, 252] },
-      columnStyles: { 1: { halign: 'right' } },
-      margin: { left: 14, right: 14 },
-      tableWidth: 'auto',
-    });
-
-    //  Footer //
-    const pageH = doc.internal.pageSize.getHeight();
-    doc.setFillColor(76, 47, 94);
-    doc.rect(0, pageH - 12, pageW, 12, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Legal Hub — Confidential Report', 14, pageH - 4);
-    doc.text(`Page 1`, pageW - 20, pageH - 4);
-
-    doc.save(`LegalHub_Report_${now.toISOString().slice(0, 10)}.pdf`);
-  };
+function TrendBars({
+  rows,
+  valueKey,
+  tone = "bg-[#4C2F5E]",
+}: {
+  rows: Array<Record<string, string | number>>;
+  valueKey: string;
+  tone?: string;
+}) {
+  const max = maxValue(rows.map((row) => Number(row[valueKey] ?? 0)));
 
   return (
-    <div className="bg-[#FFFFFF] rounded-2xl shadow-sm p-4 md:p-6">
+    <div className="space-y-3">
+      {rows.map((row) => {
+        const value = Number(row[valueKey] ?? 0);
+        const width = `${Math.max(8, (value / max) * 100)}%`;
 
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-5 sm:mb-8">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-1">Reports & Insights</h1>
-          <p className="text-xs sm:text-sm text-gray-500">Analytics and trend data</p>
-        </div>
-        
-        <button
-          onClick={handleDownload}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm text-white rounded-lg transition w-full sm:w-auto hover:opacity-90 cursor-pointer"
-          style={{ background: 'linear-gradient(135deg, #4C2F5E 10%, #9F63C4 100%)' }}
-        >
-          <Download className="w-4 h-4 flex-shrink-0" />
-          Download Report
-        </button>
-      </div>
-
-      {/* AI Summary Section */}
-      <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100 mb-5 sm:mb-8">
-        <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">AI Summary</h2>
-        <div className="space-y-2 sm:space-y-3">
-          <div className="bg-gray-50 border border-gray-100 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm text-black">
-            Increased cases in family law sector, Islamabad region
+        return (
+          <div key={String(row.label)} className="space-y-1.5">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="font-medium text-[#2F1D3B]">{row.label}</span>
+              <span className="text-slate-500">{formatNumber(value)}</span>
+            </div>
+            <div className="h-2 rounded-full bg-[#F1EAF6]">
+              <div className={`h-2 rounded-full ${tone}`} style={{ width }} />
+            </div>
           </div>
-          <div className="bg-gray-50 border border-gray-100 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm text-black">
-            User growth +18%, case resolutions +12% this month
+        );
+      })}
+    </div>
+  );
+}
+
+function StatusPill({ status }: { status: "warning" | "stable" }) {
+  return (
+    <span
+      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+        status === "warning" ? "bg-[#FCE8E6] text-[#A33A31]" : "bg-[#E6F5EF] text-[#0E7A55]"
+      }`}
+    >
+      {status === "warning" ? "Watch" : "Stable"}
+    </span>
+  );
+}
+
+export default async function ReportsPage() {
+  const data = await getAdminReportsData();
+
+  const summaryCards = [
+    {
+      title: "New Users 30d",
+      value: formatNumber(data.summary.newUsers30d),
+      detail: "Accounts created across the last 30 days",
+      icon: Users,
+    },
+    {
+      title: "Published Cases 30d",
+      value: formatNumber(data.summary.publishedCases30d),
+      detail: "Repository items that reached published state",
+      icon: Gavel,
+    },
+    {
+      title: "Open Moderation Signals",
+      value: formatNumber(data.summary.openModerationSignals),
+      detail: "Open reports plus acknowledged/open AI alerts",
+      icon: ShieldAlert,
+    },
+    {
+      title: "Verification Approval Rate",
+      value: data.summary.verificationApprovalRate30d === null ? "N/A" : `${data.summary.verificationApprovalRate30d}%`,
+      detail: "Decided lawyer verification requests in the last 30 days",
+      icon: BarChart3,
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <section className="legal-panel px-6 py-7 md:px-8">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl">
+            <p className="legal-kicker">Analytics & Reports</p>
+            <h1 className="mt-4 text-4xl font-semibold tracking-[-0.05em] text-[#102033]">
+              Platform analytics now come from the live schema.
+            </h1>
+            <p className="mt-4 text-sm leading-7 text-slate-600 md:text-base">
+              This page shows real user growth, content throughput, verification, moderation, queue-aging,
+              and operational anomaly summaries built from Prisma-backed records.
+            </p>
           </div>
-        </div>
-      </div>
 
-      {/* Charts Grid - Optimized for Width */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
-
-        {/* New User Over Time Chart */}
-        <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4 sm:mb-6">New User Over Time</h3>
-          
-          <div className="h-48 sm:h-60 lg:h-[260px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={newUserData} margin={{ top: 20, right: 10, left: -10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                <XAxis
-                  dataKey="month"
-                  tick={{ fill: '#6b7280', fontSize: 11 }}
-                  tickLine={false}
-                  axisLine={{ stroke: '#e5e7eb' }}
-                />
-                <YAxis
-                  tick={{ fill: '#6b7280', fontSize: 11 }}
-                  tickLine={false}
-                  axisLine={{ stroke: '#e5e7eb' }}
-                  width={40}
-                />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px' }}
-                  cursor={{ fill: 'rgba(159,99,196,0.05)' }}
-                />
-                <Bar 
-                  dataKey="users" 
-                  fill="#9F63C4" 
-                  radius={[4, 4, 0, 0]} 
-                  barSize={40}
-                  label={{ position: 'top', fill: '#000', fontSize: 11, fontWeight: 600 }} 
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Regional Legal Trends Chart */}
-        <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4 sm:mb-6">Regional legal Trends</h3>
-          <div className="h-48 sm:h-60 lg:h-[260px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={regionalData} layout="vertical" margin={{ top: 5, right: 40, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-                <XAxis
-                  type="number"
-                  tick={{ fill: '#6b7280', fontSize: 11 }}
-                  tickLine={false}
-                  axisLine={{ stroke: '#e5e7eb' }}
-                />
-                <YAxis
-                  type="category"
-                  dataKey="region"
-                  tick={{ fill: '#6b7280', fontSize: 11 }}
-                  tickLine={false}
-                  axisLine={{ stroke: '#e5e7eb' }}
-                  width={80}
-                />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px' }}
-                />
-                <Bar 
-                  dataKey="cases" 
-                  fill="#9F63C4" 
-                  radius={[0, 4, 4, 0]} 
-                  barSize={24}
-                  label={{ position: 'right', fill: '#000', fontSize: 13, fontWeight: 600 }} 
-                />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] px-5 py-4 text-sm text-slate-600">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Last refresh</p>
+            <p className="mt-2 text-base font-semibold text-[#2F1D3B]">{formatTimestamp(data.generatedAt)}</p>
           </div>
         </div>
+      </section>
 
-      </div>
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {summaryCards.map((card) => {
+          const Icon = card.icon;
+
+          return (
+            <div key={card.title} className="legal-panel p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">{card.title}</p>
+                  <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[#2F1D3B]">{card.value}</p>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">{card.detail}</p>
+                </div>
+                <div className="rounded-[18px] bg-[#F4EFF8] p-3 text-[#4C2F5E]">
+                  <Icon className="h-5 w-5" />
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </section>
+
+      <section className="legal-panel p-5 md:p-6">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Summary Notes</p>
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+          {data.summaryNotes.map((note) => (
+            <div key={note} className="rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] px-4 py-4 text-sm leading-7 text-slate-600">
+              {note}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-2">
+        <div className="legal-panel p-5 md:p-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">User Growth</p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#2F1D3B]">New users by month</h2>
+          <div className="mt-6">
+            <TrendBars rows={data.userGrowth} valueKey="users" />
+          </div>
+        </div>
+
+        <div className="legal-panel p-5 md:p-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Verification Throughput</p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#2F1D3B]">Submitted, approved, rejected</h2>
+          <div className="mt-6 overflow-x-auto">
+            <table className="legal-table w-full min-w-[560px]">
+              <thead>
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Month</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Submitted</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Approved</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Rejected</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#ECE7F2]">
+                {data.verificationThroughput.map((row) => (
+                  <tr key={row.label}>
+                    <td className="px-4 py-3 text-sm font-medium text-[#2F1D3B]">{row.label}</td>
+                    <td className="px-4 py-3 text-sm text-slate-600">{formatNumber(row.submitted)}</td>
+                    <td className="px-4 py-3 text-sm text-slate-600">{formatNumber(row.approved)}</td>
+                    <td className="px-4 py-3 text-sm text-slate-600">{formatNumber(row.rejected)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-2">
+        <div className="legal-panel p-5 md:p-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Content Creation</p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#2F1D3B]">Discussions, answers, comments, cases</h2>
+          <div className="mt-6 overflow-x-auto">
+            <table className="legal-table w-full min-w-[640px]">
+              <thead>
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Month</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Discussions</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Answers</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Comments</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Cases</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#ECE7F2]">
+                {data.contentCreation.map((row) => (
+                  <tr key={row.label}>
+                    <td className="px-4 py-3 text-sm font-medium text-[#2F1D3B]">{row.label}</td>
+                    <td className="px-4 py-3 text-sm text-slate-600">{formatNumber(row.discussions)}</td>
+                    <td className="px-4 py-3 text-sm text-slate-600">{formatNumber(row.answers)}</td>
+                    <td className="px-4 py-3 text-sm text-slate-600">{formatNumber(row.comments)}</td>
+                    <td className="px-4 py-3 text-sm text-slate-600">{formatNumber(row.cases)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="legal-panel p-5 md:p-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Moderation Load</p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#2F1D3B]">Reports, alerts, actions</h2>
+          <div className="mt-6 overflow-x-auto">
+            <table className="legal-table w-full min-w-[560px]">
+              <thead>
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Month</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Reports</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Alerts</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#ECE7F2]">
+                {data.moderationLoad.map((row) => (
+                  <tr key={row.label}>
+                    <td className="px-4 py-3 text-sm font-medium text-[#2F1D3B]">{row.label}</td>
+                    <td className="px-4 py-3 text-sm text-slate-600">{formatNumber(row.reports)}</td>
+                    <td className="px-4 py-3 text-sm text-slate-600">{formatNumber(row.alerts)}</td>
+                    <td className="px-4 py-3 text-sm text-slate-600">{formatNumber(row.actions)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-2">
+        <div className="legal-panel p-5 md:p-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Queue Aging</p>
+          <div className="mt-4 space-y-3">
+            {data.queueAging.map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                className="flex items-center justify-between gap-4 rounded-[18px] border border-[#4C2F5E]/10 bg-[#FBF9FD] px-4 py-3 transition hover:border-[#4C2F5E]/20"
+              >
+                <span className="text-sm font-medium text-[#2F1D3B]">{item.label}</span>
+                <span className="text-sm font-semibold text-[#4C2F5E]">{item.value}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <div className="legal-panel p-5 md:p-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Operational Anomalies</p>
+          <div className="mt-4 space-y-3">
+            {data.anomalies.map((item) => (
+              <div key={item.label} className="rounded-[18px] border border-[#4C2F5E]/10 bg-[#FBF9FD] px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-[#2F1D3B]">{item.label}</p>
+                  <StatusPill status={item.status} />
+                </div>
+                <p className="mt-2 text-sm text-slate-600">{item.detail}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-2">
+        <div className="legal-panel p-5 md:p-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Top Regions</p>
+          <div className="mt-5">
+            <TrendBars rows={data.rankings.regions} valueKey="count" />
+          </div>
+        </div>
+
+        <div className="legal-panel p-5 md:p-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Top Courts</p>
+          <div className="mt-5">
+            <TrendBars rows={data.rankings.courts} valueKey="count" tone="bg-[#735092]" />
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-2">
+        <div className="legal-panel p-5 md:p-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Top Categories</p>
+          <div className="mt-5">
+            <TrendBars rows={data.rankings.categories} valueKey="count" tone="bg-[#8C7A9B]" />
+          </div>
+        </div>
+
+        <div className="legal-panel p-5 md:p-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Top Tags By Engagement</p>
+          <div className="mt-5">
+            {data.rankings.tags.length ? (
+              <TrendBars rows={data.rankings.tags} valueKey="score" tone="bg-[#A0606E]" />
+            ) : (
+              <div className="rounded-[18px] border border-dashed border-[#4C2F5E]/14 bg-[#FBF9FD] px-4 py-5 text-sm text-slate-500">
+                Tag metric data has not been populated yet.
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="legal-panel p-5 md:p-6">
+        <div className="flex items-center gap-3">
+          <AlertTriangle className="h-5 w-5 text-[#4C2F5E]" />
+          <p className="text-sm text-slate-600">
+            Export workflows and scheduled reports are still pending. This page currently focuses on live, read-only platform analytics.
+          </p>
+        </div>
+      </section>
     </div>
   );
 }

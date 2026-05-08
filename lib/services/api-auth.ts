@@ -2,6 +2,11 @@
 import { NextRequest } from "next/server";
 import { getCurrentUserQuery } from "@/lib/actions/auth";
 import { readSessionToken } from "@/lib/auth/session-cookie";
+import {
+  canAccessLawyerPermission,
+  canAccessPermissionRequirement,
+  resolveEffectivePermissions,
+} from "@/lib/auth/roles";
 
 export async function getSessionUser(req: NextRequest) {
   const token = readSessionToken(req);
@@ -20,4 +25,25 @@ export async function getSessionUser(req: NextRequest) {
   if (!result?.authenticated) return null;
 
   return result.user;
+}
+
+export function getUserEffectivePermissions(user: { roles?: string[]; permissions?: string[] } | null | undefined) {
+  if (!user) return [];
+  return resolveEffectivePermissions(user.roles ?? [], user.permissions ?? []);
+}
+
+export function userHasLawyerPermission(
+  user: { roles?: string[]; permissions?: string[] } | null | undefined,
+  permissionKey: string,
+) {
+  if (!user) return false;
+  return canAccessLawyerPermission(user.roles ?? [], user.permissions ?? [], permissionKey);
+}
+
+export function userHasPermissionRequirement(
+  user: { roles?: string[]; permissions?: string[] } | null | undefined,
+  permissionRequirement: string | string[],
+) {
+  if (!user) return false;
+  return canAccessPermissionRequirement(getUserEffectivePermissions(user), permissionRequirement);
 }

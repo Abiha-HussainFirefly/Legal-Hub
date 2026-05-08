@@ -4,8 +4,14 @@
 // and demo Discussions with Answers, Comments, Reactions, Follows, Saves.
 // Run: npx prisma db seed
 
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import {
+  BUSINESS_ROLE_TO_TECHNICAL_ROLE,
+  PERMISSION_CATALOG,
+  ROLE_CATALOG,
+  ROLE_PERMISSION_ASSIGNMENTS,
+} from '../lib/auth/permission-catalog';
 
 const prisma = new PrismaClient();
 
@@ -22,42 +28,181 @@ const ADMIN_PASSWORD = 'Admin@12';
 //   { email: 'demo.lawyer@legalhub.demo',   name: 'Adv. Ahmed Ali',     barCouncil: 'Punjab Bar Council',     specialty: 'Family Law'   },
 // ];
 
+const LAWYER_PASSWORD = 'Lawyer@12';
+
+function makeUsername(name: string) {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20) + Math.floor(Math.random() * 99);
+}
+
+async function ensureUserRoles(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  roleNames: string[],
+) {
+  const roles = await tx.role.findMany({
+    where: { name: { in: roleNames } },
+    select: { id: true, name: true },
+  });
+
+  if (roles.length !== roleNames.length) {
+    const foundRoleNames = new Set(roles.map((role) => role.name));
+    const missingRoles = roleNames.filter((roleName) => !foundRoleNames.has(roleName));
+    throw new Error(`Missing roles for seed assignment: ${missingRoles.join(', ')}`);
+  }
+
+  for (const role of roles) {
+    await tx.userRole.upsert({
+      where: { userId_roleId: { userId, roleId: role.id } },
+      update: {},
+      create: { userId, roleId: role.id },
+    });
+  }
+}
+
 // ── 1. Roles ─────────────────────────────────────────────────
 async function seedRoles() {
-  const roles = [
-    { name: 'admin',    description: 'System Administrator'       },
-    { name: 'lawyer',   description: 'Verified Legal Professional' },
-    { name: 'member',   description: 'Default member role'         },
-    { name: 'moderator',description: 'Content Moderator'          },
-  ];
-  for (const r of roles) {
-    await prisma.role.upsert({ where: { name: r.name }, update: {}, create: { name: r.name, description: r.description, isSystem: true } });
+  for (const role of ROLE_CATALOG) {
+    await prisma.role.upsert({
+      where: { name: role.name },
+      update: {
+        description: role.description,
+        isSystem: role.isSystem,
+      },
+      create: {
+        name: role.name,
+        description: role.description,
+        isSystem: role.isSystem,
+      },
+    });
   }
   console.log('✓ Roles seeded');
 }
 
 // ── 2. Admin account ─────────────────────────────────────────
+async function seedPermissionsAndRoleBindings() {
+  const permissionIdsByKey = new Map<string, string>();
+
+  for (const permission of PERMISSION_CATALOG) {
+    const record = await prisma.permission.upsert({
+      where: { key: permission.key },
+      update: { description: permission.description },
+      create: {
+        key: permission.key,
+        description: permission.description,
+      },
+      select: { id: true, key: true },
+    });
+
+    permissionIdsByKey.set(record.key, record.id);
+  }
+
+  const roles = await prisma.role.findMany({
+    where: { name: { in: Object.keys(ROLE_PERMISSION_ASSIGNMENTS) } },
+    select: { id: true, name: true },
+  });
+  const roleIdsByName = new Map(roles.map((role) => [role.name, role.id]));
+
+  for (const [roleName, permissionKeys] of Object.entries(ROLE_PERMISSION_ASSIGNMENTS)) {
+    const roleId = roleIdsByName.get(roleName);
+    if (!roleId) {
+      throw new Error(`Role "${roleName}" is missing during permission binding seed`);
+    }
+
+    for (const permissionKey of permissionKeys) {
+      const permissionId = permissionIdsByKey.get(permissionKey);
+      if (!permissionId) {
+        throw new Error(`Permission "${permissionKey}" is missing during permission binding seed`);
+      }
+
+      await prisma.rolePermission.upsert({
+        where: {
+          roleId_permissionId: {
+            roleId,
+            permissionId,
+          },
+        },
+        update: {},
+        create: {
+          roleId,
+          permissionId,
+        },
+      });
+    }
+  }
+
+  console.log(`Seeded ${PERMISSION_CATALOG.length} permissions with role bindings`);
+}
+
 async function seedAdmin() {
   const email = ADMIN_EMAIL.trim().toLowerCase();
-  const exists = await prisma.userIdentifier.findUnique({ where: { type_normalizedValue: { type: 'EMAIL', normalizedValue: email } } });
-  if (exists) { console.log(`⚠  Admin already exists — skipping`); return null; }
-
-  const adminRole = await prisma.role.findUnique({ where: { name: 'admin' } });
-  if (!adminRole) throw new Error('admin role missing');
+  const existing = await prisma.userIdentifier.findUnique({ where: { type_normalizedValue: { type: 'EMAIL', normalizedValue: email } } });
   const hash = await bcrypt.hash(ADMIN_PASSWORD, 12);
+  const roleNames = ['SuperAdmin', BUSINESS_ROLE_TO_TECHNICAL_ROLE.SuperAdmin];
 
-  const user = await prisma.$transaction(async (tx) => {
-    const u = await tx.user.create({ data: { userType: 'EXTERNAL', status: 'ACTIVE', displayName: 'Admin' } });
-    await tx.userIdentifier.create({ data: { userId: u.id, type: 'EMAIL', value: email, normalizedValue: email, isPrimary: true, verifiedAt: new Date() } });
-    await tx.credential.create({ data: { userId: u.id, passwordHash: hash, passwordAlgo: 'bcrypt', passwordSetAt: new Date() } });
-    await tx.userRole.create({ data: { userId: u.id, roleId: adminRole.id } });
-    await tx.userProfile.create({ data: { userId: u.id, username: 'admin', isLawyer: false } });
-    await tx.userStats.create({ data: { userId: u.id } });
-    await tx.userGamification.create({ data: { userId: u.id } });
-    return u;
+  const seededUser = await prisma.$transaction(async (tx) => {
+    const userId = existing
+      ? existing.userId
+      : (
+          await tx.user.create({
+            data: { userType: 'EXTERNAL', status: 'ACTIVE', displayName: 'Admin' },
+          })
+        ).id;
+
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        userType: 'EXTERNAL',
+        status: 'ACTIVE',
+        displayName: 'Admin',
+      },
+    });
+
+    if (existing) {
+      await tx.userIdentifier.update({
+        where: { id: existing.id },
+        data: {
+          value: email,
+          normalizedValue: email,
+          isPrimary: true,
+          verifiedAt: new Date(),
+        },
+      });
+    } else {
+      await tx.userIdentifier.create({
+        data: { userId, type: 'EMAIL', value: email, normalizedValue: email, isPrimary: true, verifiedAt: new Date() },
+      });
+    }
+
+    await tx.credential.upsert({
+      where: { userId },
+      update: {
+        passwordHash: hash,
+        passwordAlgo: 'bcrypt',
+        passwordSetAt: new Date(),
+        mustRotate: false,
+      },
+      create: {
+        userId,
+        passwordHash: hash,
+        passwordAlgo: 'bcrypt',
+        passwordSetAt: new Date(),
+        mustRotate: false,
+      },
+    });
+
+    await ensureUserRoles(tx, userId, roleNames);
+    await tx.userProfile.upsert({
+      where: { userId },
+      update: { username: 'admin', isLawyer: false },
+      create: { userId, username: 'admin', isLawyer: false },
+    });
+    await tx.userStats.upsert({ where: { userId }, update: {}, create: { userId } });
+    await tx.userGamification.upsert({ where: { userId }, update: {}, create: { userId } });
+
+    return tx.user.findUnique({ where: { id: userId } });
   });
-  console.log(`✓ Admin account: ${email} / ${ADMIN_PASSWORD}`);
-  return user;
+  console.log(`Seeded admin account: ${email} / ${ADMIN_PASSWORD}`);
+  return seededUser;
 }
 
 // ── 3. Demo lawyer accounts ───────────────────────────────────
@@ -592,6 +737,7 @@ async function main() {
   console.log('\n── Seeding Legal Hub Database ──────────────────\n');
 
   await seedRoles();
+  await seedPermissionsAndRoleBindings();
   await seedAdmin();
   // const lawyers = (await seedLawyers()).filter(Boolean);
   const cats    = await seedCategories();

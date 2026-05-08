@@ -28,9 +28,13 @@ function initials(name: string) {
 export default function CaseResultCard({
   item,
   compact = false,
+  canSave = false,
+  canShare = false,
 }: {
   item: CaseRepositoryRecord;
   compact?: boolean;
+  canSave?: boolean;
+  canShare?: boolean;
 }) {
   const { addToast } = useToast();
   const [saved, setSaved] = useState(item.viewerState.saved);
@@ -54,7 +58,7 @@ export default function CaseResultCard({
   }, [actionPulse]);
 
   async function handleToggleSave() {
-    if (saving) return;
+    if (!canSave || saving) return;
 
     try {
       setSaving(true);
@@ -81,6 +85,8 @@ export default function CaseResultCard({
   }
 
   async function handleShare() {
+    if (!canShare) return;
+
     const url = typeof window === 'undefined' ? '' : `${window.location.origin}/cases/${item.slug}`;
 
     try {
@@ -184,29 +190,33 @@ export default function CaseResultCard({
           </CaseUserLink>
 
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={handleToggleSave}
-              disabled={saving}
-              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
-                saved
-                  ? 'border-[#4C2F5E]/14 bg-[#F1EAF6] text-[#4C2F5E]'
-                  : 'border-[#4C2F5E]/8 bg-white text-[#6B5C79] hover:bg-[#F8F6FB]'
-              } ${actionPulse === 'save' ? 'lh-action-bump lh-action-flash' : ''}`}
-            >
-              <Bookmark className="h-4 w-4" />
-              {saving ? 'Saving...' : saved ? 'Saved' : 'Save'}
-            </button>
-            <button
-              type="button"
-              onClick={handleShare}
-              className={`inline-flex items-center gap-2 rounded-full border border-[#4C2F5E]/8 bg-white px-4 py-2 text-sm font-semibold text-[#6B5C79] transition hover:bg-[#F8F6FB] ${
-                actionPulse === 'share' ? 'lh-action-bump lh-action-flash' : ''
-              }`}
-            >
-              <Share2 className="h-4 w-4" />
-              Share
-            </button>
+            {canSave ? (
+              <button
+                type="button"
+                onClick={handleToggleSave}
+                disabled={saving}
+                className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                  saved
+                    ? 'border-[#4C2F5E]/14 bg-[#F1EAF6] text-[#4C2F5E]'
+                    : 'border-[#4C2F5E]/8 bg-white text-[#6B5C79] hover:bg-[#F8F6FB]'
+                } ${actionPulse === 'save' ? 'lh-action-bump lh-action-flash' : ''}`}
+              >
+                <Bookmark className="h-4 w-4" />
+                {saving ? 'Saving...' : saved ? 'Saved' : 'Save'}
+              </button>
+            ) : null}
+            {canShare ? (
+              <button
+                type="button"
+                onClick={handleShare}
+                className={`inline-flex items-center gap-2 rounded-full border border-[#4C2F5E]/8 bg-white px-4 py-2 text-sm font-semibold text-[#6B5C79] transition hover:bg-[#F8F6FB] ${
+                  actionPulse === 'share' ? 'lh-action-bump lh-action-flash' : ''
+                }`}
+              >
+                <Share2 className="h-4 w-4" />
+                Share
+              </button>
+            ) : null}
             <AnimatedLink
               href={`/cases/${item.slug}`}
               className="inline-flex items-center gap-2 rounded-full border border-[#4C2F5E] bg-[#4C2F5E] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#432853]"

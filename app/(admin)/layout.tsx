@@ -1,29 +1,46 @@
 'use client';
 
+import {
+  canAccessAdminPortal,
+  canAccessAdminPermission,
+  getAdminPermissionForPath,
+  getFirstAccessibleAdminPath,
+} from '@/lib/auth/roles';
 import { useEffect, useState } from 'react';
-import { useRouter }           from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { SidebarProvider, useSidebar } from '@/app/components/admin/sidebar/SidebarContext';
 import Sidebar from '@/app/components/admin/sidebar/Sidebar';
 import Header  from '@/app/components/lawyer/navbar/header';
+
+interface AdminLayoutUser {
+  id?: string;
+  name?: string;
+  email?: string;
+  image?: string;
+  roles?: string[];
+  permissions?: string[];
+  displayName?: string;
+  role?: string;
+}
 
 function AdminShell({
   children,
   userData,
 }: {
   children: React.ReactNode;
-  userData: any;
+  userData: AdminLayoutUser | null;
 }) {
   const { isOpen } = useSidebar();
 
   return (
-    <div className="min-h-screen bg-transparent">
+    <div className="legal-workspace-shell min-h-screen">
       <Sidebar />
       <Header userData={userData} />
       <main
-        className="pt-24 px-3 py-6 transition-all duration-300 md:px-5"
+        className="lh-page-enter px-3 py-6 pt-24 transition-all duration-300 md:px-5"
         style={{ marginLeft: isOpen ? '256px' : '72px' }}
       >
-        {children}
+        <div className="mx-auto w-full max-w-[1600px]">{children}</div>
       </main>
     </div>
   );
@@ -31,7 +48,8 @@ function AdminShell({
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [userData, setUserData] = useState<any>(null);
+  const pathname = usePathname();
+  const [userData, setUserData] = useState<AdminLayoutUser | null>(null);
   const [status, setStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
 
   useEffect(() => {
@@ -42,9 +60,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         if (data.authenticated && data.user) {
           const roles = data.user.roles ?? [];
-          const isAdmin = Array.isArray(roles)
-            ? roles.some((r: string) => r.toUpperCase() === 'ADMIN')
-            : roles.toUpperCase() === 'ADMIN';
+          const permissions = data.user.permissions ?? [];
+          const normalizedRoles = Array.isArray(roles) ? roles : [roles];
+          const isAdmin = canAccessAdminPortal(normalizedRoles);
+          const requiredPermission = getAdminPermissionForPath(pathname);
 
           if (!isAdmin) {
             setStatus('unauthenticated');
@@ -52,7 +71,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             return;
           }
 
-          setUserData(data.user);
+          if (requiredPermission && !canAccessAdminPermission(normalizedRoles, permissions, requiredPermission)) {
+            setStatus('unauthenticated');
+            const fallbackPath = getFirstAccessibleAdminPath(normalizedRoles, permissions) ?? '/adminprofile';
+            router.replace(fallbackPath === pathname ? '/adminprofile' : fallbackPath);
+            return;
+          }
+
+          setUserData(data.user as AdminLayoutUser);
           setStatus('authenticated');
           
           // Sync legacy storage
@@ -70,7 +96,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
 
     checkAdminAuth();
-  }, [router]);
+  }, [pathname, router]);
 
   if (status === 'loading' || !userData) {
     return (

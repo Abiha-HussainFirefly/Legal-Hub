@@ -324,12 +324,18 @@ h1, h2, h3 { letter-spacing: -0.02em; }
 }
 .lh-nav-link:hover::after { transform: scaleX(1); }
 
+.lh-admin-sidebar {
+  background:
+    linear-gradient(180deg, rgba(252, 249, 254, 0.98) 0%, rgba(245, 239, 249, 0.98) 100%),
+    radial-gradient(circle at top left, rgba(159, 99, 196, 0.08), transparent 26%);
+  box-shadow: 10px 0 30px rgba(76, 47, 94, 0.06);
+}
+
 .lh-sidebar-section {
   padding-bottom: 16px;
   margin-bottom: 16px;
   border-bottom: 1px solid #EDE8F3;
 }
-
 .reaction-pill {
   display: inline-flex;
   align-items: center;
@@ -548,6 +554,17 @@ select:not([multiple]):disabled {
   border-color: rgba(76, 47, 94, 0.55);
   box-shadow: 0 0 0 4px rgba(76, 47, 94, 0.1);
   background: white;
+}
+
+.legal-field:-webkit-autofill,
+.legal-field:-webkit-autofill:hover,
+.legal-field:-webkit-autofill:focus,
+.legal-field:-webkit-autofill:active {
+  -webkit-text-fill-color: #332043;
+  -webkit-box-shadow: 0 0 0 1000px white inset;
+  box-shadow: 0 0 0 1000px white inset;
+  caret-color: #332043;
+  transition: background-color 9999s ease-out 0s;
 }
 
 .workspace-header {

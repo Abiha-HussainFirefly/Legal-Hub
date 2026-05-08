@@ -46,6 +46,9 @@ interface Props {
   userReaction?: { reactionType: string; emoji: string | null } | null;
   isSaved?: boolean;
   isLoggedIn: boolean;
+  canReact?: boolean;
+  canBookmark?: boolean;
+  canViewAiSummary?: boolean;
   initialEmojiStats?: Record<string, { count: number; reactors: string[] }>;
 }
 
@@ -105,6 +108,9 @@ export default function DiscussionCard({
   userReaction: initialReaction = null,
   isSaved: initialSaved = false,
   isLoggedIn,
+  canReact = false,
+  canBookmark = false,
+  canViewAiSummary = false,
   initialEmojiStats = {},
 }: Props) {
   const [saved, setSaved] = useState(initialSaved);
@@ -150,7 +156,7 @@ export default function DiscussionCard({
   }, [showEmojiPicker]);
 
   async function updateReaction(body: { reactionType: string; emoji?: string }) {
-    if (!isLoggedIn || reactionPending) return;
+    if (!isLoggedIn || !canReact || reactionPending) return;
 
     const previousState = {
       score: currentScore,
@@ -195,7 +201,7 @@ export default function DiscussionCard({
     event.preventDefault();
     event.stopPropagation();
 
-    if (!isLoggedIn || savePending) return;
+    if (!isLoggedIn || !canBookmark || savePending) return;
 
     const previousValue = saved;
     setSavePending(true);
@@ -237,12 +243,12 @@ export default function DiscussionCard({
   const activeEmojiEntries = Object.entries(emojiStats);
 
   return (
-    <article className="border-b border-[#2F1D3B]/8 bg-white last:border-b-0">
+    <article className="rounded-[24px] border border-[#2F1D3B]/8 bg-white shadow-[0_10px_28px_rgba(47,29,59,0.04)] transition hover:border-[#4C2F5E]/14 hover:shadow-[0_14px_34px_rgba(76,47,94,0.08)]">
       <div className="flex gap-3 p-4 sm:gap-4 sm:p-5">
         <div className="hidden w-[84px] shrink-0 flex-col items-center gap-2 sm:flex">
           <button
             onClick={() => updateReaction({ reactionType: 'UPVOTE' })}
-            disabled={!isLoggedIn || reactionPending}
+            disabled={!isLoggedIn || !canReact || reactionPending}
             className={`flex w-full flex-col items-center rounded-[14px] border px-3 py-2.5 text-center transition ${
               myReaction === 'UPVOTE' && !myEmoji
                 ? 'border-[#4C2F5E]/16 bg-[#F1EAF6] text-[#4C2F5E]'
@@ -282,7 +288,7 @@ export default function DiscussionCard({
                 Pinned
               </span>
             ) : null}
-            {isAiSummaryReady ? (
+            {isAiSummaryReady && canViewAiSummary ? (
               <span className="rounded-full border border-[#4C2F5E]/12 bg-[#4C2F5E] px-2.5 py-1 text-[11px] font-semibold text-white">
                 AI summary
               </span>
@@ -361,9 +367,9 @@ export default function DiscussionCard({
                 <Tooltip content="React">
                   <button
                     onClick={() => {
-                      if (isLoggedIn) setShowEmojiPicker((current) => !current);
+                      if (isLoggedIn && canReact) setShowEmojiPicker((current) => !current);
                     }}
-                    disabled={!isLoggedIn}
+                    disabled={!isLoggedIn || !canReact}
                     className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#2F1D3B]/10 bg-white text-[#6B5C79] transition hover:bg-[#F8F6FB] disabled:opacity-40"
                     aria-label="React"
                   >
@@ -390,7 +396,7 @@ export default function DiscussionCard({
                 ) : null}
               </div>
 
-              {activeEmojiEntries.slice(0, 2).map(([emoji, stat]) => (
+              {canReact ? activeEmojiEntries.slice(0, 2).map(([emoji, stat]) => (
                 <button
                   key={emoji}
                   onClick={() => {
@@ -408,7 +414,7 @@ export default function DiscussionCard({
                   <span>{emoji}</span>
                   {stat.count}
                 </button>
-              ))}
+              )) : null}
 
               <AnimatedLink
                 href={`/discussions/${slug}#answers`}
@@ -435,16 +441,18 @@ export default function DiscussionCard({
                 </button>
               </Tooltip>
 
-              <Tooltip content={saved ? 'Remove bookmark' : 'Save discussion'}>
-                <button
-                  onClick={handleBookmark}
-                  disabled={!isLoggedIn || savePending}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#2F1D3B]/10 bg-white text-[#6B5C79] transition hover:bg-[#F8F6FB] disabled:opacity-40"
-                  aria-label={saved ? 'Remove bookmark' : 'Save discussion'}
-                >
-                  {saved ? <BookmarkCheck className="h-4 w-4 text-[#4C2F5E]" /> : <Bookmark className="h-4 w-4" />}
-                </button>
-              </Tooltip>
+              {canBookmark ? (
+                <Tooltip content={saved ? 'Remove bookmark' : 'Save discussion'}>
+                  <button
+                    onClick={handleBookmark}
+                    disabled={!isLoggedIn || savePending}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#2F1D3B]/10 bg-white text-[#6B5C79] transition hover:bg-[#F8F6FB] disabled:opacity-40"
+                    aria-label={saved ? 'Remove bookmark' : 'Save discussion'}
+                  >
+                    {saved ? <BookmarkCheck className="h-4 w-4 text-[#4C2F5E]" /> : <Bookmark className="h-4 w-4" />}
+                  </button>
+                </Tooltip>
+              ) : null}
             </div>
           </div>
         </div>

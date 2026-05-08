@@ -87,7 +87,9 @@ export async function loginCommand(input: LoginInput): Promise<LoginResult> {
     // Clear failure counter on successful login
     resetRateLimit(failKey);
 
-    const assignedRoles = user.roles.map((r) => r.role.name.toUpperCase());
+    const assignedRoles = user.roles
+      .filter((assignment) => assignment.role.isActive)
+      .map((r) => r.role.name.toUpperCase());
     
     // 1. Admin Portal Restriction
     if (loginType === "ADMIN" && !assignedRoles.includes("ADMIN")) {

@@ -21,9 +21,15 @@ export interface CaseUserSummary {
   displayName: string;
   email?: string | null;
   avatarUrl?: string | null;
+  username?: string | null;
+  headline?: string | null;
   organizationName?: string | null;
   roleLabel?: string;
+  isLawyer?: boolean;
   isVerifiedLawyer?: boolean;
+  firmName?: string | null;
+  barCouncil?: string | null;
+  regionName?: string | null;
 }
 
 export interface CaseTaxonomy {

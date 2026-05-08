@@ -8,7 +8,7 @@ import LawyerTopbar from '@/app/components/lawyer/lawyer-topbar';
 import AnimatedLink from '@/app/components/ui/animated-link';
 import Tooltip from '@/app/components/ui/tooltip';
 import { apiRequest, getErrorMessage } from '@/lib/api-client';
-import { applyOptimisticDiscussionReaction } from '@/lib/discussion-reaction-state';
+import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from '@/lib/auth/roles';
 import { ArrowUp, ChevronRight, Eye, Loader2, MapPin, MessageSquare, Smile } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { use, useEffect, useRef, useState } from 'react';
@@ -120,6 +120,8 @@ interface CurrentUser {
   firmName?: string | null;
   barCouncil?: string | null;
   verificationStatus?: string | null;
+  roles?: string[];
+  permissions?: string[];
 }
 
 interface AuthResponse {
@@ -190,6 +192,19 @@ export default function DiscussionDetailPage({
   const [discussionComments, setDiscussionComments] = useState<DiscussionComment[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const emojiRef = useRef<HTMLDivElement>(null);
+  const userRoles = user?.roles ?? [];
+  const userPermissions = user?.permissions ?? [];
+  const canReactToDiscussion = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_REACT);
+  const canViewDiscussionAiSummary = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_AI_SUMMARY_VIEW);
+  const canViewAnswers = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.ANSWERS_VIEW);
+  const canCreateAnswers = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.ANSWERS_CREATE);
+  const canAcceptAnswers = canAccessLawyerPermission(
+    userRoles,
+    userPermissions,
+    LAWYER_PERMISSION_KEYS.ANSWERS_ACCEPT_ON_OWN_DISCUSSION,
+  );
+  const canViewComments = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.COMMENTS_VIEW);
+  const canCreateComments = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.COMMENTS_CREATE);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -293,7 +308,7 @@ export default function DiscussionDetailPage({
   }, [actionPulse]);
 
   async function updateReaction(body: { reactionType: string; emoji?: string }) {
-    if (!user) {
+    if (!user || !canReactToDiscussion) {
       router.push('/lawyerlogin');
       return;
     }
@@ -340,7 +355,7 @@ export default function DiscussionDetailPage({
   }
 
   async function postAnswer() {
-    if (!answerText.trim() || posting || !user || !discussion) return;
+    if (!answerText.trim() || posting || !user || !discussion || !canCreateAnswers) return;
 
     setPosting(true);
     setPostError('');
@@ -474,7 +489,7 @@ export default function DiscussionDetailPage({
                 <span className={`workspace-pill ${isResolved ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-[#2F1D3B]/8 bg-white text-[#736683]'}`}>
                   {isResolved ? 'Answered' : kindLabel(discussion.kind)}
                 </span>
-                {discussion.isAiSummaryReady ? <span className="workspace-pill border-[#4C2F5E]/12 bg-[#4C2F5E] text-white">AI summary</span> : null}
+                {discussion.isAiSummaryReady && canViewDiscussionAiSummary ? <span className="workspace-pill border-[#4C2F5E]/12 bg-[#4C2F5E] text-white">AI summary</span> : null}
                 {discussion.tags.map((tag) => (
                   <span key={tag.id} className="rounded-full border border-[#2F1D3B]/8 bg-[#F8F6FB] px-2.5 py-1 text-[11px] font-medium text-[#6B5C79]">
                     #{tag.name}
@@ -530,7 +545,7 @@ export default function DiscussionDetailPage({
                   </div>
                 </div>
 
-                {discussion.isAiSummaryReady ? (
+                {discussion.isAiSummaryReady && canViewDiscussionAiSummary ? (
                   <button onClick={() => setIsModalOpen(true)} className="legal-button-primary text-sm">
                     View AI summary
                   </button>
@@ -544,7 +559,7 @@ export default function DiscussionDetailPage({
               <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-[#2F1D3B]/8 pt-4">
                 <button
                   onClick={() => updateReaction({ reactionType: 'UPVOTE' })}
-                  disabled={reactionPending}
+                  disabled={!canReactToDiscussion || reactionPending}
                   className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold transition ${
                     myReaction === 'UPVOTE' && !myEmoji
                       ? 'border-[#4C2F5E]/16 bg-[#F1EAF6] text-[#4C2F5E]'
@@ -559,7 +574,7 @@ export default function DiscussionDetailPage({
                   <Tooltip content="React">
                     <button
                       onClick={() => {
-                        if (user) {
+                        if (user && canReactToDiscussion) {
                           setShowEmojiPicker((current) => !current);
                         } else {
                           router.push('/lawyerlogin');
@@ -589,7 +604,7 @@ export default function DiscussionDetailPage({
                   ) : null}
                 </div>
 
-                {activeEmojis.map(([emoji, stat]) => (
+                {canReactToDiscussion ? activeEmojis.map(([emoji, stat]) => (
                   <button
                     key={emoji}
                     onClick={() => {
@@ -607,7 +622,7 @@ export default function DiscussionDetailPage({
                     <span>{emoji}</span>
                     {stat.count}
                   </button>
-                ))}
+                )) : null}
 
                 <span className="inline-flex items-center gap-2 rounded-full border border-[#2F1D3B]/8 bg-[#F8F6FB] px-3 py-2 text-sm font-semibold text-[#6B5C79]">
                   <MessageSquare className="h-4 w-4" />
@@ -620,9 +635,14 @@ export default function DiscussionDetailPage({
                 </span>
               </div>
 
-              {discussion.commentCount > 0 || user ? (
+              {canViewComments && (discussion.commentCount > 0 || user) ? (
                 <div className="mt-6 border-t border-[#2F1D3B]/8 pt-5">
-                  <CommentThread comments={discussionComments} discussionId={discussion.slug} currentUser={currentUserAuthor} />
+                  <CommentThread
+                    comments={discussionComments}
+                    discussionId={discussion.slug}
+                    currentUser={currentUserAuthor}
+                    canCreateComments={canCreateComments}
+                  />
                 </div>
               ) : null}
             </section>
@@ -637,7 +657,11 @@ export default function DiscussionDetailPage({
               </p>
             </div>
 
-            {answers.length === 0 ? (
+            {!canViewAnswers ? (
+              <div className="workspace-sidebar mt-4 px-6 py-10 text-center text-sm text-[#736683]">
+                Answer access is not available for this account.
+              </div>
+            ) : answers.length === 0 ? (
               <div className="workspace-sidebar mt-4 px-6 py-10 text-center text-sm text-[#736683]">
                 No answers yet. Be the first to help.
               </div>
@@ -664,6 +688,10 @@ export default function DiscussionDetailPage({
                     currentUser={currentUserAuthor}
                     discussionId={discussion.id}
                     isDiscussionResolved={discussion.status === 'RESOLVED'}
+                    canReact={canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.ANSWERS_REACT)}
+                    canAccept={canAcceptAnswers}
+                    canViewComments={canViewComments}
+                    canCreateComments={canCreateComments}
                   />
                 ))}
               </div>
@@ -679,6 +707,8 @@ export default function DiscussionDetailPage({
                     Sign in to answer
                   </AnimatedLink>
                 </div>
+              ) : !canCreateAnswers ? (
+                <p className="mt-4 text-sm text-[#736683]">Answer posting is not available for this account.</p>
               ) : discussion.status === 'LOCKED' ? (
                 <p className="mt-4 text-sm text-[#736683]">This discussion is locked and no longer accepts answers.</p>
               ) : (
@@ -810,7 +840,7 @@ export default function DiscussionDetailPage({
       </div>
 
       <AISummaryModal
-        isOpen={isModalOpen}
+        isOpen={canViewDiscussionAiSummary ? isModalOpen : false}
         onClose={() => setIsModalOpen(false)}
         summaryData={aiSummary}
         discussionTitle={discussion.title}

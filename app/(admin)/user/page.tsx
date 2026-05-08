@@ -1,197 +1,270 @@
-'use client';
+import UserAdminTable from "@/app/(admin)/user/UserAdminTable";
+import AdminSearchField from "@/app/components/admin/AdminSearchField";
+import { getAdminUsersPageData } from "@/lib/services/admin.server";
+import { BadgeCheck, KeyRound, Shield, UserCog } from "lucide-react";
+import Link from "next/link";
 
-import { Eye, Search } from 'lucide-react';
-import { useState } from 'react';
+function getFirstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
 
-const users = [
-  { id: 1,  name: 'Ali Hassan',     email: 'ali@example.com',     role: 'client', region: 'Islamabad',  cases: 3,  lastActive: '2024-01-20' },
-  { id: 2,  name: 'Fatima Khan',    email: 'fatima@example.com',  role: 'lawyer', region: 'Karachi',    cases: 15, lastActive: '2024-01-21' },
-  { id: 3,  name: 'Mohsin Khan',    email: 'mohsin@example.com',  role: 'admin',  region: 'Lahore',     cases: 0,  lastActive: '2024-01-21' },
-  { id: 4,  name: 'Sana Mirza',     email: 'sana@example.com',    role: 'client', region: 'Peshawar',   cases: 5,  lastActive: '2024-01-22' },
-  { id: 5,  name: 'Bilal Akhtar',   email: 'bilal@example.com',   role: 'lawyer', region: 'Multan',     cases: 9,  lastActive: '2024-01-23' },
-  { id: 6,  name: 'Zara Hussain',   email: 'zara@example.com',    role: 'client', region: 'Quetta',     cases: 2,  lastActive: '2024-01-24' },
-  { id: 7,  name: 'Omar Farooq',    email: 'omar@example.com',    role: 'lawyer', region: 'Islamabad',  cases: 20, lastActive: '2024-01-25' },
-  { id: 8,  name: 'Nida Malik',     email: 'nida@example.com',    role: 'admin',  region: 'Karachi',    cases: 0,  lastActive: '2024-01-26' },
-  { id: 9,  name: 'Tariq Siddiqui', email: 'tariq@example.com',   role: 'client', region: 'Lahore',     cases: 7,  lastActive: '2024-01-27' },
-  
-];
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("en-US").format(value);
+}
 
-const ITEMS_PER_PAGE = 3;
+function formatDate(value: Date | null) {
+  if (!value) return "No login yet";
 
-const getRoleBadgeClass = (role: string) => {
-  switch (role) {
-    case 'client':
-    case 'lawyer':
-    case 'admin':
-      return 'bg-[#EBDEF0] text-black';
-    default:
-      return 'bg-gray-100 text-gray-700';
-  }
-};
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(value);
+}
 
-export default function UserPage() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [roleFilter, setRoleFilter]   = useState('All Roles');
-  const [currentPage, setCurrentPage] = useState(1);
+function buildQueryString(
+  filters: {
+    q: string;
+    status: string;
+    userType: string;
+    role: string;
+    verification: string;
+    identifier: string;
+    mfa: string;
+    risk: string;
+    createdFrom: string;
+    createdTo: string;
+    lastLoginFrom: string;
+    lastLoginTo: string;
+    page: number;
+  },
+  overrides: Partial<{
+    q: string;
+    status: string;
+    userType: string;
+    role: string;
+    verification: string;
+    identifier: string;
+    mfa: string;
+    risk: string;
+    createdFrom: string;
+    createdTo: string;
+    lastLoginFrom: string;
+    lastLoginTo: string;
+    page: number;
+  }> = {},
+) {
+  const params = new URLSearchParams();
+  const next = { ...filters, ...overrides };
 
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-    setCurrentPage(1);
-  };
+  if (next.q) params.set("q", next.q);
+  if (next.status) params.set("status", next.status);
+  if (next.userType) params.set("userType", next.userType);
+  if (next.role) params.set("role", next.role);
+  if (next.verification) params.set("verification", next.verification);
+  if (next.identifier) params.set("identifier", next.identifier);
+  if (next.mfa) params.set("mfa", next.mfa);
+  if (next.risk) params.set("risk", next.risk);
+  if (next.createdFrom) params.set("createdFrom", next.createdFrom);
+  if (next.createdTo) params.set("createdTo", next.createdTo);
+  if (next.lastLoginFrom) params.set("lastLoginFrom", next.lastLoginFrom);
+  if (next.lastLoginTo) params.set("lastLoginTo", next.lastLoginTo);
+  if (next.page > 1) params.set("page", `${next.page}`);
 
-  const handleRoleFilter = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setRoleFilter(e.target.value);
-    setCurrentPage(1);
-  };
+  const query = params.toString();
+  return query ? `/user?${query}` : "/user";
+}
 
-  const filtered = users.filter((u) => {
-    const matchesSearch =
-      u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRole =
-      roleFilter === 'All Roles' || u.role === roleFilter.toLowerCase();
-    return matchesSearch && matchesRole;
+export default async function UserPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const data = await getAdminUsersPageData({
+    q: getFirstParam(resolvedSearchParams.q),
+    status: getFirstParam(resolvedSearchParams.status),
+    userType: getFirstParam(resolvedSearchParams.userType),
+    role: getFirstParam(resolvedSearchParams.role),
+    verification: getFirstParam(resolvedSearchParams.verification),
+    identifier: getFirstParam(resolvedSearchParams.identifier),
+    mfa: getFirstParam(resolvedSearchParams.mfa),
+    risk: getFirstParam(resolvedSearchParams.risk),
+    createdFrom: getFirstParam(resolvedSearchParams.createdFrom),
+    createdTo: getFirstParam(resolvedSearchParams.createdTo),
+    lastLoginFrom: getFirstParam(resolvedSearchParams.lastLoginFrom),
+    lastLoginTo: getFirstParam(resolvedSearchParams.lastLoginTo),
+    page: Number.parseInt(getFirstParam(resolvedSearchParams.page) ?? "1", 10),
   });
 
-  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
-  const paginated  = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
-  const start      = filtered.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1;
-  const end        = Math.min(currentPage * ITEMS_PER_PAGE, filtered.length);
+  const summaryCards = [
+    {
+      title: "Total Users",
+      value: formatNumber(data.summary.totalUsers),
+      detail: `${formatNumber(data.pagination.total)} matching current filters`,
+      icon: UserCog,
+    },
+    {
+      title: "Privileged Accounts",
+      value: formatNumber(data.summary.privilegedUsers),
+      detail: "Admin, super admin, and moderator roles",
+      icon: Shield,
+    },
+    {
+      title: "MFA Enabled",
+      value: formatNumber(data.summary.mfaEnabledUsers),
+      detail: "Accounts with at least one active factor",
+      icon: KeyRound,
+    },
+    {
+      title: "Verified Lawyers",
+      value: formatNumber(data.summary.verifiedLawyers),
+      detail: "Authoritative trust signal from LawyerProfile",
+      icon: BadgeCheck,
+    },
+  ];
+
+  const currentFilters = data.filters;
+  const visiblePages = Array.from(
+    { length: data.pagination.totalPages },
+    (_, index) => index + 1,
+  ).slice(Math.max(0, currentFilters.page - 3), currentFilters.page + 2);
 
   return (
     <div className="space-y-6">
-
       <section className="legal-panel px-6 py-7 md:px-8">
-        <p className="legal-kicker">User management</p>
-        <h1 className="mt-4 text-4xl font-semibold tracking-[-0.05em] text-[#102033]">Review users with less clutter.</h1>
-        <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 md:text-base">
-          Search, filter, and inspect user records inside a denser but calmer admin table designed for legal platform operations.
-        </p>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl">
+            <p className="legal-kicker">Users & Identity</p>
+            <h1 className="mt-4 text-4xl font-semibold tracking-[-0.05em] text-[#102033]">
+              Real identity search, status filtering, and trust visibility.
+            </h1>
+            <p className="mt-4 text-sm leading-7 text-slate-600 md:text-base">
+              This page reads live user, role, identifier, MFA, and lawyer-verification data from the platform.
+              The surface stays intentionally read-mostly so account controls sit on top of reliable identity records.
+            </p>
+          </div>
+
+          <div className="rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] px-5 py-4 text-sm text-slate-600">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Current result window</p>
+            <p className="mt-2 text-base font-semibold text-[#2F1D3B]">
+              {data.pagination.start} to {data.pagination.end} of {formatNumber(data.pagination.total)}
+            </p>
+          </div>
+        </div>
       </section>
 
-      <div className="legal-panel p-4 md:p-6">
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {summaryCards.map((card) => {
+          const Icon = card.icon;
 
-        {/* Search and Filter Bar */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
-          <div className="relative flex-1 sm:max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={handleSearch}
-              placeholder="Search by name or email..."
-              className="legal-field w-full pl-9 sm:pl-10 pr-4 py-3 text-sm"
-            />
-          </div>
+          return (
+            <div key={card.title} className="legal-panel p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">{card.title}</p>
+                  <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[#2F1D3B]">{card.value}</p>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">{card.detail}</p>
+                </div>
+                <div className="rounded-[18px] bg-[#F4EFF8] p-3 text-[#4C2F5E]">
+                  <Icon className="h-5 w-5" />
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </section>
 
-          <select
-            value={roleFilter}
-            onChange={handleRoleFilter}
-            className="legal-field w-full cursor-pointer px-4 py-3 text-sm sm:w-auto"
-          >
-            <option>All Roles</option>
-            <option>Client</option>
-            <option>Lawyer</option>
-            <option>Admin</option>
+      <section className="legal-panel p-4 md:p-6">
+        <form className="grid gap-4 xl:grid-cols-4">
+          <AdminSearchField
+            defaultValue={currentFilters.q}
+            placeholder="Search ID, name, username, email, phone, or organization"
+          />
+
+          <select name="status" defaultValue={currentFilters.status} className="legal-field">
+            <option value="">All statuses</option>
+            <option value="ACTIVE">Active</option>
+            <option value="SUSPENDED">Suspended</option>
+            <option value="DISABLED">Disabled</option>
+            <option value="DELETED">Deleted</option>
           </select>
-        </div>
 
-        {/* Table */}
-        
-          <div className="legal-table-wrap p-0 overflow-x-auto">
-          <table className="legal-table w-full min-w-[560px]">
-            <thead>
-              <tr>
-                <th className="px-4 md:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold">Name</th>
-                <th className="hidden sm:table-cell px-4 md:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold">Email</th>
-                <th className="px-4 md:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold">Role</th>
-                <th className="hidden md:table-cell px-4 md:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold">Region</th>
-                <th className="hidden md:table-cell px-4 md:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold">Cases</th>
-                <th className="hidden lg:table-cell px-4 md:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold">Last Active</th>
-                <th className="px-4 md:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {paginated.length > 0 ? paginated.map((user) => (
-                <tr key={user.id} className="transition">
-                  <td className="px-4 md:px-6 py-3 sm:py-4 text-sm font-medium text-gray-900">
-                    <div className="flex flex-col gap-0.5">
-                      <span>{user.name}</span>
-                      <span className="sm:hidden text-[10px] text-gray-400">{user.email}</span>
-                    </div>
-                  </td>
-                  <td className="hidden sm:table-cell px-4 md:px-6 py-3 sm:py-4 text-sm text-gray-600">
-                    {user.email}
-                  </td>
-                  <td className="px-4 md:px-6 py-3 sm:py-4">
-                    <span className={`inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs font-medium ${getRoleBadgeClass(user.role)}`}>
-                      {user.role}
-                    </span>
-                  </td>
-                  <td className="hidden md:table-cell px-4 md:px-6 py-3 sm:py-4 text-sm text-gray-600">
-                    {user.region}
-                  </td>
-                  <td className="hidden md:table-cell px-4 md:px-6 py-3 sm:py-4 text-sm text-gray-600">
-                    {user.cases}
-                  </td>
-                  <td className="hidden lg:table-cell px-4 md:px-6 py-3 sm:py-4 text-sm text-gray-600">
-                    {user.lastActive}
-                  </td>
-                  <td className="px-4 md:px-6 py-3 sm:py-4">
-                    <button className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm text-black hover:text-[#8A6C3F] hover:border-[#8A6C3F]/30 font-medium rounded-full border border-gray-200 transition-all bg-white">
-                      <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#102033]" />
-                      View
-                    </button>
-                  </td>
-                </tr>
-              )) : (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">
-                    No users found matching your search.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+          <select name="userType" defaultValue={currentFilters.userType} className="legal-field">
+            <option value="">All user types</option>
+            <option value="EXTERNAL">External</option>
+            <option value="SYSTEM">System</option>
+          </select>
 
-        {/* Pagination */}
-        <div className="pt-4 mt-2 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-xs sm:text-sm text-slate-500">
-            Showing {start} to {end} of {filtered.length} results
-          </p>
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="legal-button-secondary disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Previous
+          <select name="role" defaultValue={currentFilters.role} className="legal-field">
+            <option value="">All roles</option>
+            <option value="admin">Admin</option>
+            <option value="super_admin">Super admin</option>
+            <option value="moderator">Moderator</option>
+            <option value="lawyer">Lawyer</option>
+            <option value="member">Member</option>
+          </select>
+
+          <select name="verification" defaultValue={currentFilters.verification} className="legal-field">
+            <option value="">All verification states</option>
+            <option value="VERIFIED">Verified lawyer</option>
+            <option value="PENDING">Pending</option>
+            <option value="UNDER_REVIEW">Under review</option>
+            <option value="REJECTED">Rejected</option>
+            <option value="EXPIRED">Expired</option>
+            <option value="NOT_SUBMITTED">Not submitted</option>
+          </select>
+
+          <select name="identifier" defaultValue={currentFilters.identifier} className="legal-field">
+            <option value="">All identifier states</option>
+            <option value="verified">Has verified identifier</option>
+            <option value="unverified">Has unverified identifier</option>
+          </select>
+
+          <select name="mfa" defaultValue={currentFilters.mfa} className="legal-field">
+            <option value="">All MFA states</option>
+            <option value="enabled">MFA enabled</option>
+            <option value="disabled">MFA missing</option>
+          </select>
+
+          <select name="risk" defaultValue={currentFilters.risk} className="legal-field">
+            <option value="">All risk states</option>
+            <option value="high">Recent failed logins</option>
+          </select>
+
+          <input type="date" name="createdFrom" defaultValue={currentFilters.createdFrom} className="legal-field" />
+          <input type="date" name="createdTo" defaultValue={currentFilters.createdTo} className="legal-field" />
+          <input type="date" name="lastLoginFrom" defaultValue={currentFilters.lastLoginFrom} className="legal-field" />
+          <input type="date" name="lastLoginTo" defaultValue={currentFilters.lastLoginTo} className="legal-field" />
+
+          <div className="flex items-center gap-3 xl:col-span-4">
+            <button type="submit" className="legal-button-primary w-full xl:w-auto">
+              Apply Filters
             </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
-              <button
-                key={n}
-                onClick={() => setCurrentPage(n)}
-                className={`w-8 h-7 md:w-10 md:h-10 flex items-center justify-center text-xs md:text-sm rounded-full shadow-sm transition ${
-                  n === currentPage
-                    ? 'bg-[#102033] text-white'
-                    : 'text-gray-600 hover:bg-[#F8F4EE]'
-                }`}
-              >
-                {n}
-              </button>
-            ))}
-            <button
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages || totalPages === 0}
-              className="legal-button-secondary disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Next
-            </button>
+            <Link href="/user" className="legal-button-secondary w-full xl:w-auto">
+              Reset
+            </Link>
           </div>
-        </div>
+        </form>
+      </section>
 
-      </div>
+      <UserAdminTable
+        rows={data.rows.map((user) => ({
+          ...user,
+          lastLoginLabel: formatDate(user.lastLoginAt),
+          createdAtLabel: formatDate(user.createdAt),
+        }))}
+        pagination={data.pagination}
+        currentPage={currentFilters.page}
+        pageLinks={visiblePages.map((pageNumber) => ({
+          pageNumber,
+          href: buildQueryString(currentFilters, { page: pageNumber }),
+        }))}
+        previousHref={buildQueryString(currentFilters, { page: Math.max(1, currentFilters.page - 1) })}
+        nextHref={buildQueryString(currentFilters, { page: Math.min(data.pagination.totalPages, currentFilters.page + 1) })}
+        isFirstPage={currentFilters.page === 1}
+        isLastPage={currentFilters.page === data.pagination.totalPages}
+      />
     </div>
   );
 }

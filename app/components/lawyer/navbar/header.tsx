@@ -18,33 +18,21 @@ interface HeaderProps {
   } | null;
 }
 
-const SEARCH_DATA = [
-  { id: 1,  label: 'Ali Hassan',       subLabel: 'ali@example.com',      type: 'User',      href: '/admin/users'        },
-  { id: 2,  label: 'Fatima Khan',      subLabel: 'fatima@example.com',     type: 'User',      href: '/admin/users'        },
-  { id: 3,  label: 'Mohsin Khan',      subLabel: 'mohsin@example.com',     type: 'User',      href: '/admin/users'        },
-  { id: 4,  label: 'Sana Mirza',       subLabel: 'sana@example.com',       type: 'User',      href: '/admin/users'        },
-  { id: 5,  label: 'Bilal Akhtar',     subLabel: 'bilal@example.com',      type: 'User',      href: '/admin/users'        },
-  { id: 6,  label: 'Zara Hussain',     subLabel: 'zara@example.com',       type: 'User',      href: '/admin/users'        },
-  { id: 7,  label: 'Omar Farooq',      subLabel: 'omar@example.com',       type: 'User',      href: '/admin/users'        },
-  { id: 8,  label: 'Nida Malik',       subLabel: 'nida@example.com',       type: 'User',      href: '/admin/users'        },
-  { id: 9,  label: 'Case #1042',       subLabel: 'Submitted for review',  type: 'Case',      href: '/admin/cases'        },
-  { id: 10, label: 'Case #1038',       subLabel: 'Pending approval',      type: 'Case',      href: '/admin/cases'        },
-  { id: 11, label: 'Case #1035',       subLabel: 'Resolved',              type: 'Case',      href: '/admin/cases'        },
-  { id: 12, label: 'Mohsin Khan',      subLabel: 'BAR-12345 · Islamabad', type: 'Lawyer',    href: '/admin/verification' },
-  { id: 13, label: 'Sana Ali',         subLabel: 'BAR-23456 · Karachi',   type: 'Lawyer',    href: '/admin/verification' },
-  { id: 14, label: 'Hassan Raza',      subLabel: 'BAR-34567 · Lahore',    type: 'Lawyer',    href: '/admin/verification' },
-  { id: 15, label: 'POST-4421',        subLabel: 'Harassment report',     type: 'Report',    href: '/admin/moderation'   },
-  { id: 16, label: 'CASE-8892',        subLabel: 'Impersonation report',  type: 'Report',    href: '/admin/moderation'   },
-  { id: 17, label: 'Scheduled Maint.', subLabel: 'System log · 2:00 AM',  type: 'Admin Log', href: '/admin/logs'         },
-  { id: 18, label: 'User Suspended',   subLabel: 'john.doe@example.com',  type: 'Admin Log', href: '/admin/logs'         },
-];
+interface AdminSearchResult {
+  id: string;
+  label: string;
+  subLabel: string;
+  type: 'User' | 'Case' | 'Discussion' | 'Verification' | 'Report' | 'AI Alert';
+  href: string;
+}
 
-const TYPE_COLORS: Record<string, string> = {
-  'User':      'bg-[#EBDEF0] text-[#4C2F5E]',
-  'Lawyer':    'bg-purple-100 text-purple-700',
-  'Case':      'bg-blue-50 text-blue-600',
-  'Report':    'bg-orange-50 text-orange-600',
-  'Admin Log': 'bg-gray-100 text-gray-600',
+const TYPE_COLORS: Record<AdminSearchResult['type'], string> = {
+  User: 'bg-[#EBDEF0] text-[#4C2F5E]',
+  Verification: 'bg-purple-100 text-purple-700',
+  Case: 'bg-blue-50 text-blue-600',
+  Discussion: 'bg-emerald-50 text-emerald-700',
+  Report: 'bg-orange-50 text-orange-600',
+  'AI Alert': 'bg-rose-50 text-rose-700',
 };
 
 export default function Header({ userData: _userData }: HeaderProps) {
@@ -55,18 +43,11 @@ export default function Header({ userData: _userData }: HeaderProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [showMobileSearch, setMobSearch] = useState(false);
-  
+  const [searchResults, setSearchResults] = useState<AdminSearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+
   const searchRef = useRef<HTMLDivElement>(null);
   const mobileSearchRef = useRef<HTMLDivElement>(null);
-
-  const searchResults = searchQuery.trim().length > 0
-    ? SEARCH_DATA.filter(
-        item =>
-          item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          item.subLabel.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          item.type.toLowerCase().includes(searchQuery.toLowerCase())
-      ).slice(0, 6)
-    : [];
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
@@ -76,14 +57,55 @@ export default function Header({ userData: _userData }: HeaderProps) {
   const handleResultClick = (href: string) => {
     router.push(href);
     setSearchQuery('');
+    setSearchResults([]);
     setShowResults(false);
     setMobSearch(false);
   };
 
   const clearSearch = () => {
     setSearchQuery('');
+    setSearchResults([]);
     setShowResults(false);
   };
+
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      setSearchLoading(true);
+
+      try {
+        const response = await fetch(`/api/admin/search?q=${encodeURIComponent(searchQuery.trim())}&limit=8`, {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          setSearchResults([]);
+          return;
+        }
+
+        const payload = await response.json();
+        setSearchResults(Array.isArray(payload.results) ? payload.results : []);
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          console.error('Failed to load admin search results', error);
+        }
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 180);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeout);
+    };
+  }, [searchQuery]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -98,40 +120,46 @@ export default function Header({ userData: _userData }: HeaderProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const leftOffset = isMobile ? '0px' : (isOpen ? '256px' : '72px');
+  const leftOffset = isMobile ? '0px' : isOpen ? '256px' : '72px';
 
   const searchResultsDropdown = showResults && searchQuery.trim().length > 0 ? (
-    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-200">
-      {searchResults.length > 0 ? (
+    <div className="absolute left-0 right-0 top-full z-[100] mt-2 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+      {searchLoading ? (
+        <div className="px-4 py-8 text-center">
+          <p className="text-sm italic text-gray-400">Searching live records...</p>
+        </div>
+      ) : searchResults.length > 0 ? (
         <>
-          <div className="divide-y divide-gray-50 max-h-[350px] overflow-y-auto">
-            {searchResults.map(item => (
+          <div className="max-h-[350px] divide-y divide-gray-50 overflow-y-auto">
+            {searchResults.map((item) => (
               <button
                 key={item.id}
                 onClick={() => handleResultClick(item.href)}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-purple-50 transition text-left cursor-pointer group"
+                className="group flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left transition hover:bg-purple-50"
               >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-gray-800 group-hover:text-[#4C2F5E] truncate">
-                    {item.label}
-                  </p>
-                  <p className="text-[11px] text-gray-400 truncate">{item.subLabel}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-gray-800 group-hover:text-[#4C2F5E]">{item.label}</p>
+                  <p className="truncate text-[11px] text-gray-400">{item.subLabel}</p>
                 </div>
-                <span className={`flex-shrink-0 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${TYPE_COLORS[item.type] ?? 'bg-gray-100 text-gray-600'}`}>
+                <span
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                    TYPE_COLORS[item.type]
+                  }`}
+                >
                   {item.type}
                 </span>
               </button>
             ))}
           </div>
-          <div className="px-4 py-2 border-t border-gray-100 bg-gray-50/50 text-center">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+          <div className="border-t border-gray-100 bg-gray-50/50 px-4 py-2 text-center">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
               {searchResults.length} Result{searchResults.length !== 1 ? 's' : ''} Found
             </p>
           </div>
         </>
       ) : (
         <div className="px-4 py-8 text-center">
-          <p className="text-sm text-gray-400 italic">No results found</p>
+          <p className="text-sm italic text-gray-400">No live records found</p>
         </div>
       )}
     </div>
@@ -139,24 +167,21 @@ export default function Header({ userData: _userData }: HeaderProps) {
 
   return (
     <header
-      className="fixed top-0 right-0 z-30 bg-[#F3F0F4] transition-all duration-300 w-full"
+      className="fixed right-0 top-0 z-30 w-full bg-[#F3F0F4] transition-all duration-300"
       style={{ left: leftOffset, width: `calc(100% - ${leftOffset})` }}
     >
-      <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
-        
-        <div className="flex items-center flex-1 min-w-0 gap-3 sm:gap-4">
-          <Tooltip content="Toggle sidebar">
-            <button
-              onClick={toggle}
-              className="flex-shrink-0 p-2 text-gray-600 hover:text-[#4C2F5E] hover:bg-white rounded-lg transition-all cursor-pointer"
-              aria-label="Toggle sidebar"
-            >
-              <List size={24} />
-            </button>
-          </Tooltip>
+      <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
+        <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
+          <button
+            onClick={toggle}
+            className="flex-shrink-0 cursor-pointer rounded-lg p-2 text-gray-600 transition-all hover:bg-white hover:text-[#4C2F5E]"
+            aria-label="Toggle sidebar"
+          >
+            <List size={24} />
+          </button>
 
-          <div className="relative hidden sm:block w-full max-w-xs lg:max-w-md" ref={searchRef}>
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+          <div className="relative hidden w-full max-w-xs sm:block lg:max-w-md" ref={searchRef}>
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
               <Search className="h-4 w-4 text-gray-400" />
             </div>
             <input
@@ -164,29 +189,29 @@ export default function Header({ userData: _userData }: HeaderProps) {
               value={searchQuery}
               onChange={handleSearchChange}
               onFocus={() => setShowResults(true)}
-              placeholder="Search Admin Logs / User Records"
-              className="block w-full pl-11 pr-9 py-2.5 bg-white border-none rounded-xl text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#9F63C4]/20 transition-all shadow-sm"
+              placeholder="Search users, cases, discussions, verification, reports"
+              className="block w-full rounded-xl border-none bg-white py-2.5 pl-11 pr-9 text-sm placeholder-gray-400 shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-[#9F63C4]/20"
             />
-            {searchQuery && (
+            {searchQuery ? (
               <Tooltip content="Clear search">
                 <button
                   onClick={clearSearch}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 cursor-pointer"
+                  className="absolute inset-y-0 right-0 flex cursor-pointer items-center pr-3 text-gray-400 hover:text-gray-600"
                   aria-label="Clear search"
                 >
                   <X className="h-4 w-4" />
                 </button>
               </Tooltip>
-            )}
+            ) : null}
             {searchResultsDropdown}
           </div>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
+        <div className="flex flex-shrink-0 items-center gap-2 sm:gap-4">
           <Tooltip content={showMobileSearch ? 'Close search' : 'Open search'}>
             <button
-              className="sm:hidden p-2.5 rounded-xl bg-white text-gray-500 shadow-sm cursor-pointer"
-              onClick={() => setMobSearch(v => !v)}
+              className="cursor-pointer rounded-xl bg-white p-2.5 text-gray-500 shadow-sm sm:hidden"
+              onClick={() => setMobSearch((v) => !v)}
               aria-label={showMobileSearch ? 'Close search' : 'Open search'}
             >
               {showMobileSearch ? <X size={20} /> : <Search size={20} />}
@@ -196,13 +221,13 @@ export default function Header({ userData: _userData }: HeaderProps) {
       </div>
 
       <div
-        className={`sm:hidden overflow-hidden transition-all duration-300 bg-white border-b border-gray-100 ${
+        className={`overflow-hidden border-b border-gray-100 bg-white transition-all duration-300 sm:hidden ${
           showMobileSearch ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0'
         }`}
       >
         <div className="px-4 py-3" ref={mobileSearchRef}>
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
               <Search className="h-4 w-4 text-gray-400" />
             </div>
             <input
@@ -210,17 +235,21 @@ export default function Header({ userData: _userData }: HeaderProps) {
               value={searchQuery}
               onChange={handleSearchChange}
               onFocus={() => setShowResults(true)}
-              placeholder="Search Admin Logs / User Records"
-              className="block w-full pl-11 pr-9 py-2.5 bg-gray-50 border-none rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#9F63C4]/20"
+              placeholder="Search users, cases, discussions, verification, reports"
+              className="block w-full rounded-xl border-none bg-gray-50 py-2.5 pl-11 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-[#9F63C4]/20"
               autoFocus={showMobileSearch}
             />
-            {searchQuery && (
+            {searchQuery ? (
               <Tooltip content="Clear search">
-                <button onClick={clearSearch} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400" aria-label="Clear search">
+                <button
+                  onClick={clearSearch}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400"
+                  aria-label="Clear search"
+                >
                   <X className="h-4 w-4" />
                 </button>
               </Tooltip>
-            )}
+            ) : null}
             {searchResultsDropdown}
           </div>
         </div>

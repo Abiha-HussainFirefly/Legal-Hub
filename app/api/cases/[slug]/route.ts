@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { LAWYER_PERMISSION_KEYS } from '@/lib/auth/roles';
 import { getSessionUser } from '@/lib/services/api-auth';
+import { userHasLawyerPermission } from '@/lib/services/api-auth';
 import {
   findCaseRecordBySlug,
   submitCaseRecordForReview,
@@ -24,6 +26,23 @@ export async function GET(
       return NextResponse.json({ error: 'Case not found' }, { status: 404 });
     }
 
+    if (
+      record.status === 'PUBLISHED' &&
+      !userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.CASES_VIEW) &&
+      record.author.id !== user?.id &&
+      !isAdmin
+    ) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (
+      record.status !== 'PUBLISHED' &&
+      record.author.id === user?.id &&
+      !userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.CASES_VIEW_OWN_UNPUBLISHED)
+    ) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     return NextResponse.json({ data: record });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load case';
@@ -45,11 +64,17 @@ export async function PATCH(
     const { slug } = await params;
 
     if (body?.action === 'toggle-save') {
+      if (!userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.CASES_BOOKMARK)) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
       const record = await toggleCaseBookmark(slug, user.id);
       return NextResponse.json({ data: record });
     }
 
     if (body?.action === 'submit-for-review') {
+      if (!userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.CASES_SUBMIT_OWN_FOR_REVIEW)) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
       const record = await submitCaseRecordForReview(slug, user.id);
       return NextResponse.json({ data: record });
     }

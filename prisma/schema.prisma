@@ -594,6 +594,7 @@ model Role {
   name        String           @unique
   description String?
   isSystem    Boolean          @default(false)
+  isActive    Boolean          @default(true)
   users       UserRole[]
   permissions RolePermission[]
   createdAt   DateTime         @default(now())
@@ -604,6 +605,7 @@ model Permission {
   id          String           @id @default(cuid())
   key         String           @unique
   description String?
+  isActive    Boolean          @default(true)
   roles       RolePermission[]
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
@@ -629,12 +631,14 @@ model RolePermission {
   id           String   @id @default(cuid())
   roleId       String
   permissionId String
+  isActive     Boolean  @default(true)
   grantedAt    DateTime @default(now())
 
   role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
   permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
   @@unique([roleId, permissionId])
+  @@index([isActive])
   @@index([permissionId])
 }
 

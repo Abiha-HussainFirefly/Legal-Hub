@@ -1,6 +1,5 @@
 'use client';
 
-import Tooltip from '@/app/components/ui/tooltip';
 import { apiRequest } from '@/lib/api-client';
 import { Bell, CheckCheck, MessageSquare, UserCheck, AlertCircle, Award, ThumbsUp } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -54,7 +53,7 @@ export default function NotificationBell() {
   const ref = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
-    // Only show loading spinner on initial load or manual refresh
+    
     if (items.length === 0) setBusy(true);
     try {
       const d = await apiRequest<{ data?: NotifItem[]; unreadCount?: number }>('/api/notifications?limit=15');
@@ -64,7 +63,7 @@ export default function NotificationBell() {
   }, [items.length]);
 
   async function markAll() {
-    // Optimistic UI update
+    
     const previousItems = [...items];
     const previousUnread = unread;
     
@@ -128,27 +127,24 @@ export default function NotificationBell() {
 
   return (
     <div className="relative" ref={ref}>
-      <Tooltip content="Notifications">
-        <button
-          onClick={() => { if (!open) load(); setOpen(o => !o); }}
-          aria-label="Notifications"
-          className={`relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#4C2F5E]/10 bg-[#F8F4FB] text-[#4C2F5E] transition hover:bg-[#F1EAF6] cursor-pointer ${
-            open ? 'lh-action-bump' : ''
-          }`}
-        >
-          <Bell className="w-5 h-5" />
-          {unread > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-1 leading-none border-2 border-white">
-              {unread > 9 ? '9+' : unread}
-            </span>
-          )}
-        </button>
-      </Tooltip>
+      <button
+        onClick={() => { if (!open) load(); setOpen(o => !o); }}
+        aria-label="Notifications"
+        className={`relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#4C2F5E]/10 bg-[#F8F4FB] text-[#4C2F5E] transition hover:bg-[#F1EAF6] cursor-pointer ${
+          open ? 'lh-action-bump' : ''
+        }`}
+      >
+        <Bell className="w-5 h-5" />
+        {unread > 0 && (
+          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-1 leading-none border-2 border-white">
+            {unread > 9 ? '9+' : unread}
+          </span>
+        )}
+      </button>
 
       {open && (
         <div className="lh-form-enter absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-xl border border-gray-100 bg-white text-left shadow-2xl">
-          <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-4 py-3">
-            <span className="text-sm font-bold text-[#4C2F5E]">Notifications</span>
+          <div className="flex items-center justify-end border-b border-gray-100 bg-gray-50/50 px-4 py-3">
             {unread > 0 && (
               <button onClick={markAll}
                 className="text-[11px] font-semibold text-[#9F63C4] hover:opacity-70 flex items-center gap-1 cursor-pointer"

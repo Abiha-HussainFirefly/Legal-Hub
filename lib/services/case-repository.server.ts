@@ -33,6 +33,14 @@ const caseRecordInclude = {
       id: true,
       displayName: true,
       avatarUrl: true,
+      profile: {
+        select: {
+          username: true,
+          isLawyer: true,
+          headline: true,
+          primaryRegion: { select: { name: true } },
+        },
+      },
       identifiers: {
         where: { type: 'EMAIL', isPrimary: true },
         select: { value: true },
@@ -42,6 +50,7 @@ const caseRecordInclude = {
         select: {
           verificationStatus: true,
           firmName: true,
+          barCouncil: true,
         },
       },
     },
@@ -51,10 +60,25 @@ const caseRecordInclude = {
       id: true,
       displayName: true,
       avatarUrl: true,
+      profile: {
+        select: {
+          username: true,
+          isLawyer: true,
+          headline: true,
+          primaryRegion: { select: { name: true } },
+        },
+      },
       identifiers: {
         where: { type: 'EMAIL', isPrimary: true },
         select: { value: true },
         take: 1,
+      },
+      lawyerProfile: {
+        select: {
+          verificationStatus: true,
+          firmName: true,
+          barCouncil: true,
+        },
       },
     },
   },
@@ -87,12 +111,20 @@ const caseRecordInclude = {
           id: true,
           displayName: true,
           avatarUrl: true,
+          profile: {
+            select: {
+              username: true,
+              isLawyer: true,
+              headline: true,
+              primaryRegion: { select: { name: true } },
+            },
+          },
           identifiers: {
             where: { type: 'EMAIL', isPrimary: true },
             select: { value: true },
             take: 1,
           },
-          lawyerProfile: { select: { verificationStatus: true } },
+          lawyerProfile: { select: { verificationStatus: true, firmName: true, barCouncil: true } },
         },
       },
       reviewedBy: {
@@ -100,11 +132,20 @@ const caseRecordInclude = {
           id: true,
           displayName: true,
           avatarUrl: true,
+          profile: {
+            select: {
+              username: true,
+              isLawyer: true,
+              headline: true,
+              primaryRegion: { select: { name: true } },
+            },
+          },
           identifiers: {
             where: { type: 'EMAIL', isPrimary: true },
             select: { value: true },
             take: 1,
           },
+          lawyerProfile: { select: { verificationStatus: true, firmName: true, barCouncil: true } },
         },
       },
     },
@@ -146,12 +187,20 @@ const caseRecordInclude = {
           id: true,
           displayName: true,
           avatarUrl: true,
+          profile: {
+            select: {
+              username: true,
+              isLawyer: true,
+              headline: true,
+              primaryRegion: { select: { name: true } },
+            },
+          },
           identifiers: {
             where: { type: 'EMAIL', isPrimary: true },
             select: { value: true },
             take: 1,
           },
-          lawyerProfile: { select: { verificationStatus: true } },
+          lawyerProfile: { select: { verificationStatus: true, firmName: true, barCouncil: true } },
         },
       },
       reactions: { select: { reactionType: true } },
@@ -163,12 +212,20 @@ const caseRecordInclude = {
               id: true,
               displayName: true,
               avatarUrl: true,
+              profile: {
+                select: {
+                  username: true,
+                  isLawyer: true,
+                  headline: true,
+                  primaryRegion: { select: { name: true } },
+                },
+              },
               identifiers: {
                 where: { type: 'EMAIL', isPrimary: true },
                 select: { value: true },
                 take: 1,
               },
-              lawyerProfile: { select: { verificationStatus: true } },
+              lawyerProfile: { select: { verificationStatus: true, firmName: true, barCouncil: true } },
             },
           },
           reactions: { select: { reactionType: true } },
@@ -180,6 +237,16 @@ const caseRecordInclude = {
   },
   reports: { select: { id: true } },
   aiAlerts: { select: { id: true } },
+  moderationActions: {
+    select: {
+      id: true,
+      actionType: true,
+      reason: true,
+      note: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: 'desc' },
+  },
   discussionThreads: {
     select: {
       id: true,
@@ -441,7 +508,14 @@ function buildCommentNode(comment: CaseRecordWithRelations['comments'][number]):
       displayName: comment.author.displayName ?? 'Legal Hub User',
       email: comment.author.identifiers[0]?.value ?? null,
       avatarUrl: comment.author.avatarUrl,
+      username: comment.author.profile?.username ?? null,
+      headline: comment.author.profile?.headline ?? null,
+      organizationName: comment.author.lawyerProfile?.firmName ?? null,
+      isLawyer: comment.author.profile?.isLawyer ?? Boolean(comment.author.lawyerProfile),
       isVerifiedLawyer: comment.author.lawyerProfile?.verificationStatus === 'VERIFIED',
+      firmName: comment.author.lawyerProfile?.firmName ?? null,
+      barCouncil: comment.author.lawyerProfile?.barCouncil ?? null,
+      regionName: comment.author.profile?.primaryRegion?.name ?? null,
     },
     body: comment.body,
     createdAt: comment.createdAt.toISOString(),
@@ -455,7 +529,14 @@ function buildCommentNode(comment: CaseRecordWithRelations['comments'][number]):
           displayName: reply.author.displayName ?? 'Legal Hub User',
           email: reply.author.identifiers[0]?.value ?? null,
           avatarUrl: reply.author.avatarUrl,
+          username: reply.author.profile?.username ?? null,
+          headline: reply.author.profile?.headline ?? null,
+          organizationName: reply.author.lawyerProfile?.firmName ?? null,
+          isLawyer: reply.author.profile?.isLawyer ?? Boolean(reply.author.lawyerProfile),
           isVerifiedLawyer: reply.author.lawyerProfile?.verificationStatus === 'VERIFIED',
+          firmName: reply.author.lawyerProfile?.firmName ?? null,
+          barCouncil: reply.author.lawyerProfile?.barCouncil ?? null,
+          regionName: reply.author.profile?.primaryRegion?.name ?? null,
         },
         body: reply.body,
         createdAt: reply.createdAt.toISOString(),
@@ -501,8 +582,14 @@ export function mapCaseRecord(record: CaseRecordWithRelations, viewerId?: string
       displayName: record.author.displayName ?? 'Legal Hub User',
       email: record.author.identifiers[0]?.value ?? null,
       avatarUrl: record.author.avatarUrl,
+      username: record.author.profile?.username ?? null,
+      headline: record.author.profile?.headline ?? null,
       organizationName: record.organization?.name ?? record.author.lawyerProfile?.firmName ?? null,
+      isLawyer: record.author.profile?.isLawyer ?? Boolean(record.author.lawyerProfile),
       isVerifiedLawyer: record.author.lawyerProfile?.verificationStatus === 'VERIFIED',
+      firmName: record.author.lawyerProfile?.firmName ?? null,
+      barCouncil: record.author.lawyerProfile?.barCouncil ?? null,
+      regionName: record.author.profile?.primaryRegion?.name ?? record.region?.name ?? null,
     },
     organization: record.organization,
     decisionDate: record.decisionDate?.toISOString() ?? null,
@@ -562,7 +649,14 @@ export function mapCaseRecord(record: CaseRecordWithRelations, viewerId?: string
         displayName: revision.editor.displayName ?? 'Legal Hub User',
         email: revision.editor.identifiers[0]?.value ?? null,
         avatarUrl: revision.editor.avatarUrl,
+        username: revision.editor.profile?.username ?? null,
+        headline: revision.editor.profile?.headline ?? null,
+        organizationName: revision.editor.lawyerProfile?.firmName ?? null,
+        isLawyer: revision.editor.profile?.isLawyer ?? Boolean(revision.editor.lawyerProfile),
         isVerifiedLawyer: revision.editor.lawyerProfile?.verificationStatus === 'VERIFIED',
+        firmName: revision.editor.lawyerProfile?.firmName ?? null,
+        barCouncil: revision.editor.lawyerProfile?.barCouncil ?? null,
+        regionName: revision.editor.profile?.primaryRegion?.name ?? null,
       },
       reviewedBy: revision.reviewedBy
         ? {
@@ -570,6 +664,14 @@ export function mapCaseRecord(record: CaseRecordWithRelations, viewerId?: string
             displayName: revision.reviewedBy.displayName ?? 'Reviewer',
             email: revision.reviewedBy.identifiers[0]?.value ?? null,
             avatarUrl: revision.reviewedBy.avatarUrl,
+            username: revision.reviewedBy.profile?.username ?? null,
+            headline: revision.reviewedBy.profile?.headline ?? null,
+            organizationName: revision.reviewedBy.lawyerProfile?.firmName ?? null,
+            isLawyer: revision.reviewedBy.profile?.isLawyer ?? Boolean(revision.reviewedBy.lawyerProfile),
+            isVerifiedLawyer: revision.reviewedBy.lawyerProfile?.verificationStatus === 'VERIFIED',
+            firmName: revision.reviewedBy.lawyerProfile?.firmName ?? null,
+            barCouncil: revision.reviewedBy.lawyerProfile?.barCouncil ?? null,
+            regionName: revision.reviewedBy.profile?.primaryRegion?.name ?? null,
           }
         : null,
     })),
@@ -604,7 +706,11 @@ export function mapCaseRecord(record: CaseRecordWithRelations, viewerId?: string
     moderation: {
       openReports: record.reports.length,
       aiAlerts: record.aiAlerts.length,
-      lastReviewerNote: record.revisions.find((revision) => revision.reviewedBy)?.changeSummary ?? null,
+      lastReviewerNote:
+        record.moderationActions.find((action) => action.note?.trim())?.note ??
+        record.moderationActions.find((action) => action.reason?.trim())?.reason ??
+        record.revisions.find((revision) => revision.reviewedBy)?.changeSummary ??
+        null,
     },
   };
 }
