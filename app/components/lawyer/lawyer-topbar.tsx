@@ -1,10 +1,10 @@
 'use client';
 
-import Image from 'next/image';
 import AnimatedLink, { navigateWithTransition } from '@/app/components/ui/animated-link';
 import Tooltip from '@/app/components/ui/tooltip';
 import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from '@/lib/auth/roles';
 import { Bookmark, BriefcaseBusiness, ChevronDown, LayoutGrid, LogOut, Menu, MessageSquareText, User, X } from 'lucide-react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -16,6 +16,7 @@ interface LawyerTopbarProps {
     name?: string | null;
     displayName?: string | null;
     email?: string | null;
+    avatarUrl?: string | null; 
     roles?: string[];
     permissions?: string[];
   } | null;

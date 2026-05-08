@@ -129,6 +129,81 @@ interface AuthResponse {
   user?: CurrentUser;
 }
 
+
+function applyOptimisticDiscussionReaction({
+  score,
+  viewerReaction,
+  emojiStats,
+  nextReaction,
+}: {
+  score: number;
+  viewerReaction: { reactionType: string; emoji: string | null } | null;
+  emojiStats: Record<string, { count: number; reactors: string[] }>;
+  nextReaction: { reactionType: string; emoji?: string };
+}): {
+  score: number;
+  viewerReaction: { reactionType: string; emoji: string | null } | null;
+  emojiStats: Record<string, { count: number; reactors: string[] }>;
+} {
+  const updatedEmojiStats = { ...emojiStats };
+  let updatedScore = score;
+  let updatedViewerReaction: { reactionType: string; emoji: string | null } | null;
+
+  const isSameReaction =
+    viewerReaction?.reactionType === nextReaction.reactionType &&
+    (viewerReaction?.emoji ?? null) === (nextReaction.emoji ?? null);
+
+  // Remove previous emoji stat if existed
+  if (viewerReaction?.emoji) {
+    const prev = updatedEmojiStats[viewerReaction.emoji];
+    if (prev) {
+      const newCount = prev.count - 1;
+      if (newCount <= 0) {
+        delete updatedEmojiStats[viewerReaction.emoji];
+      } else {
+        updatedEmojiStats[viewerReaction.emoji] = { ...prev, count: newCount };
+      }
+    }
+  }
+
+  if (isSameReaction) {
+    // Toggle off
+    updatedViewerReaction = null;
+    if (!viewerReaction?.emoji) {
+      updatedScore = score - 1;
+    }
+  } else {
+    // Apply new reaction
+    updatedViewerReaction = {
+      reactionType: nextReaction.reactionType,
+      emoji: nextReaction.emoji ?? null,
+    };
+
+    if (nextReaction.emoji) {
+      const existing = updatedEmojiStats[nextReaction.emoji];
+      updatedEmojiStats[nextReaction.emoji] = {
+        count: (existing?.count ?? 0) + 1,
+        reactors: existing?.reactors ?? [],
+      };
+      // If switching from upvote to emoji, decrease score
+      if (viewerReaction?.reactionType === 'UPVOTE' && !viewerReaction?.emoji) {
+        updatedScore = score - 1;
+      }
+    } else {
+      // Plain upvote
+      if (!viewerReaction) {
+        updatedScore = score + 1;
+      }
+    }
+  }
+
+  return {
+    score: updatedScore,
+    viewerReaction: updatedViewerReaction,
+    emojiStats: updatedEmojiStats,
+  };
+}
+
 function ago(value: string) {
   const date = new Date(value);
   const minutes = Math.floor((Date.now() - date.getTime()) / 60000);
@@ -848,4 +923,3 @@ export default function DiscussionDetailPage({
     </div>
   );
 }
-

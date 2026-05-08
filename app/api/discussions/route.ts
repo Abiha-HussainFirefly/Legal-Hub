@@ -1,14 +1,13 @@
 // app/api/discussions/route.ts
-import { NextRequest, NextResponse } from "next/server";
 import { LAWYER_PERMISSION_KEYS } from "@/lib/auth/roles";
-import { getSessionUser } from "@/lib/services/api-auth";
-import { userHasLawyerPermission } from "@/lib/services/api-auth";
+import { getSessionUser, userHasLawyerPermission } from "@/lib/services/api-auth";
 import {
-  listDiscussions,
   createDiscussion,
   finalizeDiscussionCreation,
+  listDiscussions,
 } from "@/lib/services/discussion.service";
 import type { DiscussionFilters, DiscussionStatus, DiscussionType } from "@/types/discussion";
+import { NextRequest, NextResponse, after } from "next/server";
 
 const DISCUSSION_TYPES: DiscussionType[] = ["QUESTION", "DISCUSSION", "ANNOUNCEMENT", "LEGAL_UPDATE"];
 const DISCUSSION_STATUSES: DiscussionStatus[] = ["OPEN", "RESOLVED", "CLOSED", "LOCKED", "HIDDEN", "DELETED"];

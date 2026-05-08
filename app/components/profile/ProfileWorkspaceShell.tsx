@@ -154,31 +154,20 @@ export default function ProfileWorkspaceShell({
                 </div>
               </div>
 
-            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
-              {(needsSetup ? canSetupProfile : canEditProfile) ? (
-                <AnimatedLink href={primaryAction.href} className="legal-button-primary justify-center text-sm w-full sm:w-auto">
-                  <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  {primaryAction.label}
-                </AnimatedLink>
-              ) : null}
-              {canEditProfile ? (
-                <AnimatedLink href="/profile/edit" className="legal-button-secondary justify-center text-sm w-full sm:w-auto">
-                  <Pencil className="h-4 w-4 shrink-0" />
-                  Edit details
-                </AnimatedLink>
-              ) : null}
-              {profile.username ? (
-                <AnimatedLink
-                  href={`/profile/${profile.username}`}
-                  className="inline-flex justify-center items-center gap-2 rounded-full border border-[#4C2F5E]/12 bg-white px-4 py-2 text-sm font-semibold text-[#4C2F5E] transition hover:bg-[#F7F3FA] w-full sm:w-auto"
-                >
-                  <ExternalLink className="h-4 w-4 shrink-0" />
-                  View public profile
-                </AnimatedLink>
-                <AnimatedLink href="/profile/edit" className="legal-button-secondary justify-center text-sm w-full sm:w-auto">
-                  <Pencil className="h-4 w-4 shrink-0" />
-                  Edit details
-                </AnimatedLink>
+             
+              <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
+                {(needsSetup ? canSetupProfile : canEditProfile) ? (
+                  <AnimatedLink href={primaryAction.href} className="legal-button-primary justify-center text-sm w-full sm:w-auto">
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    {primaryAction.label}
+                  </AnimatedLink>
+                ) : null}
+                {canEditProfile ? (
+                  <AnimatedLink href="/profile/edit" className="legal-button-secondary justify-center text-sm w-full sm:w-auto">
+                    <Pencil className="h-4 w-4 shrink-0" />
+                    Edit details
+                  </AnimatedLink>
+                ) : null}
                 {profile.username ? (
                   <AnimatedLink
                     href={`/profile/${profile.username}`}
