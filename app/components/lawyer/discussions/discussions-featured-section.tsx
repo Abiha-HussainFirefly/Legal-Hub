@@ -87,7 +87,7 @@ export default function DiscussionsFeaturedSection({
               </div>
 
               <AnimatedLink href={`/discussions/${discussion.slug}`} className="mt-7 block">
-                <h3 className="max-w-[18ch] text-[1.05rem] font-semibold leading-[1.28] tracking-[-0.03em] text-white sm:text-[1.18rem]">
+                <h3 className="w-full text-[1.05rem] font-semibold leading-[1.28] tracking-[-0.03em] text-white sm:text-[1.18rem]">
                   {discussion.title}
                 </h3>
               </AnimatedLink>

@@ -1,7 +1,9 @@
 'use client';
 
+import ProfileHoverLink from '@/app/components/lawyer/discussions/profile-hover-link';
 import AnimatedLink, { navigateWithTransition } from '@/app/components/ui/animated-link';
 import LawyerTopbar from '@/app/components/lawyer/lawyer-topbar';
+import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from '@/lib/auth/roles';
 import { ArrowLeft, Bookmark, BookmarkCheck, Eye, Plus, Sparkles, TrendingUp } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -16,10 +18,25 @@ interface DiscussionRow {
   viewCount: number;
   isAiSummaryReady: boolean;
   createdAt: string;
-  author: { id: string; displayName: string | null; avatarUrl: string | null };
+  author: {
+    id: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+    profile: {
+      username: string | null;
+      isLawyer: boolean;
+      headline?: string | null;
+      primaryRegion?: { name: string } | null;
+    } | null;
+    lawyerProfile: {
+      verificationStatus: string;
+      barCouncil?: string | null;
+      firmName?: string | null;
+    } | null;
+  };
   category: { name: string };
   region: { name: string } | null;
-  tags: { tag: { id: string; name: string } }[];
+  tags: { tag: { id: string; name: string } }[]; 
 }
 
 interface CurrentUser {
@@ -27,6 +44,8 @@ interface CurrentUser {
   name?: string | null;
   displayName?: string | null;
   email?: string | null;
+  roles?: string[];
+  permissions?: string[];
 }
 
 function timeAgo(date: string) {
@@ -72,6 +91,10 @@ export default function SavedPage() {
   const [discussions, setDiscussions] = useState<DiscussionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [removingIds, setRemovingIds] = useState<Set<string>>(new Set());
+  const userRoles = user?.roles ?? [];
+  const userPermissions = user?.permissions ?? [];
+  const canCreateDiscussion = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_CREATE);
+  const canBookmarkDiscussions = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_BOOKMARK);
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -94,6 +117,7 @@ export default function SavedPage() {
   }
 
   async function unsave(discussionId: string) {
+    if (!canBookmarkDiscussions) return;
     setRemovingIds((prev) => new Set([...prev, discussionId]));
     await fetch(`/api/discussions/${discussionId}/bookmark`, { method: 'POST' });
     setTimeout(() => {
@@ -143,13 +167,15 @@ export default function SavedPage() {
               </p>
             </div>
 
-            <button
-              onClick={() => navigateWithTransition(router, '/discussions')}
-              className="inline-flex shrink-0 items-center gap-2 rounded-[16px] bg-[#4C2F5E] px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(76,47,94,0.22)] transition hover:opacity-90"
-            >
-              <Plus className="h-4 w-4" />
-              Start discussion
-            </button>
+            {canCreateDiscussion ? (
+              <button
+                onClick={() => navigateWithTransition(router, '/discussions')}
+                className="inline-flex shrink-0 items-center gap-2 rounded-[16px] bg-[#4C2F5E] px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(76,47,94,0.22)] transition hover:opacity-90"
+              >
+                <Plus className="h-4 w-4" />
+                Start discussion
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -195,17 +221,24 @@ export default function SavedPage() {
               <p className="mx-auto mt-2 max-w-md text-sm leading-7 text-[#736683]">
                 Bookmark discussions that matter so you can return to them during client work, research, or case prep.
               </p>
-              <button
-                onClick={() => navigateWithTransition(router, '/discussions')}
-                className="mt-6 inline-flex items-center gap-2 rounded-[14px] bg-[#4C2F5E] px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
-              >
-                <Sparkles className="h-4 w-4" />
-                Explore discussions
-              </button>
+              {canCreateDiscussion ? (
+                <button
+                  onClick={() => navigateWithTransition(router, '/discussions')}
+                  className="mt-6 inline-flex items-center gap-2 rounded-[14px] bg-[#4C2F5E] px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Explore discussions
+                </button>
+              ) : null}
             </div>
           ) : (
             <div className="space-y-4">
               {discussions.map((d) => (
+                (() => {
+                  const isVerified = d.author.lawyerProfile?.verificationStatus === 'VERIFIED';
+                  const authorProfileHref = `/profile/user/${d.author.id}`;
+
+                  return (
                 <article
                   key={d.id}
                   className={`group overflow-hidden rounded-[24px] border border-[#4C2F5E]/10 bg-white transition hover:border-[#4C2F5E]/20 hover:shadow-[0_12px_36px_rgba(76,47,94,0.10)] ${
@@ -274,7 +307,20 @@ export default function SavedPage() {
                     {/* Right: meta panel */}
                     <div className="flex shrink-0 flex-col gap-4 border-t border-[#4C2F5E]/8 p-5 lg:w-56 lg:border-l lg:border-t-0">
                       {/* Author */}
-                      <div className="flex items-center gap-3">
+                      <ProfileHoverLink
+                        href={authorProfileHref}
+                        displayName={d.author.displayName}
+                        username={d.author.profile?.username}
+                        avatarUrl={d.author.avatarUrl}
+                        isVerified={isVerified}
+                        isLawyer={d.author.profile?.isLawyer ?? false}
+                        headline={d.author.profile?.headline}
+                        firmName={d.author.lawyerProfile?.firmName}
+                        barCouncil={d.author.lawyerProfile?.barCouncil}
+                        region={d.author.profile?.primaryRegion?.name ?? d.region?.name ?? null}
+                        className="flex items-center gap-3"
+                        panelPosition="top"
+                      >
                         {d.author.avatarUrl ? (
                           <img src={d.author.avatarUrl} alt="" className="h-10 w-10 rounded-full object-cover border border-[#4C2F5E]/10" />
                         ) : (
@@ -288,7 +334,7 @@ export default function SavedPage() {
                           </p>
                           <p className="text-[11px] text-[#8B7D99]">{timeAgo(d.createdAt)}</p>
                         </div>
-                      </div>
+                      </ProfileHoverLink>
 
                       {/* Stats */}
                       <div className="grid grid-cols-2 gap-2">
@@ -312,17 +358,21 @@ export default function SavedPage() {
                         Open discussion
                       </AnimatedLink>
 
-                      <button
-                        onClick={() => unsave(d.id)}
-                        disabled={removingIds.has(d.id)}
-                        className="flex w-full items-center justify-center gap-2 rounded-[14px] border border-red-100 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-500 transition hover:bg-red-100 disabled:opacity-50"
-                      >
-                        <BookmarkCheck className="h-4 w-4" />
-                        Remove
-                      </button>
+                      {canBookmarkDiscussions ? (
+                        <button
+                          onClick={() => unsave(d.id)}
+                          disabled={removingIds.has(d.id)}
+                          className="flex w-full items-center justify-center gap-2 rounded-[14px] border border-red-100 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-500 transition hover:bg-red-100 disabled:opacity-50"
+                        >
+                          <BookmarkCheck className="h-4 w-4" />
+                          Remove
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                 </article>
+                  );
+                })()
               ))}
             </div>
           )}

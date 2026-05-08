@@ -3,6 +3,7 @@
 import { CaseStatusBadge } from '@/app/components/cases/case-badges';
 import CasePageHero from '@/app/components/cases/case-page-hero';
 import { useCaseWorkspace } from '@/app/components/cases/case-workspace';
+import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from '@/lib/auth/roles';
 import type { CaseRepositoryRecord } from '@/types/case';
 import { Archive, ArrowRight, BriefcaseBusiness, PencilLine, Plus, Send } from 'lucide-react';
 import Link from 'next/link';
@@ -13,6 +14,10 @@ const boardOrder = ['DRAFT', 'PENDING_REVIEW', 'PUBLISHED', 'REJECTED', 'ARCHIVE
 export default function MyCasesPage() {
   const { user } = useCaseWorkspace();
   const [apiCases, setApiCases] = useState<CaseRepositoryRecord[]>([]);
+  const userRoles = user?.roles ?? [];
+  const userPermissions = user?.permissions ?? [];
+  const canCreateDrafts = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_CREATE_DRAFT);
+  const canEditOwnCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_EDIT_OWN);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -44,10 +49,12 @@ export default function MyCasesPage() {
         title="My Cases"
         description="Track drafts, monitor review outcomes, and move repository entries from working notes into publishable records."
         actions={
-          <Link href="/cases/new" className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white px-5 py-3 text-sm font-semibold text-[#4C2F5E]">
-            <Plus className="h-4 w-4" />
-            New case draft
-          </Link>
+          canCreateDrafts ? (
+            <Link href="/cases/new" className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white px-5 py-3 text-sm font-semibold text-[#4C2F5E]">
+              <Plus className="h-4 w-4" />
+              New case draft
+            </Link>
+          ) : null
         }
         metrics={[
           { label: 'Total cases', value: `${cases.length}`, icon: BriefcaseBusiness },
@@ -76,10 +83,12 @@ export default function MyCasesPage() {
                       <Link href={`/cases/${item.slug}`} className="inline-flex items-center gap-2 rounded-full border border-[#4C2F5E]/12 bg-white px-4 py-2 text-xs font-semibold text-[#4C2F5E]">
                         View
                       </Link>
-                      <Link href={`/cases/${item.slug}/edit`} className="inline-flex items-center gap-2 rounded-full border border-[#4C2F5E]/12 bg-white px-4 py-2 text-xs font-semibold text-[#4C2F5E]">
-                        <PencilLine className="h-3.5 w-3.5" />
-                        Edit
-                      </Link>
+                      {canEditOwnCases ? (
+                        <Link href={`/cases/${item.slug}/edit`} className="inline-flex items-center gap-2 rounded-full border border-[#4C2F5E]/12 bg-white px-4 py-2 text-xs font-semibold text-[#4C2F5E]">
+                          <PencilLine className="h-3.5 w-3.5" />
+                          Edit
+                        </Link>
+                      ) : null}
                     </div>
                   </div>
                 ))

@@ -1,140 +1,308 @@
-"use client";
+import { adminVerificationDecisionAction } from "@/app/actions/admin-review";
+import AdminPagination from "@/app/components/admin/AdminPagination";
+import AdminSearchField from "@/app/components/admin/AdminSearchField";
+import { getAdminVerificationQueueData } from "@/lib/services/admin.server";
+import { BadgeCheck, Clock3, FileWarning, ShieldCheck } from "lucide-react";
+import Link from "next/link";
 
-import LawyerVerificationModal from '@/app/components/LawyerVerificationModal';
-import { FileTextIcon, Search } from 'lucide-react';
-import { useState } from 'react';
+function getFirstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
 
-const lawyers = [
-  { id: 1,  name: 'Mohsin Khan',    barNumber: 'BAR-12345', region: 'Islamabad', status: 'pending',  submitted: '2024-01-19' },
-  { id: 2,  name: 'Sana Ali',       barNumber: 'BAR-23456', region: 'Karachi',   status: 'pending',  submitted: '2024-01-14' },
-  { id: 3,  name: 'Hassan Raza',    barNumber: 'BAR-34567', region: 'Lahore',    status: 'verified', submitted: '2024-01-10' },
-  { id: 4,  name: 'Ayesha Tariq',   barNumber: 'BAR-45678', region: 'Peshawar',  status: 'pending',  submitted: '2024-01-22' },
-  { id: 5,  name: 'Bilal Ahmed',    barNumber: 'BAR-56789', region: 'Quetta',    status: 'verified', submitted: '2024-01-18' },
-  { id: 6,  name: 'Zara Sheikh',    barNumber: 'BAR-67890', region: 'Islamabad', status: 'pending',  submitted: '2024-01-25' },
-  { id: 7,  name: 'Omar Farooq',    barNumber: 'BAR-78901', region: 'Karachi',   status: 'verified', submitted: '2024-01-12' },
-  { id: 8,  name: 'Nida Malik',     barNumber: 'BAR-89012', region: 'Lahore',    status: 'pending',  submitted: '2024-01-27' },
-  { id: 9,  name: 'Farrukh Baig',   barNumber: 'BAR-90123', region: 'Multan',    status: 'verified', submitted: '2024-01-09' },
-  
-];
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("en-US").format(value);
+}
 
-const ITEMS_PER_PAGE = 3;
+function formatDate(value: Date | null) {
+  if (!value) return "Not reviewed";
 
-export default function Verification() {
-  const [isModalOpen, setIsModalOpen]     = useState(false);
-  const [selectedLawyer, setSelectedLawyer] = useState<any>(null);
-  const [searchQuery, setSearchQuery]     = useState('');
-  const [currentPage, setCurrentPage]     = useState(1);
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(value);
+}
 
-  const openModal = (lawyer: any) => {
-    setSelectedLawyer(lawyer);
-    setIsModalOpen(true);
-  };
+function formatAgeLabel(value: Date) {
+  const diff = Date.now() - value.getTime();
+  const days = Math.floor(diff / (24 * 60 * 60 * 1000));
 
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setSelectedLawyer(null);
-  };
+  if (days <= 0) return "Today";
+  if (days === 1) return "1 day";
+  return `${days} days`;
+}
 
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-    setCurrentPage(1);
-  };
+function prettyText(value: string) {
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
 
-  const filtered = lawyers.filter(
-    (l) =>
-      l.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      l.barNumber.toLowerCase().includes(searchQuery.toLowerCase())
+function buildQueryString(
+  filters: {
+    q: string;
+    status: string;
+    region: string;
+    missingDocs: string;
+    page: number;
+  },
+  overrides: Partial<{
+    q: string;
+    status: string;
+    region: string;
+    missingDocs: string;
+    page: number;
+  }> = {},
+) {
+  const params = new URLSearchParams();
+  const next = { ...filters, ...overrides };
+
+  if (next.q) params.set("q", next.q);
+  if (next.status) params.set("status", next.status);
+  if (next.region) params.set("region", next.region);
+  if (next.missingDocs) params.set("missingDocs", next.missingDocs);
+  if (next.page > 1) params.set("page", `${next.page}`);
+
+  const query = params.toString();
+  return query ? `/verification?${query}` : "/verification";
+}
+
+function statusClasses(status: string) {
+  if (status === "VERIFIED") return "bg-[#E6F5EF] text-[#0E7A55]";
+  if (status === "REJECTED" || status === "EXPIRED") return "bg-[#FCE8E6] text-[#A33A31]";
+  return "bg-[#F6EBD6] text-[#8B642A]";
+}
+
+export default async function VerificationPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const data = await getAdminVerificationQueueData({
+    q: getFirstParam(resolvedSearchParams.q),
+    status: getFirstParam(resolvedSearchParams.status),
+    region: getFirstParam(resolvedSearchParams.region),
+    missingDocs: getFirstParam(resolvedSearchParams.missingDocs),
+    page: Number.parseInt(getFirstParam(resolvedSearchParams.page) ?? "1", 10),
+  });
+
+  const currentFilters = data.filters;
+  const visiblePages = Array.from({ length: data.pagination.totalPages }, (_, index) => index + 1).slice(
+    Math.max(0, currentFilters.page - 3),
+    currentFilters.page + 2,
   );
 
-  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
-  const paginated  = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
-  const start      = filtered.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1;
-  const end        = Math.min(currentPage * ITEMS_PER_PAGE, filtered.length);
+  const summaryCards = [
+    {
+      title: "Open Requests",
+      value: formatNumber(data.summary.openRequests),
+      detail: "Pending and under-review verification work",
+      icon: Clock3,
+    },
+    {
+      title: "Verified Lawyers",
+      value: formatNumber(data.summary.verifiedLawyers),
+      detail: "Authoritative LawyerProfile trust state",
+      icon: ShieldCheck,
+    },
+    {
+      title: "Rejected Requests",
+      value: formatNumber(data.summary.rejectedRequests),
+      detail: "Review outcomes requiring resubmission or closure",
+      icon: BadgeCheck,
+    },
+    {
+      title: "Missing Documents",
+      value: formatNumber(data.summary.missingDocuments),
+      detail: "Open requests without the current required document set",
+      icon: FileWarning,
+    },
+  ];
 
   return (
-    
     <div className="space-y-6">
-
       <section className="legal-panel px-6 py-7 md:px-8">
-        <p className="legal-kicker">Verification queue</p>
-        <h1 className="mt-4 text-4xl font-semibold tracking-[-0.05em] text-[#102033]">Review lawyer verification with more confidence.</h1>
-        <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 md:text-base">
-          The workflow uses stronger table contrast and cleaner filters so trust decisions feel structured instead of improvised.
-        </p>
-      </section>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl">
+            <p className="legal-kicker">Lawyer Verification</p>
+            <h1 className="mt-4 text-4xl font-semibold tracking-[-0.05em] text-[#102033]">
+              Review lawyer verification requests from the live trust queue.
+            </h1>
+            <p className="mt-4 text-sm leading-7 text-slate-600 md:text-base">
+              This page now reads `LawyerVerificationRequest`, linked documents, file scan posture, and the underlying
+              `LawyerProfile` trust state directly from Prisma.
+            </p>
+          </div>
 
-      <div className="legal-panel p-4 md:p-6">
-
-        {/* Search Bar */}
-        <div className="mb-4 sm:mb-6">
-          <div className="relative w-full max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={handleSearch}
-              placeholder="Search by name or bar number..."
-              className="legal-field w-full pl-9 sm:pl-10 pr-4 py-3 text-sm"
-            />
+          <div className="rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] px-5 py-4 text-sm text-slate-600">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Current result window</p>
+            <p className="mt-2 text-base font-semibold text-[#2F1D3B]">
+              {data.pagination.start} to {data.pagination.end} of {formatNumber(data.pagination.total)}
+            </p>
           </div>
         </div>
+      </section>
 
-        {/* Table */}
-        <div className="legal-table-wrap overflow-x-auto">
-          <table className="legal-table w-full min-w-[560px]">
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {summaryCards.map((card) => {
+          const Icon = card.icon;
+
+          return (
+            <div key={card.title} className="legal-panel p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">{card.title}</p>
+                  <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[#2F1D3B]">{card.value}</p>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">{card.detail}</p>
+                </div>
+                <div className="rounded-[18px] bg-[#F4EFF8] p-3 text-[#4C2F5E]">
+                  <Icon className="h-5 w-5" />
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </section>
+
+      <section className="legal-panel p-4 md:p-6">
+        <form className="grid gap-4 xl:grid-cols-4">
+          <AdminSearchField
+            defaultValue={currentFilters.q}
+            placeholder="Search applicant, username, bar council, or license number"
+            wrapperClassName="xl:col-span-2"
+          />
+
+          <select name="status" defaultValue={currentFilters.status} className="legal-field">
+            <option value="">All statuses</option>
+            <option value="PENDING">Pending</option>
+            <option value="UNDER_REVIEW">Under review</option>
+            <option value="VERIFIED">Verified</option>
+            <option value="REJECTED">Rejected</option>
+            <option value="EXPIRED">Expired</option>
+          </select>
+
+          <input
+            type="text"
+            name="region"
+            defaultValue={currentFilters.region}
+            placeholder="Filter by region"
+            className="legal-field"
+          />
+
+          <select name="missingDocs" defaultValue={currentFilters.missingDocs} className="legal-field xl:col-span-2">
+            <option value="">All document states</option>
+            <option value="yes">Missing required documents</option>
+          </select>
+
+          <div className="flex items-center gap-3 xl:col-span-2">
+            <button type="submit" className="legal-button-primary w-full xl:w-auto">
+              Apply Filters
+            </button>
+            <Link href="/verification" className="legal-button-secondary w-full xl:w-auto">
+              Reset
+            </Link>
+          </div>
+        </form>
+      </section>
+
+      <section className="legal-panel overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="legal-table w-full min-w-[980px]">
             <thead>
               <tr>
-                <th className="px-4 md:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold">Name</th>
-                <th className="hidden sm:table-cell px-4 md:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold">Bar Number</th>
-                <th className="px-4 md:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold">Region</th>
-                <th className="px-4 md:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold">Status</th>
-                <th className="hidden lg:table-cell px-4 md:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold">Submitted</th>
-                <th className="px-4 md:px-6 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold">Actions</th>
+                <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Applicant</th>
+                <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Bar Data</th>
+                <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Status</th>
+                <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Queue Age</th>
+                <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Documents</th>
+                <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Review Trace</th>
+                <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
-              {paginated.length > 0 ? paginated.map((lawyer) => (
-                <tr key={lawyer.id} className="transition">
-                  <td className="px-4 md:px-6 py-3 sm:py-4 text-sm font-medium text-gray-900">
-                    <div className="flex flex-col">
-                      <span>{lawyer.name}</span>
-                      <span className="sm:hidden text-[10px] text-gray-400">{lawyer.barNumber}</span>
-                    </div>
-                  </td>
-                  <td className="hidden sm:table-cell px-4 md:px-6 py-3 sm:py-4 text-sm text-gray-600">
-                    {lawyer.barNumber}
-                  </td>
-                  <td className="px-4 md:px-6 py-3 sm:py-4 text-sm text-gray-600">
-                    {lawyer.region}
-                  </td>
-                  <td className="px-4 md:px-6 py-3 sm:py-4">
-                    <span
-                      className={`inline-flex items-center px-2 md:px-3 py-1 rounded-full text-[10px] md:text-xs font-medium ${
-                        lawyer.status === 'pending'
-                          ? 'bg-[#EEA62B] text-white' 
-                          : 'bg-[#008B62] text-white'
-                      }`}
-                    >
-                      {lawyer.status === 'pending' ? 'Pending' : 'Verified'}
-                    </span>
-                  </td>
-                  <td className="hidden lg:table-cell px-4 md:px-6 py-3 sm:py-4 text-sm text-gray-600">
-                    {lawyer.submitted}
-                  </td>
-                  <td className="px-4 md:px-6 py-3 sm:py-4">
-                    <button 
-                      onClick={() => openModal(lawyer)}
-                      className="inline-flex items-center gap-1.5 text-sm text-black-600 hover:text-black-700 font-medium"
-                    >
-                      <FileTextIcon className="w-4 h-4 text-[#102033] flex-shrink-0" />
-                      <span className="hidden sm:inline">Review</span>
-                    </button>
-                  </td>
-                </tr>
-              )) : (
+            <tbody className="divide-y divide-[#ECE7F2]">
+              {data.rows.length ? (
+                data.rows.map((row) => (
+                  <tr key={row.id}>
+                    <td className="px-4 py-4 align-top">
+                      <div>
+                        <p className="text-sm font-semibold text-[#2F1D3B]">{row.displayName}</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {row.username ? `@${row.username}` : "No username"}{row.regionName ? ` / ${row.regionName}` : ""}
+                        </p>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 align-top text-sm text-slate-600">
+                      <p>{row.barLicenseNumber ?? "No license number"}</p>
+                      <p className="mt-1 text-xs text-slate-500">{row.barCouncil ?? "No bar council captured"}</p>
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusClasses(row.status)}`}>
+                        {prettyText(row.status)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4 align-top text-sm text-slate-600">
+                      <p>{formatAgeLabel(row.submittedAt)}</p>
+                      <p className="mt-1 text-xs text-slate-500">Submitted {formatDate(row.submittedAt)}</p>
+                    </td>
+                    <td className="px-4 py-4 align-top text-sm text-slate-600">
+                      <p>{row.documentCount} linked documents</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {row.missingRequiredDocuments.length
+                          ? `Missing: ${row.missingRequiredDocuments.map(prettyText).join(", ")}`
+                          : "Required docs present"}
+                      </p>
+                      {row.flaggedDocumentCount > 0 ? (
+                        <p className="mt-1 text-xs font-medium text-[#A33A31]">
+                          {row.flaggedDocumentCount} scan issue{row.flaggedDocumentCount === 1 ? "" : "s"}
+                        </p>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-4 align-top text-sm text-slate-600">
+                      <p>{row.reviewedBy ?? "Awaiting reviewer"}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {row.reviewedAt ? `Reviewed ${formatDate(row.reviewedAt)}` : "No review timestamp yet"}
+                      </p>
+                      {row.rejectionReason ? (
+                        <p className="mt-1 text-xs text-[#A33A31]">Reason: {row.rejectionReason}</p>
+                      ) : row.adminNote ? (
+                        <p className="mt-1 text-xs text-slate-500">Note: {row.adminNote}</p>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      <div className="space-y-3">
+                        <Link href={`/user/${row.userId}?tab=trust`} className="text-sm font-semibold text-[#4C2F5E] hover:text-[#2F1D3B]">
+                          Open trust tab
+                        </Link>
+                        {(row.status === "PENDING" || row.status === "UNDER_REVIEW") ? (
+                          <form action={adminVerificationDecisionAction} className="space-y-2">
+                            <input type="hidden" name="requestId" value={row.id} />
+                            <input
+                              type="text"
+                              name="decisionNote"
+                              placeholder="Approval note or rejection reason"
+                              className="legal-field w-full min-w-[220px] text-sm"
+                            />
+                            <div className="flex gap-2">
+                              <button type="submit" name="intent" value="approve" className="legal-button-primary text-xs">
+                                Approve
+                              </button>
+                              <button type="submit" name="intent" value="reject" className="legal-button-secondary text-xs">
+                                Reject
+                              </button>
+                            </div>
+                          </form>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">
-                    No results found for &quot;{searchQuery}&quot;
+                  <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-500">
+                    No verification requests match the current filters.
                   </td>
                 </tr>
               )}
@@ -142,50 +310,21 @@ export default function Verification() {
           </table>
         </div>
 
-        {/* Pagination */}
-        <div className="pt-4 mt-2 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-xs sm:text-sm text-gray-500">
-            Showing {start} to {end} of {filtered.length} results
-          </p>
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="legal-button-secondary disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Previous
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
-              <button
-                key={n}
-                onClick={() => setCurrentPage(n)}
-                className={`w-8 h-7 md:w-10 md:h-10 flex items-center justify-center text-xs md:text-sm rounded-full shadow-sm transition ${
-                  n === currentPage
-                    ? 'bg-[#102033] text-white'
-                    : 'text-gray-600 hover:bg-[#F8F4EE]'
-                }`}
-              >
-                {n}
-              </button>
-            ))}
-            <button
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages || totalPages === 0}
-              className="legal-button-secondary disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Next
-            </button>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Verification Modal */}
-      <LawyerVerificationModal 
-        isOpen={isModalOpen} 
-        onClose={closeModal} 
-        lawyerData={selectedLawyer}
-      />
+        <AdminPagination
+          start={data.pagination.start}
+          end={data.pagination.end}
+          total={data.pagination.total}
+          currentPage={currentFilters.page}
+          pageLinks={visiblePages.map((pageNumber) => ({
+            pageNumber,
+            href: buildQueryString(currentFilters, { page: pageNumber }),
+          }))}
+          previousHref={buildQueryString(currentFilters, { page: Math.max(1, currentFilters.page - 1) })}
+          nextHref={buildQueryString(currentFilters, { page: Math.min(data.pagination.totalPages, currentFilters.page + 1) })}
+          isFirstPage={currentFilters.page === 1}
+          isLastPage={currentFilters.page === data.pagination.totalPages}
+        />
+      </section>
     </div>
   );
 }

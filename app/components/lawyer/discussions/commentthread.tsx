@@ -38,6 +38,7 @@ interface Props {
   discussionId?: string;
   answerId?: string;
   currentUser?: Author | null;
+  canCreateComments?: boolean;
 }
 
 function ago(value: string) {
@@ -70,12 +71,14 @@ function CommentItem({
   answerId,
   currentUser,
   depth = 0,
+  canCreateComments = false,
 }: {
   comment: Comment;
   discussionId?: string;
   answerId?: string;
   currentUser?: Author | null;
   depth?: number;
+  canCreateComments?: boolean;
 }) {
   const router = useRouter();
   const [showReply, setShowReply] = useState(false);
@@ -95,7 +98,7 @@ function CommentItem({
   }, [replyPulse]);
 
   async function submitReply() {
-    if (!replyText.trim() || posting || !currentViewer?.id) return;
+    if (!replyText.trim() || posting || !currentViewer?.id || !canCreateComments) return;
 
     setPosting(true);
 
@@ -173,7 +176,7 @@ function CommentItem({
 
           <p className="text-xs leading-relaxed text-[#374151]">{comment.body}</p>
 
-          {depth < 2 ? (
+          {depth < 2 && canCreateComments ? (
             <button
               onClick={() => {
                 if (currentViewer?.id) {
@@ -232,6 +235,7 @@ function CommentItem({
                   answerId={answerId}
                   currentUser={currentViewer}
                   depth={depth + 1}
+                  canCreateComments={canCreateComments}
                 />
               ))
             : null}
@@ -241,7 +245,7 @@ function CommentItem({
   );
 }
 
-export default function CommentThread({ comments, discussionId, answerId, currentUser }: Props) {
+export default function CommentThread({ comments, discussionId, answerId, currentUser, canCreateComments = false }: Props) {
   const router = useRouter();
   const [localComments, setLocalComments] = useState<Comment[]>(comments);
   const [newBody, setNewBody] = useState('');
@@ -257,7 +261,7 @@ export default function CommentThread({ comments, discussionId, answerId, curren
   }, [submitPulse]);
 
   async function submitComment() {
-    if (!newBody.trim() || posting || !currentViewer?.id) return;
+    if (!newBody.trim() || posting || !currentViewer?.id || !canCreateComments) return;
 
     setPosting(true);
 
@@ -297,10 +301,11 @@ export default function CommentThread({ comments, discussionId, answerId, curren
           discussionId={discussionId}
           answerId={answerId}
           currentUser={currentViewer}
+          canCreateComments={canCreateComments}
         />
       ))}
 
-      <div className="mt-3">
+      {canCreateComments ? <div className="mt-3">
         {!showForm ? (
           <button
             onClick={() => {
@@ -343,7 +348,7 @@ export default function CommentThread({ comments, discussionId, answerId, curren
             </div>
           </div>
         ) : null}
-      </div>
+      </div> : null}
     </div>
   );
 }

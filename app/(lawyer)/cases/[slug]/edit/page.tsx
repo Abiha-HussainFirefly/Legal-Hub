@@ -2,7 +2,9 @@
 
 import CaseEditor from '@/app/components/cases/case-editor';
 import CaseEmptyState from '@/app/components/cases/case-empty-state';
+import { useCaseWorkspace } from '@/app/components/cases/case-workspace';
 import { useToast } from '@/app/components/ui/toast/toast-context';
+import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from '@/lib/auth/roles';
 import type { CaseRepositoryRecord } from '@/types/case';
 import { BriefcaseBusiness } from 'lucide-react';
 import { useParams } from 'next/navigation';
@@ -27,11 +29,16 @@ interface MetaResponse {
 
 export default function EditCasePage() {
   const params = useParams<{ slug: string }>();
+  const { user } = useCaseWorkspace();
   const { addToast } = useToast();
   const [meta, setMeta] = useState<MetaResponse | null>(null);
   const [record, setRecord] = useState<CaseRepositoryRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const userRoles = user?.roles ?? [];
+  const userPermissions = user?.permissions ?? [];
+  const canEditOwnCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_EDIT_OWN);
+  const canSubmitCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_SUBMIT_OWN_FOR_REVIEW);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,6 +115,8 @@ export default function EditCasePage() {
       tags={meta.tags}
       regions={meta.regions}
       courts={meta.courts}
+      canSaveDraft={canEditOwnCases}
+      canSubmitForReview={canSubmitCases}
     />
   );
 }

@@ -1,12 +1,18 @@
 // app/api/discussions/[slug]/comments/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { LAWYER_PERMISSION_KEYS } from '@/lib/auth/roles';
 import { getSessionUser } from '@/lib/services/api-auth';
+import { userHasLawyerPermission } from '@/lib/services/api-auth';
 import { prisma } from '@/lib/prisma';
 import { AUTHOR_SELECT, createComment } from '@/lib/services/discussion.service';
 type P = { params: Promise<{ slug: string }> };
 
 export async function GET(req: NextRequest, { params }: P) {
   try {
+    const user = await getSessionUser(req);
+    if (!userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.COMMENTS_VIEW)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const { slug } = await params;
     const discussion = await prisma.discussion.findUnique({
       where: { slug },
@@ -36,7 +42,9 @@ export async function POST(req: NextRequest, { params }: P) {
     if (!discussion) return NextResponse.json({ error: 'Discussion not found' }, { status: 404 });
     const discussionId = discussion.id;
     const user=await getSessionUser(req);
-    if (!user?.id) return NextResponse.json({error:'Unauthorized'},{status:401});
+    if (!user?.id || !userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.COMMENTS_CREATE)) {
+      return NextResponse.json({error:'Unauthorized'},{status:401});
+    }
     const {body,parentId}=await req.json();
     if (!body?.trim()) return NextResponse.json({error:'Body required'},{status:400});
     const created = await createComment(user.id,discussionId,undefined,parentId,{body});

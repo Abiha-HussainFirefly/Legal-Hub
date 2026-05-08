@@ -11,7 +11,7 @@ import { EmailSchema, NameSchema, PasswordSchema } from "@/utils/validation";
 import { Button } from "@/app/components/ui/button";
 import Tooltip from "@/app/components/ui/tooltip";
 import { useToast } from "@/app/components/ui/toast/toast-context";
-import { FacebookIcon, GoogleIcon } from "@/public/icons/google-facebook-icon";
+import { GoogleIcon } from "@/public/icons/google-facebook-icon";
 import { commonInputClass, commonLabelClass } from "@/utils/custom-styling/input-label";
 
 const registerSchema = z.object({
@@ -113,14 +113,12 @@ export default function LawyerRegister() {
         return;
       }
 
-      // Success - show success toast
       addToast(
         "success",
         "Registration Successful!",
         "Please check your email for the verification code.",
       );
 
-      // Redirect to verification page with email in query
       const emailParam = encodeURIComponent(formData.email);
       router.push(`/verify-email?email=${emailParam}`);
     } catch {
@@ -176,7 +174,6 @@ export default function LawyerRegister() {
   const pwStrength = formData.password
     ? getPasswordStrength(formData.password)
     : null;
-
 
   return (
     <div className="flex flex-col lg:flex-row lg:p-3.5 lg:gap-3.5 h-screen w-full bg-white box-border overflow-hidden">
@@ -249,31 +246,19 @@ export default function LawyerRegister() {
               Sign up
             </h2>
 
-            <div className="flex gap-3 mb-4.5">
-              <Tooltip content="Continue with Google">
-                <button
-                  type="button"
-                  onClick={() =>
-                    signIn("google", { callbackUrl: "/discussions" })
-                  }
-                  className="flex-1 flex items-center justify-center p-3 border-[1.5px] border-gray-200 rounded-[10px] bg-white cursor-pointer hover:bg-gray-50 transition-colors"
-                  aria-label="Continue with Google"
-                >
-                  <GoogleIcon />
-                </button>
-              </Tooltip>
-              <Tooltip content="Continue with Facebook">
-                <button
-                  type="button"
-                  className="flex-1 flex items-center justify-center p-3 border-[1.5px] border-gray-200 rounded-[10px] bg-white cursor-pointer hover:bg-gray-50 transition-colors"
-                  aria-label="Continue with Facebook"
-                >
-                  <FacebookIcon />
-                </button>
-              </Tooltip>
-            </div>
+            <button
+              type="button"
+              onClick={() => signIn("google", { callbackUrl: "/discussions" })}
+              className="w-full flex items-center justify-center gap-3 p-3 border-[1.5px] border-gray-200 rounded-[12px] bg-white cursor-pointer hover:bg-gray-50 transition-colors mb-5 h-[50px]"
+              aria-label="Continue with Google"
+            >
+              <div className="w-5 h-5 flex items-center justify-center">
+                <GoogleIcon />
+              </div>
+              <span className="text-gray-600 font-medium">Continue with Google</span>
+            </button>
 
-            <div className="relative mb-4.5">
+            <div className="relative mb-5">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-gray-200"></div>
               </div>

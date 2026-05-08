@@ -48,6 +48,10 @@ interface Props {
   currentUser?: Author | null;
   discussionId: string;
   isDiscussionResolved: boolean;
+  canReact?: boolean;
+  canAccept?: boolean;
+  canViewComments?: boolean;
+  canCreateComments?: boolean;
 }
 
 function ago(d: string) {
@@ -78,6 +82,10 @@ export default function AnswerCard({
   currentUserId,
   currentUser,
   isDiscussionResolved,
+  canReact = false,
+  canAccept = false,
+  canViewComments = false,
+  canCreateComments = false,
 }: Props) {
   const [curScore, setScore] = useState(score);
   const [myReac, setMyReac] = useState<string | null>(userReaction ?? null);
@@ -100,7 +108,7 @@ export default function AnswerCard({
   }, [actionPulse]);
 
   async function react(type: string) {
-    if (!currentUserId) {
+    if (!currentUserId || !canReact) {
       router.push('/lawyerlogin');
       return;
     }
@@ -134,7 +142,7 @@ export default function AnswerCard({
   }
 
   async function accept() {
-    if (!isAuthor || acceptPend || accepted) return;
+    if (!isAuthor || !canAccept || acceptPend || accepted) return;
     setAcceptP(true);
     try {
       await apiRequest(`/api/answers/${id}/accept`, { method: 'POST' });
@@ -167,7 +175,7 @@ export default function AnswerCard({
             <Tooltip content="Upvote answer">
               <button
                 onClick={() => react('UPVOTE')}
-                disabled={reactPend}
+                disabled={!canReact || reactPend}
                 className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition disabled:opacity-40 ${
                   myReac === 'UPVOTE'
                     ? 'border-[#4C2F5E]/20 bg-[#F1EAF6] text-[#4C2F5E]'
@@ -184,7 +192,7 @@ export default function AnswerCard({
             <Tooltip content="Downvote answer">
               <button
                 onClick={() => react('DOWNVOTE')}
-                disabled={reactPend}
+                disabled={!canReact || reactPend}
                 className={`inline-flex h-9 w-9 items-center justify-center rounded-full border transition disabled:opacity-40 ${
                   myReac === 'DOWNVOTE'
                     ? 'border-red-200 bg-red-50 text-red-500'
@@ -251,14 +259,16 @@ export default function AnswerCard({
             </div>
 
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#4C2F5E]/8 pt-4">
-              <button
-                onClick={() => setShowCom(!showComments)}
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-[#6B5C79] transition hover:text-[#4C2F5E]"
-              >
-                <MessageSquare className="h-4 w-4" />
-                {commentCount} comment{commentCount !== 1 ? 's' : ''}
-                {showComments ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </button>
+              {canViewComments ? (
+                <button
+                  onClick={() => setShowCom(!showComments)}
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-[#6B5C79] transition hover:text-[#4C2F5E]"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  {commentCount} comment{commentCount !== 1 ? 's' : ''}
+                  {showComments ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </button>
+              ) : <span className="text-sm font-medium text-[#6B5C79]">{commentCount} comment{commentCount !== 1 ? 's' : ''}</span>}
 
               {isAuthor && !accepted && !isDiscussionResolved ? (
                 <button
@@ -274,9 +284,14 @@ export default function AnswerCard({
               ) : null}
             </div>
 
-            {showComments ? (
+            {showComments && canViewComments ? (
               <div className="mt-4 border-t border-[#4C2F5E]/8 pt-4 lh-form-enter">
-                <CommentThread comments={comments} answerId={id} currentUser={currentUser} />
+                <CommentThread
+                  comments={comments}
+                  answerId={id}
+                  currentUser={currentUser}
+                  canCreateComments={canCreateComments}
+                />
               </div>
             ) : null}
           </div>

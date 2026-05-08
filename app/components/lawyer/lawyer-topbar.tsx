@@ -3,7 +3,8 @@
 import Image from 'next/image';
 import AnimatedLink, { navigateWithTransition } from '@/app/components/ui/animated-link';
 import Tooltip from '@/app/components/ui/tooltip';
-import { Bookmark, BriefcaseBusiness, LayoutGrid, LogOut, Menu, MessageSquareText, User, X } from 'lucide-react';
+import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from '@/lib/auth/roles';
+import { Bookmark, BriefcaseBusiness, ChevronDown, LayoutGrid, LogOut, Menu, MessageSquareText, User, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -15,6 +16,8 @@ interface LawyerTopbarProps {
     name?: string | null;
     displayName?: string | null;
     email?: string | null;
+    roles?: string[];
+    permissions?: string[];
   } | null;
   onLogout?: () => Promise<void> | void;
   extraActions?: React.ReactNode;
@@ -56,6 +59,29 @@ export default function LawyerTopbar({
 
   const displayName = useMemo(() => user?.displayName || user?.name || 'Legal Hub member', [user]);
   const displayEmail = user?.email || 'Public legal workspace';
+  const userRoles = user?.roles ?? [];
+  const userPermissions = user?.permissions ?? [];
+  const canViewProfile = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.PROFILE_VIEW_SELF);
+  const canLogout = user ? canAccessLawyerPermission(userRoles, userPermissions, 'auth.logout') : false;
+  const visibleNavItems = navItems.filter(({ id }) => {
+    if (id === 'discussions') {
+      return canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_VIEW);
+    }
+
+    if (id === 'cases') {
+      return canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_VIEW);
+    }
+
+    if (id === 'topics') {
+      return canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.TOPICS_VIEW_SELF);
+    }
+
+    if (id === 'saved') {
+      return canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.SAVED_VIEW_SELF);
+    }
+
+    return true;
+  });
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -86,7 +112,7 @@ export default function LawyerTopbar({
           </AnimatedLink>
 
           <nav className="hidden items-center gap-2 xl:flex">
-            {navItems.map(({ id, href, label, shortLabel, icon: Icon }) => {
+            {visibleNavItems.map(({ id, href, label, shortLabel, icon: Icon }) => {
               const isActive = activeTab === id;
 
               return (
@@ -113,18 +139,30 @@ export default function LawyerTopbar({
 
           {user ? (
             <>
-              <button
-                onClick={() => setIsDropdownOpen((current) => !current)}
-                className="inline-flex max-w-[220px] shrink-0 items-center gap-3 rounded-full border border-[#4C2F5E]/10 bg-white px-2 py-2 text-left transition hover:bg-[#FBF9FD] xl:max-w-[260px]"
-              >
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#4C2F5E] text-sm font-semibold text-white">
-                  {initials(displayName)}
-                </div>
-                <div className="hidden min-w-0 md:block">
-                  <p className="truncate text-sm font-semibold text-[#2F1D3B]">{displayName}</p>
-                  <p className="truncate text-xs text-[#8B7D99]">{displayEmail}</p>
-                </div>
-              </button>
+              <div className="inline-flex max-w-[220px] shrink-0 items-center gap-3 rounded-full border border-[#4C2F5E]/10 bg-white px-2 py-2 transition hover:bg-[#FBF9FD] xl:max-w-[260px]">
+                <AnimatedLink
+                  href={canViewProfile ? '/profile' : '#'}
+                  onClick={() => setIsDropdownOpen(false)}
+                  className="flex min-w-0 flex-1 items-center gap-3"
+                  aria-label="Open profile"
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#4C2F5E] text-sm font-semibold text-white">
+                    {initials(displayName)}
+                  </div>
+                  <div className="hidden min-w-0 md:block">
+                    <p className="truncate text-sm font-semibold text-[#2F1D3B]">{displayName}</p>
+                    <p className="truncate text-xs text-[#8B7D99]">{displayEmail}</p>
+                  </div>
+                </AnimatedLink>
+                <button
+                  type="button"
+                  onClick={() => setIsDropdownOpen((current) => !current)}
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#8B7D99] transition hover:bg-[#F7F3FA]"
+                  aria-label="Open account menu"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+              </div>
 
               {isDropdownOpen ? (
                 <div className="absolute right-4 top-[68px] w-72 rounded-[18px] border border-[#4C2F5E]/10 bg-white p-2 shadow-[0_18px_36px_rgba(76,47,94,0.08)] md:right-6 lg:right-8 lh-form-enter">
@@ -134,26 +172,30 @@ export default function LawyerTopbar({
                   </div>
 
                   <div className="mt-2 grid gap-1">
-                    <button
-                      onClick={() => {
-                        setIsDropdownOpen(false);
-                        navigateWithTransition(router, '/profile');
-                      }}
-                      className="inline-flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-[#5F506D] transition hover:bg-[#F7F3FA]"
-                    >
-                      <User className="h-4 w-4 text-[#8B7D99]" />
-                      My profile
-                    </button>
-                    <button
-                      onClick={async () => {
-                        setIsDropdownOpen(false);
-                        if (onLogout) await onLogout();
-                      }}
-                      className="inline-flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-red-600 transition hover:bg-red-50"
-                    >
-                      <LogOut className="h-4 w-4" />
-                      Sign out
-                    </button>
+                    {canViewProfile ? (
+                      <button
+                        onClick={() => {
+                          setIsDropdownOpen(false);
+                          navigateWithTransition(router, '/profile');
+                        }}
+                        className="inline-flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-[#5F506D] transition hover:bg-[#F7F3FA]"
+                      >
+                        <User className="h-4 w-4 text-[#8B7D99]" />
+                        My profile
+                      </button>
+                    ) : null}
+                    {canLogout ? (
+                      <button
+                        onClick={async () => {
+                          setIsDropdownOpen(false);
+                          if (onLogout) await onLogout();
+                        }}
+                        className="inline-flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-red-600 transition hover:bg-red-50"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        Sign out
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               ) : null}
@@ -182,7 +224,7 @@ export default function LawyerTopbar({
       {isMenuOpen ? (
         <div className="border-t border-[#162033]/8 bg-white px-4 py-3 xl:hidden">
           <div className="grid gap-2">
-            {navItems.map(({ id, href, label, shortLabel, icon: Icon }) => {
+            {visibleNavItems.map(({ id, href, label, shortLabel, icon: Icon }) => {
               const isActive = activeTab === id;
 
               return (

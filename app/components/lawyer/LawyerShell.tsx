@@ -12,6 +12,7 @@ interface WorkspaceUser {
   displayName?: string | null;
   email?: string | null;
   roles?: string[];
+  permissions?: string[];
 }
 
 export default function LawyerShell({

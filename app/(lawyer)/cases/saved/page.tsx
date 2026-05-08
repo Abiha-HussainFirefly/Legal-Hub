@@ -4,6 +4,7 @@ import CaseResultCard from '@/app/components/cases/case-result-card';
 import CasePageHero from '@/app/components/cases/case-page-hero';
 import { useCaseWorkspace } from '@/app/components/cases/case-workspace';
 import { useToast } from '@/app/components/ui/toast/toast-context';
+import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from '@/lib/auth/roles';
 import type { CaseRepositoryRecord } from '@/types/case';
 import { Bookmark, Clock3, Eye, Users } from 'lucide-react';
 import Link from 'next/link';
@@ -13,6 +14,10 @@ export default function SavedCasesPage() {
   const { user } = useCaseWorkspace();
   const { addToast } = useToast();
   const [savedCases, setSavedCases] = useState<CaseRepositoryRecord[]>([]);
+  const userRoles = user?.roles ?? [];
+  const userPermissions = user?.permissions ?? [];
+  const canBookmarkCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_BOOKMARK);
+  const canShareCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_SHARE);
   const canFetchSavedCases = Boolean(user?.id);
 
   useEffect(() => {
@@ -79,7 +84,9 @@ export default function SavedCasesPage() {
           </div>
           <div className="mt-5 space-y-4">
             {collections.saved.length ? (
-              collections.saved.map((item) => <CaseResultCard key={item.id} item={item} />)
+              collections.saved.map((item) => (
+                <CaseResultCard key={item.id} item={item} canSave={canBookmarkCases} canShare={canShareCases} />
+              ))
             ) : (
               <div className="rounded-[22px] border border-dashed border-[#4C2F5E]/15 bg-[#FBF9FD] px-4 py-8 text-sm text-[#706181]">
                 No saved cases yet.
@@ -100,7 +107,9 @@ export default function SavedCasesPage() {
           </div>
           <div className="mt-5 space-y-4">
             {collections.followed.length ? (
-              collections.followed.map((item) => <CaseResultCard key={item.id} item={item} compact />)
+              collections.followed.map((item) => (
+                <CaseResultCard key={item.id} item={item} compact canSave={canBookmarkCases} canShare={canShareCases} />
+              ))
             ) : (
               <div className="rounded-[22px] border border-dashed border-[#4C2F5E]/15 bg-[#FBF9FD] px-4 py-8 text-sm text-[#706181]">
                 Follow tracking is not available in this workspace yet.

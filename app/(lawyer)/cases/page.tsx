@@ -8,6 +8,7 @@ import CaseResultSkeleton from '@/app/components/cases/case-result-skeleton';
 import AnimatedLink from '@/app/components/ui/animated-link';
 import { useCaseWorkspace } from '@/app/components/cases/case-workspace';
 import { useToast } from '@/app/components/ui/toast/toast-context';
+import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from '@/lib/auth/roles';
 import { apiRequest, getErrorMessage } from '@/lib/api-client';
 import type { CaseRepositoryFilterOptions, CaseRepositoryFilters, CaseRepositoryRecord, CaseRepositorySort } from '@/types/case';
 import { BriefcaseBusiness, Grid2X2, List, Plus, Sparkles } from 'lucide-react';
@@ -92,6 +93,13 @@ export default function CaseRepositoryPage() {
   const [pageError, setPageError] = useState('');
 
   const deferredSearch = useDeferredValue(filters.search.trim());
+  const userRoles = user?.roles ?? [];
+  const userPermissions = user?.permissions ?? [];
+  const canCreateDrafts = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_CREATE_DRAFT);
+  const canViewOwnDashboard = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_VIEW_OWN_DASHBOARD);
+  const canViewSavedCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_VIEW_SAVED_OWN);
+  const canBookmarkCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_BOOKMARK);
+  const canShareCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_SHARE);
   const canFetchMine = filters.authorScope !== 'mine' || Boolean(user?.id);
 
   useEffect(() => {
@@ -331,6 +339,14 @@ export default function CaseRepositoryPage() {
     [activeFilterPills],
   );
 
+  const visibleQuickFilterPresets = useMemo(
+    () =>
+      quickFilterPresets.filter((preset) =>
+        preset.type === 'authorScope' && preset.value === 'mine' ? canViewOwnDashboard : true,
+      ),
+    [canViewOwnDashboard],
+  );
+
   useEffect(() => {
     if (advancedFilterCount > 0) {
       setShowAdvancedFilters(true);
@@ -359,16 +375,22 @@ export default function CaseRepositoryPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <AnimatedLink href="/cases/new" className="legal-button-primary text-sm">
-              <Plus className="h-4 w-4" />
-              New draft
-            </AnimatedLink>
-            <AnimatedLink href="/cases/mine" className="legal-button-secondary text-sm">
-              My cases
-            </AnimatedLink>
-            <AnimatedLink href="/cases/saved" className="legal-button-secondary text-sm">
-              Saved
-            </AnimatedLink>
+            {canCreateDrafts ? (
+              <AnimatedLink href="/cases/new" className="legal-button-primary text-sm">
+                <Plus className="h-4 w-4" />
+                New draft
+              </AnimatedLink>
+            ) : null}
+            {canViewOwnDashboard ? (
+              <AnimatedLink href="/cases/mine" className="legal-button-secondary text-sm">
+                My cases
+              </AnimatedLink>
+            ) : null}
+            {canViewSavedCases ? (
+              <AnimatedLink href="/cases/saved" className="legal-button-secondary text-sm">
+                Saved
+              </AnimatedLink>
+            ) : null}
           </div>
         </div>
 
@@ -410,7 +432,7 @@ export default function CaseRepositoryPage() {
           categories={categorySidebarItems}
           selectedCategory={filters.category}
           onSelectCategory={(value) => setFilters((current) => ({ ...current, category: value }))}
-          quickFilterPresets={quickFilterPresets}
+          quickFilterPresets={visibleQuickFilterPresets}
           filters={filters}
           onQuickFilterToggle={(type, value) =>
             setFilters((current) => ({
@@ -434,7 +456,7 @@ export default function CaseRepositoryPage() {
             regions={filterOptions.regions}
             courts={filterOptions.courts}
             sortOptions={sortOptions}
-            quickFilterPresets={quickFilterPresets}
+            quickFilterPresets={visibleQuickFilterPresets}
             filters={filters}
             activeFilterChips={activeFilterChips}
             hasFilters={hasFilters}
@@ -488,7 +510,13 @@ export default function CaseRepositoryPage() {
           ) : (
             <div className={view === 'grid' ? 'grid gap-4 lg:grid-cols-2' : 'space-y-4'}>
               {results.map((item) => (
-                <CaseResultCard key={item.id} item={item} compact={view === 'grid'} />
+                <CaseResultCard
+                  key={item.id}
+                  item={item}
+                  compact={view === 'grid'}
+                  canSave={canBookmarkCases}
+                  canShare={canShareCases}
+                />
               ))}
             </div>
           )}

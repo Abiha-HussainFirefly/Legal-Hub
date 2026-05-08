@@ -1,4 +1,5 @@
 import { auth } from '@/auth';
+import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from '@/lib/auth/roles';
 import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -6,7 +7,10 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
-    if (!session?.user?.id) {
+    const roles = session?.user?.roles ?? [];
+    const permissions = session?.user?.permissions ?? [];
+
+    if (!session?.user?.id || !canAccessLawyerPermission(roles, permissions, LAWYER_PERMISSION_KEYS.NOTIFICATIONS_VIEW_SELF)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -62,7 +66,10 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const session = await auth();
-    if (!session?.user?.id) {
+    const roles = session?.user?.roles ?? [];
+    const permissions = session?.user?.permissions ?? [];
+
+    if (!session?.user?.id || !canAccessLawyerPermission(roles, permissions, LAWYER_PERMISSION_KEYS.NOTIFICATIONS_MARK_READ_SELF)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

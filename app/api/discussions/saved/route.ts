@@ -1,18 +1,22 @@
 // app/api/discussions/saved/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { LAWYER_PERMISSION_KEYS } from '@/lib/auth/roles';
 import { getSessionUser } from '@/lib/services/api-auth';
+import { userHasLawyerPermission } from '@/lib/services/api-auth';
 import { prisma } from '@/lib/prisma';
 
 const AUTHOR_SELECT = {
   id: true, displayName: true, avatarUrl: true,
-  profile:       { select: { username: true, isLawyer: true } },
+  profile:       { select: { username: true, isLawyer: true, headline: true, primaryRegion: { select: { name: true } } } },
   lawyerProfile: { select: { verificationStatus: true, barCouncil: true, firmName: true } },
 } as const;
 
 export async function GET(req: NextRequest) {
   try {
     const user = await getSessionUser(req);
-    if (!user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!user?.id || !userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.DISCUSSIONS_VIEW_SAVED_OWN)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const sp    = new URL(req.url).searchParams;
     const page  = Math.max(1,  parseInt(sp.get('page')  || '1'));
@@ -48,7 +52,8 @@ export async function GET(req: NextRequest) {
       data: discussions,
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     });
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to load saved discussions';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

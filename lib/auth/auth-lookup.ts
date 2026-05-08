@@ -1,3 +1,4 @@
+import { canAccessAdminPortal } from "@/lib/auth/roles";
 import { PrismaClient } from "@prisma/client";
 
 export interface AuthLookupResult {
@@ -138,5 +139,5 @@ export function isUserActive(
 
 
 export function isAdmin(roles: string[]): boolean {
-  return roles.includes("admin");
+  return canAccessAdminPortal(roles);
 }

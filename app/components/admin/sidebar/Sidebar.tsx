@@ -1,32 +1,72 @@
 'use client';
 
+import { ADMIN_PERMISSION_KEYS, canAccessAdminPortal, canAccessAdminPermission, getAdminPermissionForPath } from '@/lib/auth/roles';
 import { useSidebar } from '@/app/components/admin/sidebar/SidebarContext';
 import {
+  Activity,
+  Award,
   BarChart3,
   Bell,
+  BellRing,
   BriefcaseBusiness,
   ChevronDown,
+  Download,
   FileSearch,
+  FolderSearch,
   Home,
+  KeyRound,
+  ListChecks,
   LogOut,
+  MessageSquareText,
   Settings,
   ShieldCheck,
+  Tags,
   User,
-  Users
+  Users,
 } from 'lucide-react';
+import Image from 'next/image';
 import { signOut, useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
-const menuItems = [
-  { icon: Home,         label: 'Dashboard',   href: '/dashboard'   },
-  { icon: ShieldCheck, label: 'Verification', href: '/verification' },
-  { icon: BriefcaseBusiness, label: 'Cases', href: '/case-review' },
-  { icon: FileSearch,  label: 'Moderation',  href: '/moderation'   },
-  { icon: Users,       label: 'User',        href: '/user'        },
-  { icon: BarChart3,   label: 'Reports',     href: '/reports'     },
-  { icon: Settings,    label: 'Settings',    href: '/settings'    },
+const menuSections = [
+  {
+    title: 'Command',
+    items: [
+      { icon: Home, label: 'Dashboard', href: '/dashboard' },
+      { icon: BarChart3, label: 'Reports', href: '/reports' },
+      { icon: Download, label: 'Exports', href: '/exports' },
+    ],
+  },
+  {
+    title: 'Identity',
+    items: [
+      { icon: Users, label: 'Users', href: '/user' },
+      { icon: KeyRound, label: 'Roles', href: '/roles' },
+      { icon: ListChecks, label: 'Permissions', href: '/permissions' },
+      { icon: ShieldCheck, label: 'Verification', href: '/verification' },
+      { icon: Settings, label: 'Security', href: '/settings' },
+    ],
+  },
+  {
+    title: 'Operations',
+    items: [
+      { icon: BriefcaseBusiness, label: 'Cases', href: '/case-review' },
+      { icon: MessageSquareText, label: 'Discussions', href: '/discussion-ops' },
+      { icon: FileSearch, label: 'Moderation', href: '/moderation' },
+      { icon: FolderSearch, label: 'Files', href: '/files' },
+      { icon: BellRing, label: 'Notifications', href: '/notifications' },
+      { icon: Activity, label: 'System Jobs', href: '/system-jobs' },
+    ],
+  },
+  {
+    title: 'Reference',
+    items: [
+      { icon: Tags, label: 'Taxonomy', href: '/taxonomy' },
+      { icon: Award, label: 'Gamification', href: '/gamification' },
+    ],
+  },
 ];
 
 interface Notification {
@@ -35,46 +75,123 @@ interface Notification {
   message: string;
   time: string;
   read: boolean;
-  type?: 'info' | 'warning' | 'success';
+  relatedHref?: string | null;
+  relatedLabel?: string | null;
 }
-
-const MOCK_NOTIFICATIONS: Notification[] = [
-  { id: '1', title: 'New user registered',  message: 'A new lawyer has signed up and is pending verification.', time: '2 min ago',  read: false, type: 'info'    },
-  { id: '2', title: 'Report submitted',     message: 'A moderation report has been filed for review.',          time: '1 hr ago',  read: false, type: 'warning' },
-  { id: '3', title: 'Settings updated',    message: 'System settings were updated successfully.',              time: 'Yesterday', read: true,  type: 'success' },
-  { id: '4', title: 'Database Backup',     message: 'Automated nightly backup completed without errors.',       time: '2 days ago',read: true,  type: 'success' },
-];
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const router   = useRouter();
+  const router = useRouter();
   const { isOpen, isMobile } = useSidebar();
-  const { data: session }    = useSession();
+  const { data: session } = useSession();
 
-  const [notifications, setNotifications]         = useState<Notification[]>(MOCK_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [isUserMenuOpen, setMenuOpen]             = useState(false);
+  const [isUserMenuOpen, setMenuOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const sidebarWidth = isMobile ? (isOpen ? '256px' : '0px') : (isOpen ? '256px' : '72px');
-  const showLabels   = isOpen;
-  const unreadCount  = notifications.filter(n => !n.read).length;
+  const sidebarWidth = isMobile ? (isOpen ? '256px' : '0px') : isOpen ? '256px' : '72px';
+  const showLabels = isOpen;
+  const sessionRoles = ((session?.user as { roles?: string[] } | undefined)?.roles ?? []).filter(Boolean);
+  const sessionPermissions = ((session?.user as { permissions?: string[] } | undefined)?.permissions ?? []).filter(Boolean);
+
+  const visibleMenuSections = menuSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => {
+        const requiredPermission = getAdminPermissionForPath(item.href);
+
+        if (!requiredPermission) {
+          return canAccessAdminPortal(sessionRoles);
+        }
+
+        return canAccessAdminPermission(sessionRoles, sessionPermissions, requiredPermission);
+      }),
+    }))
+    .filter((section) => section.items.length > 0);
+  const canViewShellNotifications = canAccessAdminPermission(
+    sessionRoles,
+    sessionPermissions,
+    ADMIN_PERMISSION_KEYS.NOTIFICATIONS_MANAGE,
+  );
 
   const getInitials = (name?: string | null) => {
     if (!name) return '??';
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
   };
-
-  const markRead    = (id: string) =>
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-  const markAllRead = () =>
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
 
   const handleLogout = async () => {
     await signOut({ redirect: false });
     router.push('/adminlogin');
   };
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadNotifications() {
+      if (!canViewShellNotifications) {
+        setNotifications([]);
+        setUnreadCount(0);
+        setNotificationsLoading(false);
+        return;
+      }
+
+      setNotificationsLoading(true);
+
+      try {
+        const response = await fetch('/api/admin/shell-notifications?limit=6', { cache: 'no-store' });
+        if (!response.ok) return;
+
+        const payload = await response.json();
+        if (ignore) return;
+
+        setUnreadCount(typeof payload.unreadCount === 'number' ? payload.unreadCount : 0);
+        setNotifications(
+          Array.isArray(payload.items)
+            ? payload.items.map(
+                (item: {
+                  id: string;
+                  title: string;
+                  message: string | null;
+                  relativeTime: string;
+                  isRead: boolean;
+                  relatedHref?: string | null;
+                  relatedLabel?: string | null;
+                }) => ({
+                  id: item.id,
+                  title: item.title,
+                  message: item.message ?? '',
+                  time: item.relativeTime,
+                  read: item.isRead,
+                  relatedHref: item.relatedHref ?? null,
+                  relatedLabel: item.relatedLabel ?? null,
+                }),
+              )
+            : [],
+        );
+      } catch (error) {
+        console.error('Failed to load admin shell notifications', error);
+      } finally {
+        if (!ignore) {
+          setNotificationsLoading(false);
+        }
+      }
+    }
+
+    loadNotifications();
+
+    return () => {
+      ignore = true;
+    };
+  }, [canViewShellNotifications]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -86,190 +203,219 @@ export default function Sidebar() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  const isActiveLink = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+
   return (
     <aside
-      className="min-h-screen fixed left-0 top-0 flex flex-col bg-[#F3F0F4] transition-all duration-300 z-20 border-r border-gray-200 overflow-hidden"
+      className="fixed left-0 top-0 z-20 flex h-screen flex-col overflow-hidden border-r border-gray-200 bg-[#F3F0F4] transition-all duration-300"
       style={{ width: sidebarWidth }}
     >
-      {/* Logo */}
-      <div className="flex items-center h-[80px] px-4 shrink-0">
+      <div className="flex h-[80px] shrink-0 items-center px-4">
         {showLabels ? (
-          <img src="/logo-legal-hub.png" alt="Legal Hub" className="h-12 w-auto" />
+          <Image src="/logo-legal-hub.png" alt="Legal Hub" width={144} height={48} className="h-12 w-auto" />
         ) : (
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#9F63C4] to-[#7E4FA1] flex items-center justify-center text-white font-bold">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-[#9F63C4] to-[#7E4FA1] font-bold text-white">
             LH
           </div>
         )}
       </div>
 
-      {/* Dynamic Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {showNotifications && showLabels ? (
-          
-          <div className="flex flex-col h-full bg-white/40 animate-in slide-in-from-right-4 duration-300">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50/80">
+          <div className="flex h-full min-h-0 flex-col bg-white/40 animate-in slide-in-from-right-4 duration-300">
+            <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50/80 px-4 py-3">
               <div className="flex items-center gap-2">
                 <Bell size={14} className="text-[#9F63C4]" />
-                <p className="font-bold text-sm text-[#4C2F5E]">Notifications</p>
+                <p className="text-sm font-bold text-[#4C2F5E]">Notifications</p>
               </div>
-              <button
-                onClick={markAllRead}
-                className="text-[10px] font-bold text-[#9F63C4] hover:underline uppercase"
-              >
-                Mark all read
-              </button>
+              <Link href="/notifications" className="text-[10px] font-bold uppercase text-[#9F63C4] hover:underline">
+                Open Center
+              </Link>
             </div>
 
-            <div className="flex-1 overflow-y-auto divide-y divide-gray-100 custom-scrollbar">
-              {notifications.map((n) => (
-                <div
-                  key={n.id}
-                  onClick={() => markRead(n.id)}
-                  className={`flex items-start gap-3 px-4 py-4 transition-colors cursor-pointer hover:bg-white ${
-                    !n.read ? 'bg-purple-50/40' : ''
-                  }`}
-                >
-                  <div className="mt-1 flex-shrink-0">
-                    <div className={`w-2 h-2 rounded-full ${!n.read ? 'bg-[#9F63C4]' : 'bg-gray-200'}`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start">
-                      <p className={`text-xs font-semibold truncate ${!n.read ? 'text-[#4C2F5E]' : 'text-gray-600'}`}>
-                        {n.title}
-                      </p>
-                      <span className="text-[9px] text-gray-400 whitespace-nowrap ml-2">{n.time}</span>
+            <div className="custom-scrollbar flex-1 overflow-y-auto divide-y divide-gray-100">
+              {notificationsLoading ? (
+                <div className="px-4 py-6 text-sm text-slate-500">Loading live notifications...</div>
+              ) : notifications.length ? (
+                notifications.map((n) => {
+                  const body = (
+                    <div
+                      className={`flex items-start gap-3 px-4 py-4 transition-colors hover:bg-white ${
+                        !n.read ? 'bg-purple-50/40' : ''
+                      }`}
+                    >
+                      <div className="mt-1 shrink-0">
+                        <div className={`h-2 w-2 rounded-full ${!n.read ? 'bg-[#9F63C4]' : 'bg-gray-200'}`} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between">
+                          <p className={`truncate text-xs font-semibold ${!n.read ? 'text-[#4C2F5E]' : 'text-gray-600'}`}>
+                            {n.title}
+                          </p>
+                          <span className="ml-2 whitespace-nowrap text-[9px] text-gray-400">{n.time}</span>
+                        </div>
+                        {n.message ? <p className="mt-0.5 text-[11px] leading-relaxed text-gray-500">{n.message}</p> : null}
+                        {n.relatedLabel ? (
+                          <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8C7A9B]">
+                            {n.relatedLabel}
+                          </p>
+                        ) : null}
+                      </div>
                     </div>
-                    <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed">
-                      {n.message}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                  );
+
+                  return n.relatedHref ? (
+                    <Link key={n.id} href={n.relatedHref} onClick={() => setShowNotifications(false)} className="block">
+                      {body}
+                    </Link>
+                  ) : (
+                    <div key={n.id}>{body}</div>
+                  );
+                })
+              ) : (
+                <div className="px-4 py-6 text-sm text-slate-500">No notifications are available in the database yet.</div>
+              )}
             </div>
 
-            <div className="p-3 border-t border-gray-100 bg-gray-50/30">
-              <button 
+            <div className="border-t border-gray-100 bg-gray-50/30 p-3">
+              <button
                 onClick={() => setShowNotifications(false)}
-                className="w-full flex items-center justify-center gap-2 py-2 text-[11px] font-bold text-gray-500 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+                className="w-full rounded-lg border border-gray-200 py-2 text-[11px] font-bold text-gray-500 transition-colors hover:bg-gray-100"
               >
                 Back to Menu
               </button>
             </div>
           </div>
         ) : (
-          
-          <nav className="flex-1 px-2 mt-5 overflow-y-auto custom-scrollbar">
-            <ul className="space-y-1">
-              {menuItems.map((item) => {
-                const Icon     = item.icon;
-                const isActive = pathname === item.href;
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      onClick={() => setShowNotifications(false)}
-                      className={`flex items-center gap-4 py-3 px-4 rounded-xl transition-all cursor-pointer ${
-                        isActive
-                          ? 'text-white bg-gradient-to-r from-[#9F63C4] to-[#7E4FA1] shadow-sm'
-                          : 'text-[#4C2F5E] hover:bg-purple-50'
-                      }`}
-                    >
-                      <Icon className="w-6 h-6 shrink-0" />
-                      {showLabels && <span className="font-semibold">{item.label}</span>}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
+          <nav className="custom-scrollbar mt-5 flex-1 overflow-y-auto px-2">
+            <div className="space-y-5 pb-5">
+              {visibleMenuSections.map((section) => (
+                <div key={section.title} className={showLabels ? 'lh-sidebar-section' : ''}>
+                  {showLabels ? (
+                    <p className="px-4 pb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#8C7A9B]">
+                      {section.title}
+                    </p>
+                  ) : null}
+                  <ul className="space-y-1">
+                    {section.items.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = isActiveLink(item.href);
+                      return (
+                        <li key={item.href}>
+                          <Link
+                            href={item.href}
+                            onClick={() => setShowNotifications(false)}
+                            className={`flex cursor-pointer items-center gap-4 rounded-xl px-4 py-3 transition-all ${
+                              isActive
+                                ? 'bg-gradient-to-r from-[#9F63C4] to-[#7E4FA1] text-white shadow-sm'
+                                : 'text-[#4C2F5E] hover:bg-purple-50 hover:text-[#4C2F5E]'
+                            }`}
+                          >
+                            <Icon className="h-6 w-6 shrink-0" />
+                            {showLabels ? <span className="font-semibold">{item.label}</span> : null}
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ))}
+            </div>
           </nav>
         )}
       </div>
 
-      
-      <div className="mt-auto shrink-0 relative" ref={dropdownRef}>
-        
-        {isUserMenuOpen && (
-          <div className="mx-2 mb-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in slide-in-from-bottom-2 duration-200">
-            <div className="p-2 space-y-0.5">
+      <div className="relative mt-auto shrink-0" ref={dropdownRef}>
+        {isUserMenuOpen ? (
+          <div className="animate-in slide-in-from-bottom-2 mx-2 mb-2 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl duration-200">
+            <div className="space-y-0.5 p-2">
               <button
-                onClick={() => { router.push('/adminprofile'); setMenuOpen(false); setShowNotifications(false); }}
-                className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 rounded-xl transition cursor-pointer"
+                onClick={() => {
+                  router.push('/adminprofile');
+                  setMenuOpen(false);
+                  setShowNotifications(false);
+                }}
+                className="flex w-full cursor-pointer items-center justify-between rounded-xl px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
               >
                 <span>Profile</span>
                 <User size={15} className="text-gray-400" />
               </button>
 
               <button
-                onClick={() => { setShowNotifications(!showNotifications); setMenuOpen(false); }}
-                className={`w-full flex items-center justify-between px-4 py-2.5 text-sm font-semibold rounded-xl transition cursor-pointer ${
+                onClick={() => {
+                  setShowNotifications(!showNotifications);
+                  setMenuOpen(false);
+                }}
+                className={`flex w-full cursor-pointer items-center justify-between rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
                   showNotifications ? 'bg-purple-50 text-[#9F63C4]' : 'text-gray-700 hover:bg-gray-50'
                 }`}
               >
                 <div className="flex items-center gap-2">
                   <span>{showNotifications ? 'Hide Notifications' : 'Notifications'}</span>
-                  {!showNotifications && unreadCount > 0 && (
-                    <span className="bg-[#9F63C4] text-white text-[10px] px-1.5 rounded-full">{unreadCount}</span>
-                  )}
+                  {!showNotifications && unreadCount > 0 ? (
+                    <span className="rounded-full bg-[#9F63C4] px-1.5 text-[10px] text-white">{unreadCount}</span>
+                  ) : null}
                 </div>
                 {showNotifications ? <ChevronDown size={15} /> : <Bell size={15} className="text-gray-400" />}
               </button>
 
-              <div className="h-px bg-gray-100 my-1 mx-2" />
+              <div className="mx-2 my-1 h-px bg-gray-100" />
 
               <button
                 onClick={handleLogout}
-                className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-semibold text-red-500 hover:bg-red-50 rounded-xl transition cursor-pointer"
+                className="flex w-full cursor-pointer items-center justify-between rounded-xl px-4 py-2.5 text-sm font-semibold text-red-500 transition hover:bg-red-50"
               >
                 <span>Logout</span>
                 <LogOut size={15} className="text-red-400" />
               </button>
             </div>
 
-            {/* User Info Card */}
             <div className="h-px bg-gray-100" />
-            <div className="flex items-center gap-3 px-4 py-3 bg-gray-50/50">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#4C2F5E] text-white font-bold text-sm">
+            <div className="flex items-center gap-3 bg-gray-50/50 px-4 py-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#4C2F5E] text-sm font-bold text-white">
                 {getInitials(session?.user?.name)}
               </div>
-              <div className="flex flex-col min-w-0">
-                <span className="text-sm font-bold text-[#4C2F5E] truncate leading-tight">
-                  {session?.user?.name ?? 'Admin User'}
+              <div className="flex min-w-0 flex-col">
+                <span className="truncate text-sm font-bold leading-tight text-[#4C2F5E]">
+                  {session?.user?.name ?? session?.user?.email ?? 'Authenticated admin'}
                 </span>
-                <span className="text-[10px] text-[#9F63C4] font-medium truncate">
-                  {session?.user?.email ?? 'admin@legalhub.com'}
+                <span className="truncate text-[10px] font-medium text-[#9F63C4]">
+                  {session?.user?.email ?? 'No email on record'}
                 </span>
                 <div className="mt-1 flex">
-                  <span className="text-[9px] font-bold text-white bg-[#4C2F5E] px-1.5 py-0.5 rounded uppercase tracking-wider">
+                  <span className="rounded bg-[#4C2F5E] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
                     Administrator
                   </span>
                 </div>
               </div>
             </div>
           </div>
-        )}
+        ) : null}
 
         <button
           onClick={() => setMenuOpen(!isUserMenuOpen)}
-          className={`w-full flex items-center gap-3 p-4 border-t border-gray-200 hover:bg-white transition-colors cursor-pointer ${!showLabels ? 'justify-center' : ''}`}
+          className={`flex w-full cursor-pointer items-center gap-3 border-t border-gray-200 p-4 transition-colors hover:bg-white ${
+            !showLabels ? 'justify-center' : ''
+          }`}
         >
-          <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#4C2F5E] text-white font-bold text-sm shadow-sm">
+          <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#4C2F5E] text-sm font-bold text-white shadow-sm">
             {getInitials(session?.user?.name)}
-            {!showNotifications && unreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-[#9F63C4] rounded-full border-2 border-[#F3F0F4] flex items-center justify-center text-[8px] text-white font-bold">
+            {!showNotifications && unreadCount > 0 ? (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full border-2 border-[#F3F0F4] bg-[#9F63C4] text-[8px] font-bold text-white">
                 {unreadCount}
               </span>
-            )}
+            ) : null}
           </div>
-          {showLabels && (
-            <div className="flex flex-col min-w-0 text-left">
+          {showLabels ? (
+            <div className="flex min-w-0 flex-col text-left">
               <span className="truncate text-sm font-bold text-[#4C2F5E]">
-                {session?.user?.name ?? 'Admin User'}
+                {session?.user?.name ?? session?.user?.email ?? 'Authenticated admin'}
               </span>
-              <span className="text-[11px] text-[#9F63C4] font-semibold truncate">
-                {showNotifications ? 'Viewing Notifications' : 'View Profile'}
+              <span className="truncate text-[11px] font-semibold text-[#9F63C4]">
+                {showNotifications ? 'Live Notification Feed' : 'View Profile'}
               </span>
             </div>
-          )}
+          ) : null}
         </button>
       </div>
     </aside>

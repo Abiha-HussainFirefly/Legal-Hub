@@ -7,11 +7,7 @@ function generateVerificationCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-/**
- * API: Welcome / Resend Verification Code
- * 
- * Securely resends the 6-digit code if the session is still valid.
- */
+
 export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? "unknown_ip";
 

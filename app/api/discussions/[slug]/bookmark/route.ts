@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
+import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from '@/lib/auth/roles';
 import { prisma } from '@/lib/prisma';
 
 export async function POST(
@@ -8,7 +9,10 @@ export async function POST(
 ) {
   try {
     const session = await auth();
-    if (!session?.user?.id) {
+    const roles = session?.user?.roles ?? [];
+    const permissions = session?.user?.permissions ?? [];
+
+    if (!session?.user?.id || !canAccessLawyerPermission(roles, permissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_BOOKMARK)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

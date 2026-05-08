@@ -138,8 +138,11 @@ export async function registerCommand(input: RegisterInput): Promise<RegisterRes
 
       // Public signup on this route is currently the lawyer portal,
       // so provision the lawyer role by default.
-      const lawyerRole = await tx.role.findUnique({ where: { name: "lawyer" } });
-      if (!lawyerRole) throw new Error("Role 'lawyer' not found.");
+      const lawyerRole = await tx.role.findUnique({
+        where: { name: "lawyer" },
+        select: { id: true, isActive: true },
+      });
+      if (!lawyerRole?.isActive) throw new Error("Active role 'lawyer' not found.");
 
       await tx.userRole.create({
         data: { userId: user.id, roleId: lawyerRole.id },

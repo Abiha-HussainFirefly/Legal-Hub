@@ -9,6 +9,7 @@ interface WorkspaceUser {
   name?: string | null;
   email?: string | null;
   roles?: string[];
+  permissions?: string[];
 }
 
 interface CaseWorkspaceContextValue {

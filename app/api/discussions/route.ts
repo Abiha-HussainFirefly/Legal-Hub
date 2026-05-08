@@ -1,38 +1,51 @@
 // app/api/discussions/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { LAWYER_PERMISSION_KEYS } from "@/lib/auth/roles";
 import { getSessionUser } from "@/lib/services/api-auth";
+import { userHasLawyerPermission } from "@/lib/services/api-auth";
 import {
   listDiscussions,
   createDiscussion,
 } from "@/lib/services/discussion.service";
-import type { DiscussionFilters } from "@/types/discussion";
+import type { DiscussionFilters, DiscussionStatus, DiscussionType } from "@/types/discussion";
+
+const DISCUSSION_TYPES: DiscussionType[] = ["QUESTION", "DISCUSSION", "ANNOUNCEMENT", "LEGAL_UPDATE"];
+const DISCUSSION_STATUSES: DiscussionStatus[] = ["OPEN", "RESOLVED", "CLOSED", "LOCKED", "HIDDEN", "DELETED"];
+const DISCUSSION_SORTS: NonNullable<DiscussionFilters["sort"]>[] = ["latest", "popular", "unanswered", "trending"];
+
+function parseEnumValue<T extends string>(value: string | null, allowedValues: readonly T[]) {
+  return value && allowedValues.includes(value as T) ? (value as T) : undefined;
+}
 
 export async function GET(req: NextRequest) {
   try {
     const user = await getSessionUser(req);
+    if (!userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.DISCUSSIONS_VIEW)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const sp = new URL(req.url).searchParams;
 
     const filters: DiscussionFilters = {
-      kind: (sp.get("kind") as any) || undefined,
+      kind: parseEnumValue(sp.get("kind"), DISCUSSION_TYPES),
       categoryId: sp.get("categoryId") || undefined,
       regionId: sp.get("regionId") || undefined,
       tagId: sp.get("tagId") || undefined,
-      status: (sp.get("status") as any) || undefined,
+      status: parseEnumValue(sp.get("status"), DISCUSSION_STATUSES),
       authorId: sp.get("authorId") || undefined,
       savedByUserId: sp.get("savedByUserId") || undefined,
       search: sp.get("search") || undefined,
       page: Math.max(1, parseInt(sp.get("page") || "1")),
       limit: Math.min(50, parseInt(sp.get("limit") || "20")),
-      sort: (sp.get("sort") as any) || "latest",
+      sort: parseEnumValue(sp.get("sort"), DISCUSSION_SORTS) ?? "latest",
       aiSummaryOnly: sp.get("aiSummaryOnly") === "true",
     };
 
     const data = await listDiscussions(filters, user?.id);
     return NextResponse.json(data);
-  } catch (e: any) {
+  } catch (e: unknown) {
     return NextResponse.json(
-      { error: e.message || "Server error" },
+      { error: e instanceof Error ? e.message : "Server error" },
       { status: 500 }
     );
   }
@@ -42,7 +55,7 @@ export async function POST(req: NextRequest) {
   try {
     const user = await getSessionUser(req);
 
-    if (!user?.id) {
+    if (!user?.id || !userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.DISCUSSIONS_CREATE)) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -69,9 +82,9 @@ export async function POST(req: NextRequest) {
     const result = await createDiscussion(user.id, body);
 
     return NextResponse.json(result, { status: 201 });
-  } catch (e: any) {
+  } catch (e: unknown) {
     return NextResponse.json(
-      { error: e.message || "Failed to create discussion" },
+      { error: e instanceof Error ? e.message : "Failed to create discussion" },
       { status: 400 }
     );
   }

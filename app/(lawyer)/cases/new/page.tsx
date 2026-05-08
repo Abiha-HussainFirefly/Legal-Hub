@@ -1,7 +1,9 @@
 'use client';
 
 import CaseEditor from '@/app/components/cases/case-editor';
+import { useCaseWorkspace } from '@/app/components/cases/case-workspace';
 import { useToast } from '@/app/components/ui/toast/toast-context';
+import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from '@/lib/auth/roles';
 import type { CaseDraftPayload } from '@/types/case';
 import { BriefcaseBusiness } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -39,9 +41,14 @@ function MetaSkeleton() {
 
 export default function CreateCasePage() {
   const router = useRouter();
+  const { user } = useCaseWorkspace();
   const { addToast } = useToast();
   const [meta, setMeta] = useState<MetaResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const userRoles = user?.roles ?? [];
+  const userPermissions = user?.permissions ?? [];
+  const canCreateDrafts = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_CREATE_DRAFT);
+  const canSubmitCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_SUBMIT_OWN_FOR_REVIEW);
 
   useEffect(() => {
     fetch('/api/cases/meta')
@@ -92,6 +99,8 @@ export default function CreateCasePage() {
       courts={meta.courts}
       onSaveDraft={(payload) => persist(payload, 'draft')}
       onSubmitForReview={(payload) => persist(payload, 'submit')}
+      canSaveDraft={canCreateDrafts}
+      canSubmitForReview={canSubmitCases}
     />
   );
 }

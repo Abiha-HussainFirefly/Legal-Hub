@@ -1,4 +1,5 @@
 import { auth } from '@/auth';
+import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from '@/lib/auth/roles';
 import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -17,6 +18,14 @@ export async function GET(
 ) {
   try {
     const session = await auth();
+    const roles = session?.user?.roles ?? [];
+    const permissions = session?.user?.permissions ?? [];
+    const canViewDiscussion = canAccessLawyerPermission(roles, permissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_VIEW);
+    const canViewComments = canAccessLawyerPermission(roles, permissions, LAWYER_PERMISSION_KEYS.COMMENTS_VIEW);
+    const canViewAiSummary = canAccessLawyerPermission(roles, permissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_AI_SUMMARY_VIEW);
+    if (!canViewDiscussion) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const { slug } = await params;
     
     // Crucial: Use the ID from the session to fetch user-specific states
@@ -183,18 +192,24 @@ export async function GET(
     const tags = discussion.tags.map((dt) => dt.tag);
     
     // Explicitly casting to access the conditional relations
-    const typedDisc = discussion as any;
+    const typedDisc = discussion as typeof discussion & DiscussionWithViewerState;
     const viewerReaction = typedDisc.reactions?.[0]?.reactionType ?? null;
     const viewerFollowing = (typedDisc.followers?.length ?? 0) > 0;
     const viewerSaved = (typedDisc.bookmarks?.length ?? 0) > 0;
 
-    // Remove the relation arrays before sending to frontend to keep payload clean
-    const { reactions, followers, bookmarks, ...cleanDiscussion } = typedDisc;
+    const cleanDiscussion = {
+      ...typedDisc,
+      reactions: undefined,
+      followers: undefined,
+      bookmarks: undefined,
+    };
 
     return NextResponse.json({
       discussion: {
         ...cleanDiscussion,
         tags,
+        comments: canViewComments ? cleanDiscussion.comments : [],
+        aiSummaries: canViewAiSummary ? cleanDiscussion.aiSummaries : [],
         viewerReaction,
         viewerFollowing,
         viewerSaved,
@@ -216,7 +231,11 @@ export async function PATCH(
 ) {
   try {
     const session = await auth();
-    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const roles = session?.user?.roles ?? [];
+    const permissions = session?.user?.permissions ?? [];
+    if (!session?.user?.id || !canAccessLawyerPermission(roles, permissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_EDIT_OWN)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const { slug } = await params;
     const body = await req.json();
@@ -230,7 +249,7 @@ export async function PATCH(
     if (discussion.authorId !== session.user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const allowedFields = ['title', 'body', 'categoryId', 'regionId', 'visibility'];
-    const updateData: Record<string, any> = {};
+    const updateData: Record<string, unknown> = {};
     allowedFields.forEach(f => { if (body[f] !== undefined) updateData[f] = body[f]; });
 
     const currentVersion = await prisma.discussionRevision.count({ where: { discussionId: discussion.id } });
@@ -252,7 +271,7 @@ export async function PATCH(
     ]);
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -263,7 +282,11 @@ export async function DELETE(
 ) {
   try {
     const session = await auth();
-    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const roles = session?.user?.roles ?? [];
+    const permissions = session?.user?.permissions ?? [];
+    if (!session?.user?.id || !canAccessLawyerPermission(roles, permissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_DELETE_OWN)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const { slug } = await params;
     const discussion = await prisma.discussion.findUnique({
@@ -280,7 +303,7 @@ export async function DELETE(
     });
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
