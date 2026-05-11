@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
 const SESSION_COOKIE_NAMES = [
   "authjs.session-token",
@@ -14,11 +14,10 @@ function getSessionToken(req: NextRequest): string | undefined {
     const value = req.cookies.get(name)?.value;
     if (value) return value;
   }
-
   return undefined;
 }
 
-export function proxy(req: NextRequest) {
+export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const token = getSessionToken(req);
