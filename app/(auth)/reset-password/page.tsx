@@ -24,8 +24,8 @@ function ResetPasswordForm() {
   const { addToast } = useToast();
 
   const searchParams = useSearchParams();
-  const token = searchParams.get("token");
-  const portal = searchParams.get("portal") || "lawyer";
+  const token = searchParams?.get("token");
+  const portal = searchParams?.get("portal") || "lawyer";
   const loginPath =
     portal === "admin"
       ? "/adminlogin"

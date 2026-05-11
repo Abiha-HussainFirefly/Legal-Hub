@@ -1,3 +1,4 @@
+'use client';
 import PermissionGate from '../../components/PermissionGate';
 import CaseCard from '../../components/cases/CaseCard';
 import usePermissions from '../../hooks/usePermissions';

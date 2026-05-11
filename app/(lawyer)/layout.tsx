@@ -46,7 +46,7 @@ export default function LawyerLayout({ children }: { children: React.ReactNode }
           return;
         }
 
-        if (!canAccessLawyerPath(roles, permissions, pathname)) {
+        if (!canAccessLawyerPath(roles, permissions, pathname || '')) {
           if (!cancelled) {
             setStatus('unauthorized');
             const fallbackPath = getFirstAccessibleLawyerPath(roles, permissions) ?? '/lawyerlogin';

@@ -62,7 +62,7 @@ export default function LoginForm({
   );
 
   useEffect(() => {
-    const error = searchParams.get("error");
+    const error = searchParams?.get("error");
     if (error === "ADMIN_SOCIAL_BLOCKED") {
       addToast(
         "error",

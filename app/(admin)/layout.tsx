@@ -63,7 +63,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           const permissions = data.user.permissions ?? [];
           const normalizedRoles = Array.isArray(roles) ? roles : [roles];
           const isAdmin = canAccessAdminPortal(normalizedRoles);
-          const requiredPermission = getAdminPermissionForPath(pathname);
+          const requiredPermission = getAdminPermissionForPath(pathname ?? '');
 
           if (!isAdmin) {
             setStatus('unauthenticated');
@@ -80,7 +80,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           setUserData(data.user as AdminLayoutUser);
           setStatus('authenticated');
-          
+
           // Sync legacy storage
           localStorage.setItem('isLoggedIn', 'true');
           localStorage.setItem('user', JSON.stringify(data.user));

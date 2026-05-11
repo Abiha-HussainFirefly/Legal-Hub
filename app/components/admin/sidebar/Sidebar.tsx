@@ -203,7 +203,7 @@ export default function Sidebar() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const isActiveLink = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  const isActiveLink = (href: string) => pathname === href || pathname?.startsWith(`${href}/`);
 
   return (
     <aside

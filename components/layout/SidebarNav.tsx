@@ -1,4 +1,7 @@
-import { NavLink } from 'react-router-dom';
+'use client';
+
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import usePermissions from '../../hooks/usePermissions';
 import { PERMISSIONS, type Permission } from '../../utils/permissions';
 
@@ -62,6 +65,7 @@ const NAV_ITEMS: NavItem[] = [
 
 const SidebarNav = () => {
   const { can } = usePermissions();
+  const pathname = usePathname(); // Get current path to check active state
 
   const visibleItems = NAV_ITEMS.filter((item) => can(item.permission));
 
@@ -72,21 +76,24 @@ const SidebarNav = () => {
   return (
     <aside className="w-full max-w-xs rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <nav className="space-y-2">
-        {visibleItems.map((item) => (
-          <NavLink
-            key={item.key}
-            to={item.to}
-            className={({ isActive }) =>
-              `block rounded-lg px-4 py-2.5 text-sm font-medium transition ${
+        {visibleItems.map((item) => {
+          // Check if current pathname matches the link destination
+          const isActive = pathname === item.to || pathname?.startsWith(`${item.to}/`);
+
+          return (
+            <Link
+              key={item.key}
+              href={item.to}
+              className={`block rounded-lg px-4 py-2.5 text-sm font-medium transition ${
                 isActive
                   ? 'bg-slate-900 text-white'
                   : 'text-slate-700 hover:bg-slate-50'
-              }`
-            }
-          >
-            {item.label}
-          </NavLink>
-        ))}
+              }`}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
       </nav>
     </aside>
   );

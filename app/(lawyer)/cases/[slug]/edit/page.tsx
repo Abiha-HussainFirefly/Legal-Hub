@@ -45,7 +45,7 @@ export default function EditCasePage() {
 
     Promise.all([
       fetch('/api/cases/meta'),
-      fetch(`/api/cases/${params.slug}`),
+      fetch(`/api/cases/${params?.slug}`),
     ])
       .then(async ([metaResponse, recordResponse]) => {
         const metaPayload = await metaResponse.json();
@@ -80,7 +80,7 @@ export default function EditCasePage() {
     return () => {
       cancelled = true;
     };
-  }, [addToast, params.slug]);
+  }, [addToast, params?.slug]);
 
   if (loading) {
     return (

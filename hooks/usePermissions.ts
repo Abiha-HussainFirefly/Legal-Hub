@@ -12,6 +12,8 @@ type RootState = {
     user?: {
       permissions?: Permission[];
     };
+    // Added loading state to match your Redux slice
+    isLoading?: boolean; 
   };
 };
 
@@ -20,13 +22,19 @@ type UsePermissionsResult = {
   canAll: (requiredPermissions: Permission[]) => boolean;
   canAny: (requiredPermissions: Permission[]) => boolean;
   permissions: Permission[];
+  isLoading: boolean; // Added for TypeScript compatibility
 };
 
 const selectPermissions = (state: RootState): Permission[] =>
   state?.auth?.user?.permissions ?? [];
 
+// Added selector for loading state
+const selectIsLoading = (state: RootState): boolean => 
+  state?.auth?.isLoading ?? false;
+
 export const usePermissions = (): UsePermissionsResult => {
   const permissions = useSelector(selectPermissions, shallowEqual);
+  const isLoading = useSelector(selectIsLoading); // Fetching from Redux
 
   const can = useCallback(
     (permission: Permission) => hasPermission(permissions, permission),
@@ -49,8 +57,9 @@ export const usePermissions = (): UsePermissionsResult => {
       canAll,
       canAny,
       permissions,
+      isLoading, 
     }),
-    [can, canAll, canAny, permissions],
+    [can, canAll, canAny, permissions, isLoading],
   );
 };
 

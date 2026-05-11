@@ -43,7 +43,7 @@ const CaseCard = ({
   const canSubmitOwnCase =
     isAuthor &&
     can(PERMISSIONS.CASES_SUBMIT_OWN_FOR_REVIEW) &&
-    SUBMITTABLE_CASE_STATUSES.includes(normalizedStatus);
+    SUBMITTABLE_CASE_STATUSES.includes(normalizedStatus as "rejected" | "draft");
 
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

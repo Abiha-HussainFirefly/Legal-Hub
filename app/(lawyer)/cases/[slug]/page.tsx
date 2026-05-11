@@ -72,7 +72,7 @@ export default function CaseDetailPage() {
   const loadRecord = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/cases/${params.slug}`);
+      const response = await fetch(`/api/cases/${params?.slug}`);
       const payload = (await response.json()) as { data?: CaseRepositoryRecord; error?: string };
 
       if (!response.ok) {
@@ -90,7 +90,7 @@ export default function CaseDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [addToast, params.slug]);
+  }, [addToast, params?.slug]);
 
   useEffect(() => {
     void loadRecord();

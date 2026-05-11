@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import PermissionGate from '../../components/PermissionGate';
 import usePermissions from '../../hooks/usePermissions';
 import { PERMISSIONS } from '../../utils/permissions';
@@ -54,16 +54,14 @@ const LoginPage = () => {
         </form>
 
         <div className="mt-6 flex items-center justify-between text-sm">
-          {/* Controls whether the lawyer can access self-service registration. */}
           <PermissionGate permission={PERMISSIONS.AUTH_REGISTER}>
-            <Link className="font-medium text-slate-900 hover:underline" to="/register">
+            <Link href="/register" className="font-medium text-slate-900 hover:underline">
               Create account
             </Link>
           </PermissionGate>
 
-          {/* Controls whether the lawyer can initiate password reset. */}
           <PermissionGate permission={PERMISSIONS.AUTH_PASSWORD_RESET}>
-            <Link className="font-medium text-slate-900 hover:underline" to="/forgot-password">
+            <Link href="/forgot-password" className="font-medium text-slate-900 hover:underline">
               Forgot password?
             </Link>
           </PermissionGate>

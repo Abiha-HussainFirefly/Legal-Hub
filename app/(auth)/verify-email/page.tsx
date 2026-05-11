@@ -14,7 +14,7 @@ function VerifyEmailForm() {
   const searchParams = useSearchParams();
   const { addToast } = useToast();
 
-  const email = searchParams.get("email") || "";
+  const email = searchParams?.get("email") || "";
   const [code, setCode] = useState<string[]>(new Array(6).fill(""));
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useRouter } from 'next/router';
 import usePermissions from '../../hooks/usePermissions';
 import { PERMISSIONS } from '../../utils/permissions';
 
@@ -24,14 +24,12 @@ const PublicProfilePage = ({
   },
   trackProfileView = defaultTrackProfileView,
 }: PublicProfilePageProps) => {
-  const { id: profileId } = useParams<{ id: string }>();
+  const router = useRouter();
+  const profileId = router.query.id as string | undefined;
   const { can } = usePermissions();
 
   useEffect(() => {
-    if (!profileId) {
-      return;
-    }
-
+    if (!profileId) return;
     if (can(PERMISSIONS.PROFILE_VIEW_TRACK)) {
       void trackProfileView(profileId);
     }

@@ -6,15 +6,13 @@ import { Suspense, useEffect } from 'react';
 function AuthErrorRedirect() {
   const searchParams = useSearchParams();
   const router       = useRouter();
-  const error        = searchParams.get('error');
-  const callbackUrl  = searchParams.get('callbackUrl') ?? '';
+  const error        = searchParams?.get('error');
+  const callbackUrl  = searchParams?.get('callbackUrl') ?? '';
 
   useEffect(() => {
-    
     if (callbackUrl.includes('dashboard')) {
       router.replace(`/adminlogin?error=${error}`);
     } else {
-      
       router.replace(`/lawyerlogin?error=${error}`);
     }
   }, [error, callbackUrl, router]);

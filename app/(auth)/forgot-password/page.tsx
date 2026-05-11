@@ -24,7 +24,7 @@ function ForgotPasswordForm() {
   const router = useRouter();
   const { addToast } = useToast();
   const searchParams = useSearchParams();
-  const portal = searchParams.get("portal") || "lawyer";
+  const portal = searchParams?.get("portal") || "lawyer";
   const loginPath =
     portal === "admin"
       ? "/adminlogin"
