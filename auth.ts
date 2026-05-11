@@ -1,11 +1,12 @@
-import NextAuth from "next-auth";
-import Google from "next-auth/providers/google";
+import { CustomPrismaAdapter } from "@/lib/auth-adapter";
 import { resolveEffectivePermissions } from "@/lib/auth/roles";
 import { prisma } from "@/lib/prisma";
-import { CustomPrismaAdapter } from "@/lib/auth-adapter";
+import NextAuth from "next-auth";
+import Google from "next-auth/providers/google";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   secret: process.env.AUTH_SECRET,
+  trustHost: true,
   adapter: CustomPrismaAdapter(),
   providers: [
     Google({
@@ -113,4 +114,4 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     signIn: "/adminlogin",
     error: "/adminlogin",
   },
-}); 
+});
