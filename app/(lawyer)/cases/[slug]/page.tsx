@@ -62,6 +62,7 @@ export default function CaseDetailPage() {
   const canBookmarkCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_BOOKMARK);
   const canShareCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_SHARE);
   const canEditOwnCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_EDIT_OWN);
+  const canViewPublicProfiles = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.PROFILE_PUBLIC_VIEW);
   const canSubmitOwnCases = canAccessLawyerPermission(
     userRoles,
     userPermissions,
@@ -190,8 +191,7 @@ export default function CaseDetailPage() {
   }
 
   const isAuthor = user?.id === record.author.id;
-  const isReviewer = user?.roles?.some((role) => ['ADMIN', 'REVIEWER'].includes(role)) ?? false;
-  const canEdit = canEditOwnCases && (isAuthor || isReviewer);
+  const canEdit = canEditOwnCases && isAuthor;
   const canSubmitForReview = canSubmitOwnCases && isAuthor && ['DRAFT', 'REJECTED'].includes(record.status);
   const breadcrumbItems = [
     { label: 'Cases', href: '/cases' },
@@ -283,7 +283,11 @@ export default function CaseDetailPage() {
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-white/68">{record.canonicalCitation}</p>
               <p className="mt-3 text-lg font-semibold text-white">{record.provenanceLabel}</p>
-              <CaseUserLink user={record.author} className="mt-4 flex items-center gap-3 rounded-[20px] border border-white/12 bg-white/10 p-3 transition hover:bg-white/14">
+              <CaseUserLink
+                user={record.author}
+                href={canViewPublicProfiles ? `/profile/user/${record.author.id}` : null}
+                className="mt-4 flex items-center gap-3 rounded-[20px] border border-white/12 bg-white/10 p-3 transition hover:bg-white/14"
+              >
                 {record.author.avatarUrl ? (
                   <img
                     src={record.author.avatarUrl}
@@ -473,7 +477,11 @@ export default function CaseDetailPage() {
                     </div>
                     <p className="mt-3 text-sm leading-7 text-[#6E5F7D]">{revision.changeSummary}</p>
                     <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[#8C7A9B]">
-                      <CaseUserLink user={revision.editor} className="inline-flex items-center gap-2 rounded-full border border-[#4C2F5E]/10 bg-white px-2.5 py-1 transition hover:bg-[#F7F3FA]">
+                      <CaseUserLink
+                        user={revision.editor}
+                        href={canViewPublicProfiles ? `/profile/user/${revision.editor.id}` : null}
+                        className="inline-flex items-center gap-2 rounded-full border border-[#4C2F5E]/10 bg-white px-2.5 py-1 transition hover:bg-[#F7F3FA]"
+                      >
                         {revision.editor.avatarUrl ? (
                           <img
                             src={revision.editor.avatarUrl}
@@ -489,7 +497,11 @@ export default function CaseDetailPage() {
                       </CaseUserLink>
                       <span>{formatDate(revision.createdAt)}</span>
                       {revision.reviewedBy ? (
-                        <CaseUserLink user={revision.reviewedBy} className="inline-flex items-center gap-2 rounded-full border border-[#4C2F5E]/10 bg-white px-2.5 py-1 transition hover:bg-[#F7F3FA]">
+                        <CaseUserLink
+                          user={revision.reviewedBy}
+                          href={canViewPublicProfiles ? `/profile/user/${revision.reviewedBy.id}` : null}
+                          className="inline-flex items-center gap-2 rounded-full border border-[#4C2F5E]/10 bg-white px-2.5 py-1 transition hover:bg-[#F7F3FA]"
+                        >
                           <span>Reviewed by {revision.reviewedBy.displayName}</span>
                         </CaseUserLink>
                       ) : null}
@@ -521,33 +533,6 @@ export default function CaseDetailPage() {
               )}
             </div>
           </div>
-
-          {(isReviewer || isAuthor) ? (
-            <div className="rounded-[28px] border border-[#4C2F5E]/10 bg-[#FBF9FD] p-5">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-[#F1EAF6] text-[#4C2F5E]">
-                  <ShieldCheck className="h-4 w-4" />
-                </div>
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Moderation & quality</p>
-                  <h2 className="text-lg font-semibold text-[#2F1D3B]">Protected review signals</h2>
-                </div>
-              </div>
-              <div className="mt-4 space-y-3">
-                <div className="rounded-[20px] border border-[#4C2F5E]/10 bg-white p-4">
-                  <p className="text-sm font-semibold text-[#2F1D3B]">Open reports</p>
-                  <p className="mt-2 text-2xl font-semibold text-[#2F1D3B]">{record.moderation.openReports}</p>
-                </div>
-                <div className="rounded-[20px] border border-[#4C2F5E]/10 bg-white p-4">
-                  <p className="text-sm font-semibold text-[#2F1D3B]">AI alerts</p>
-                  <p className="mt-2 text-2xl font-semibold text-[#2F1D3B]">{record.moderation.aiAlerts}</p>
-                  {record.moderation.lastReviewerNote ? (
-                    <p className="mt-3 text-sm leading-7 text-[#706181]">{record.moderation.lastReviewerNote}</p>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          ) : null}
         </aside>
       </div>
     </div>

@@ -95,6 +95,8 @@ export default function SavedPage() {
   const userPermissions = user?.permissions ?? [];
   const canCreateDiscussion = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_CREATE);
   const canBookmarkDiscussions = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_BOOKMARK);
+  const canViewPublicProfiles = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.PROFILE_PUBLIC_VIEW);
+  const canViewTopics = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.TOPICS_VIEW_SELF);
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -236,7 +238,7 @@ export default function SavedPage() {
               {discussions.map((d) => (
                 (() => {
                   const isVerified = d.author.lawyerProfile?.verificationStatus === 'VERIFIED';
-                  const authorProfileHref = `/profile/user/${d.author.id}`;
+                  const authorProfileHref = canViewPublicProfiles ? `/profile/user/${d.author.id}` : null;
 
                   return (
                 <article
@@ -387,12 +389,14 @@ export default function SavedPage() {
                 Use saved threads as a lightweight research library for repeated legal issues.
               </p>
             </div>
-            <AnimatedLink
-              href="/topics"
-              className="shrink-0 rounded-[14px] border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/20"
-            >
-              View my topics
-            </AnimatedLink>
+            {canViewTopics ? (
+              <AnimatedLink
+                href="/topics"
+                className="shrink-0 rounded-[14px] border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/20"
+              >
+                View my topics
+              </AnimatedLink>
+            ) : null}
           </div>
         )}
       </div>

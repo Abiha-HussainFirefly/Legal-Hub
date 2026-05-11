@@ -84,9 +84,20 @@ function formatDateRange(start?: string, end?: string, current?: boolean) {
   return `${startLabel} - ${endLabel}`;
 }
 
-export default function OwnerProfileOverview({ profile }: { profile: ProfessionalProfile }) {
+export default function OwnerProfileOverview({
+  profile,
+  canEditProfile = true,
+}: {
+  profile: ProfessionalProfile;
+  canEditProfile?: boolean;
+}) {
   const personalLocation = [profile.city, profile.regionName].filter(Boolean).join(", ");
   const professionalBase = profile.firmName || profile.company;
+  const editActions = canEditProfile ? [{ href: "/profile/edit?step=identity", label: "Edit section" }] : [];
+  const summaryActions = canEditProfile ? [{ href: "/profile/edit?step=summary", label: "Edit section" }] : [];
+  const backgroundActions = canEditProfile ? [{ href: "/profile/edit?step=background", label: "Edit section" }] : [];
+  const trustActions = canEditProfile ? [{ href: "/profile/edit?step=trust", label: "Edit section" }] : [];
+  const expertiseActions = canEditProfile ? [{ href: "/profile/edit?step=expertise", label: "Edit section" }] : [];
 
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
@@ -97,7 +108,7 @@ export default function OwnerProfileOverview({ profile }: { profile: Professiona
             summary="Core identity and contact information used throughout your account."
             icon={<UserRound className="h-4 w-4" />}
             className="lh-delay-1"
-            actions={[{ href: "/profile/edit?step=identity", label: "Edit section" }]}
+            actions={editActions}
           >
             <div className="grid gap-3 sm:grid-cols-2">
               <DetailRow label="Display name" value={profile.displayName} />
@@ -114,7 +125,7 @@ export default function OwnerProfileOverview({ profile }: { profile: Professiona
             summary="Trust signals and role information shown to members and public visitors."
             icon={<BriefcaseBusiness className="h-4 w-4" />}
             className="lh-delay-2"
-            actions={[{ href: "/profile/edit?step=identity", label: "Edit section" }]}
+            actions={editActions}
           >
             <div className="grid gap-3 sm:grid-cols-2">
               <DetailRow label="Headline" value={profile.headline} />
@@ -132,7 +143,7 @@ export default function OwnerProfileOverview({ profile }: { profile: Professiona
           summary="Your public summary should explain expertise, focus, and how others should engage with you."
           icon={<BadgeCheck className="h-4 w-4" />}
           className="lh-delay-2"
-          actions={[{ href: "/profile/edit?step=summary", label: "Edit section" }]}
+          actions={summaryActions}
         >
           {profile.bio ? (
             <p className="text-sm leading-8 text-[#4A3B58]">{profile.bio}</p>
@@ -146,7 +157,7 @@ export default function OwnerProfileOverview({ profile }: { profile: Professiona
           summary="A compact timeline of practice history and current professional positioning."
           icon={<Building2 className="h-4 w-4" />}
           className="lh-delay-3"
-          actions={[{ href: "/profile/edit?step=background", label: "Edit section" }]}
+          actions={backgroundActions}
         >
           {profile.experiences.length > 0 ? (
             <div className="space-y-3 border-l border-[#4C2F5E]/10 pl-4">
@@ -173,7 +184,7 @@ export default function OwnerProfileOverview({ profile }: { profile: Professiona
             summary="Degrees, institutions, and formal study supporting your profile."
             icon={<GraduationCap className="h-4 w-4" />}
             className="lh-delay-2"
-            actions={[{ href: "/profile/edit?step=background", label: "Edit section" }]}
+            actions={backgroundActions}
           >
             {profile.educations.length > 0 ? (
               <div className="space-y-3">
@@ -202,7 +213,7 @@ export default function OwnerProfileOverview({ profile }: { profile: Professiona
             summary="Formal credentials and recognized professional achievements."
             icon={<ShieldCheck className="h-4 w-4" />}
             className="lh-delay-3"
-            actions={[{ href: "/profile/edit?step=trust", label: "Edit section" }]}
+            actions={trustActions}
           >
             <div className="space-y-3">
               {profile.certifications.length > 0 ? (
@@ -235,7 +246,7 @@ export default function OwnerProfileOverview({ profile }: { profile: Professiona
           summary="The areas and skills that help users understand what you can help with."
           icon={<BriefcaseBusiness className="h-4 w-4" />}
           className="lh-delay-1"
-          actions={[{ href: "/profile/edit?step=expertise", label: "Edit section" }]}
+          actions={expertiseActions}
         >
           <div className="space-y-4">
             <div>

@@ -30,11 +30,13 @@ export default function CaseResultCard({
   compact = false,
   canSave = false,
   canShare = false,
+  canViewProfiles = false,
 }: {
   item: CaseRepositoryRecord;
   compact?: boolean;
   canSave?: boolean;
   canShare?: boolean;
+  canViewProfiles?: boolean;
 }) {
   const { addToast } = useToast();
   const [saved, setSaved] = useState(item.viewerState.saved);
@@ -168,7 +170,11 @@ export default function CaseResultCard({
         </div>
 
         <div className="flex flex-col gap-4 border-t border-[#4C2F5E]/8 pt-4 md:flex-row md:items-center md:justify-between">
-          <CaseUserLink user={item.author} className="flex min-w-0 items-center gap-3">
+          <CaseUserLink
+            user={item.author}
+            href={canViewProfiles ? `/profile/user/${item.author.id}` : null}
+            className="flex min-w-0 items-center gap-3"
+          >
             {item.author.avatarUrl ? (
               <img
                 src={item.author.avatarUrl}

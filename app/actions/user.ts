@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/auth";
+import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from "@/lib/auth/roles";
 import { prisma } from "@/lib/prisma";
 import { compare, hash } from "bcryptjs";
 import { revalidatePath } from "next/cache";
@@ -79,9 +80,15 @@ export async function updateUserDetails(formData: UpdateUserDetailsInput) {
   }
 
   const userId = session.user.id;
+  const roles = session.user.roles ?? [];
+  const permissions = session.user.permissions ?? [];
 
   try {
     if (isProfileUpdate(formData)) {
+      if (!canAccessLawyerPermission(roles, permissions, LAWYER_PERMISSION_KEYS.ACCOUNT_EDIT_SELF)) {
+        throw new Error("You do not have permission to update account details");
+      }
+
       const name = formData.name.trim();
       if (!name) {
         throw new Error("Name cannot be empty");
@@ -122,6 +129,10 @@ export async function updateUserDetails(formData: UpdateUserDetailsInput) {
     }
 
     if (isPasswordUpdate(formData)) {
+      if (!canAccessLawyerPermission(roles, permissions, LAWYER_PERMISSION_KEYS.ACCOUNT_PASSWORD_CHANGE_SELF)) {
+        throw new Error("You do not have permission to change your password");
+      }
+
       const credential = await prisma.credential.findUnique({
         where: { userId },
         select: { passwordHash: true },

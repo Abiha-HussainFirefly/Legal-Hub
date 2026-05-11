@@ -106,7 +106,7 @@ export default function NotificationBell() {
       return;
     }
 
-    router.push('/notifications');
+    router.push('/profile/notifications');
   }
 
   // Poll for new notifications every 60 seconds

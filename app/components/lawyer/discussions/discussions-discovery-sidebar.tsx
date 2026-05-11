@@ -58,6 +58,7 @@ export default function DiscussionsDiscoverySidebar({
   focusCategories,
   selectedCategory,
   onSelectCategory,
+  canViewProfiles = true,
 }: {
   sidebarLoading: boolean;
   trendingTopics: TrendingTopic[];
@@ -65,6 +66,7 @@ export default function DiscussionsDiscoverySidebar({
   focusCategories: FocusCategory[];
   selectedCategory: string;
   onSelectCategory: (value: string) => void;
+  canViewProfiles?: boolean;
 }) {
   return (
     <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
@@ -131,7 +133,7 @@ export default function DiscussionsDiscoverySidebar({
               {topLawyers.slice(0, 4).map((lawyer) => (
                 <ProfileHoverLink
                   key={lawyer.id}
-                  href={`/profile/user/${lawyer.id}`}
+                  href={canViewProfiles ? `/profile/user/${lawyer.id}` : null}
                   displayName={lawyer.name}
                   username={lawyer.username}
                   avatarUrl={lawyer.avatarUrl}

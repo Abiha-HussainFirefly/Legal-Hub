@@ -8,16 +8,19 @@ interface CaseUserLinkProps {
   user: CaseUserSummary;
   children: ReactNode;
   className?: string;
+  href?: string | null;
 }
 
-export default function CaseUserLink({ user, children, className }: CaseUserLinkProps) {
-  if (!user.id) {
+export default function CaseUserLink({ user, children, className, href }: CaseUserLinkProps) {
+  const profileHref = href === undefined ? (user.id ? `/profile/user/${user.id}` : null) : href;
+
+  if (!profileHref) {
     return <div className={className}>{children}</div>;
   }
 
   return (
     <ProfileHoverLink
-      href={`/profile/user/${user.id}`}
+      href={profileHref}
       displayName={user.displayName}
       username={user.username}
       avatarUrl={user.avatarUrl}

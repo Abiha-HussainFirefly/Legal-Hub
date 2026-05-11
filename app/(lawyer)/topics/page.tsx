@@ -94,6 +94,8 @@ export default function MyTopicsPage() {
   const userRoles = user?.roles ?? [];
   const userPermissions = user?.permissions ?? [];
   const canCreateDiscussion = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_CREATE);
+  const canViewPublicProfiles = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.PROFILE_PUBLIC_VIEW);
+  const canViewSavedDiscussions = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.SAVED_VIEW_SELF);
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -223,7 +225,7 @@ export default function MyTopicsPage() {
               {discussions.map((d, index) => (
                 (() => {
                   const isVerified = d.author.lawyerProfile?.verificationStatus === 'VERIFIED';
-                  const authorProfileHref = `/profile/user/${d.author.id}`;
+                  const authorProfileHref = canViewPublicProfiles ? `/profile/user/${d.author.id}` : null;
 
                   return (
                 <article
@@ -367,12 +369,14 @@ export default function MyTopicsPage() {
                 Consistent contributions improve your visibility in the community leaderboard.
               </p>
             </div>
-            <AnimatedLink
-              href="/saved"
-              className="shrink-0 rounded-[14px] border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/20"
-            >
-              Review saved items
-            </AnimatedLink>
+            {canViewSavedDiscussions ? (
+              <AnimatedLink
+                href="/saved"
+                className="shrink-0 rounded-[14px] border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/20"
+              >
+                Review saved items
+              </AnimatedLink>
+            ) : null}
           </div>
         )}
       </div>

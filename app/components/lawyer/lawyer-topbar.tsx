@@ -28,13 +28,12 @@ const navItems: Array<{
   id: ActiveTab;
   href: string;
   label: string;
-  shortLabel: string;
   icon: React.ComponentType<{ className?: string }>;
 }> = [
-  { id: 'discussions', href: '/discussions', label: 'Discussions', shortLabel: 'Ask & answer', icon: MessageSquareText },
-  { id: 'cases', href: '/cases', label: 'Cases', shortLabel: 'Case library', icon: BriefcaseBusiness },
-  { id: 'topics', href: '/topics', label: 'My Topics', shortLabel: 'My activity', icon: LayoutGrid },
-  { id: 'saved', href: '/saved', label: 'Saved', shortLabel: 'Bookmarks', icon: Bookmark },
+  { id: 'discussions', href: '/discussions', label: 'Discussions', icon: MessageSquareText },
+  { id: 'cases', href: '/cases', label: 'Cases', icon: BriefcaseBusiness },
+  { id: 'topics', href: '/topics', label: 'My Topics', icon: LayoutGrid },
+  { id: 'saved', href: '/saved', label: 'Saved', icon: Bookmark },
 ];
 
 function initials(name?: string | null) {
@@ -83,6 +82,7 @@ export default function LawyerTopbar({
 
     return true;
   });
+  const homeHref = visibleNavItems[0]?.href ?? (canViewProfile ? '/profile' : '/lawyerlogin');
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -100,7 +100,7 @@ export default function LawyerTopbar({
       <div className="mx-auto flex max-w-[1380px] items-center justify-between gap-4 px-4 py-3 md:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-3">
           <AnimatedLink
-            href="/discussions"
+            href={homeHref}
             className="inline-flex shrink-0 items-center rounded-full border border-[#4C2F5E]/10 bg-[#F8F4FB] px-3 py-2 transition hover:bg-white"
           >
             <Image
@@ -113,7 +113,7 @@ export default function LawyerTopbar({
           </AnimatedLink>
 
           <nav className="hidden items-center gap-2 xl:flex">
-            {visibleNavItems.map(({ id, href, label, shortLabel, icon: Icon }) => {
+            {visibleNavItems.map(({ id, href, label, icon: Icon }) => {
               const isActive = activeTab === id;
 
               return (
@@ -128,7 +128,6 @@ export default function LawyerTopbar({
                 >
                   <Icon className="h-4 w-4 shrink-0" />
                   <span className="font-semibold">{label}</span>
-                  <span className="hidden text-xs text-[#8B7D99] 2xl:inline">{shortLabel}</span>
                 </AnimatedLink>
               );
             })}
@@ -141,20 +140,32 @@ export default function LawyerTopbar({
           {user ? (
             <>
               <div className="inline-flex max-w-[220px] shrink-0 items-center gap-3 rounded-full border border-[#4C2F5E]/10 bg-white px-2 py-2 transition hover:bg-[#FBF9FD] xl:max-w-[260px]">
-                <AnimatedLink
-                  href={canViewProfile ? '/profile' : '#'}
-                  onClick={() => setIsDropdownOpen(false)}
-                  className="flex min-w-0 flex-1 items-center gap-3"
-                  aria-label="Open profile"
-                >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#4C2F5E] text-sm font-semibold text-white">
-                    {initials(displayName)}
+                {canViewProfile ? (
+                  <AnimatedLink
+                    href="/profile"
+                    onClick={() => setIsDropdownOpen(false)}
+                    className="flex min-w-0 flex-1 items-center gap-3"
+                    aria-label="Open profile"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#4C2F5E] text-sm font-semibold text-white">
+                      {initials(displayName)}
+                    </div>
+                    <div className="hidden min-w-0 md:block">
+                      <p className="truncate text-sm font-semibold text-[#2F1D3B]">{displayName}</p>
+                      <p className="truncate text-xs text-[#8B7D99]">{displayEmail}</p>
+                    </div>
+                  </AnimatedLink>
+                ) : (
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#4C2F5E] text-sm font-semibold text-white">
+                      {initials(displayName)}
+                    </div>
+                    <div className="hidden min-w-0 md:block">
+                      <p className="truncate text-sm font-semibold text-[#2F1D3B]">{displayName}</p>
+                      <p className="truncate text-xs text-[#8B7D99]">{displayEmail}</p>
+                    </div>
                   </div>
-                  <div className="hidden min-w-0 md:block">
-                    <p className="truncate text-sm font-semibold text-[#2F1D3B]">{displayName}</p>
-                    <p className="truncate text-xs text-[#8B7D99]">{displayEmail}</p>
-                  </div>
-                </AnimatedLink>
+                )}
                 <button
                   type="button"
                   onClick={() => setIsDropdownOpen((current) => !current)}
@@ -239,7 +250,7 @@ export default function LawyerTopbar({
       {isMenuOpen ? (
         <div className="border-t border-[#162033]/8 bg-white px-4 py-3 xl:hidden">
           <div className="grid gap-2">
-            {visibleNavItems.map(({ id, href, label, shortLabel, icon: Icon }) => {
+            {visibleNavItems.map(({ id, href, label, icon: Icon }) => {
               const isActive = activeTab === id;
 
               return (
@@ -254,10 +265,7 @@ export default function LawyerTopbar({
                   }`}
                 >
                   <Icon className="h-4 w-4 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="font-semibold">{label}</p>
-                    <p className="text-xs text-[#8B7D99]">{shortLabel}</p>
-                  </div>
+                  <span className="font-semibold">{label}</span>
                 </AnimatedLink>
               );
             })}

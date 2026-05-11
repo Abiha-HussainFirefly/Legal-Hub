@@ -18,6 +18,11 @@ export default function MyCasesPage() {
   const userPermissions = user?.permissions ?? [];
   const canCreateDrafts = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_CREATE_DRAFT);
   const canEditOwnCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_EDIT_OWN);
+  const canViewOwnUnpublished = canAccessLawyerPermission(
+    userRoles,
+    userPermissions,
+    LAWYER_PERMISSION_KEYS.CASES_VIEW_OWN_UNPUBLISHED,
+  );
 
   useEffect(() => {
     if (!user?.id) return;
@@ -31,8 +36,12 @@ export default function MyCasesPage() {
   }, [user?.id]);
 
   const cases = useMemo(() => {
-    return apiCases;
-  }, [apiCases]);
+    if (canViewOwnUnpublished) {
+      return apiCases;
+    }
+
+    return apiCases.filter((item) => item.status === 'PUBLISHED');
+  }, [apiCases, canViewOwnUnpublished]);
   const grouped = useMemo(
     () =>
       boardOrder.map((status) => ({
@@ -41,6 +50,9 @@ export default function MyCasesPage() {
       })),
     [cases],
   );
+  const visibleColumns = canViewOwnUnpublished
+    ? grouped
+    : grouped.filter((column) => column.status === 'PUBLISHED');
 
   return (
     <div className="mx-auto max-w-[1380px] px-4 py-8 md:px-6 lg:px-8">
@@ -65,7 +77,7 @@ export default function MyCasesPage() {
       />
 
       <div className="mt-6 grid gap-5 xl:grid-cols-5">
-        {grouped.map((column) => (
+        {visibleColumns.map((column) => (
           <section key={column.status} className="rounded-[28px] border border-[#4C2F5E]/10 bg-white p-4">
             <div className="flex items-center justify-between gap-3">
               <CaseStatusBadge status={column.status} />

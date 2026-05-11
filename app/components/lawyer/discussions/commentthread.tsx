@@ -39,6 +39,7 @@ interface Props {
   answerId?: string;
   currentUser?: Author | null;
   canCreateComments?: boolean;
+  canViewProfiles?: boolean;
 }
 
 function ago(value: string) {
@@ -72,6 +73,7 @@ function CommentItem({
   currentUser,
   depth = 0,
   canCreateComments = false,
+  canViewProfiles = false,
 }: {
   comment: Comment;
   discussionId?: string;
@@ -79,6 +81,7 @@ function CommentItem({
   currentUser?: Author | null;
   depth?: number;
   canCreateComments?: boolean;
+  canViewProfiles?: boolean;
 }) {
   const router = useRouter();
   const [showReply, setShowReply] = useState(false);
@@ -89,7 +92,7 @@ function CommentItem({
   const [replyPulse, setReplyPulse] = useState(false);
   const isVerified = comment.author.lawyerProfile?.verificationStatus === 'VERIFIED';
   const currentViewer = normalizeCurrentUser(currentUser);
-  const authorProfileHref = `/profile/user/${comment.author.id}`;
+  const authorProfileHref = canViewProfiles ? `/profile/user/${comment.author.id}` : null;
 
   useEffect(() => {
     if (!replyPulse) return;
@@ -236,6 +239,7 @@ function CommentItem({
                   currentUser={currentViewer}
                   depth={depth + 1}
                   canCreateComments={canCreateComments}
+                  canViewProfiles={canViewProfiles}
                 />
               ))
             : null}
@@ -245,7 +249,14 @@ function CommentItem({
   );
 }
 
-export default function CommentThread({ comments, discussionId, answerId, currentUser, canCreateComments = false }: Props) {
+export default function CommentThread({
+  comments,
+  discussionId,
+  answerId,
+  currentUser,
+  canCreateComments = false,
+  canViewProfiles = false,
+}: Props) {
   const router = useRouter();
   const [localComments, setLocalComments] = useState<Comment[]>(comments);
   const [newBody, setNewBody] = useState('');
@@ -302,6 +313,7 @@ export default function CommentThread({ comments, discussionId, answerId, curren
           answerId={answerId}
           currentUser={currentViewer}
           canCreateComments={canCreateComments}
+          canViewProfiles={canViewProfiles}
         />
       ))}
 

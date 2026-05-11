@@ -9,7 +9,22 @@ import AnimatedLink from '@/app/components/ui/animated-link';
 import Tooltip from '@/app/components/ui/tooltip';
 import { apiRequest, getErrorMessage } from '@/lib/api-client';
 import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from '@/lib/auth/roles';
-import { ArrowUp, ChevronRight, Eye, Loader2, MapPin, MessageSquare, Smile } from 'lucide-react';
+import {
+  ArrowUp,
+  Bookmark,
+  BookmarkCheck,
+  ChevronRight,
+  Eye,
+  Loader2,
+  MapPin,
+  MessageSquare,
+  PencilLine,
+  Share2,
+  Smile,
+  Trash2,
+  UserPlus,
+  UserRoundCheck,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { use, useEffect, useRef, useState } from 'react';
 
@@ -71,6 +86,8 @@ interface Discussion {
     expertConsensus: string | null;
     status: string;
   }>;
+  viewerFollowing?: boolean;
+  viewerSaved?: boolean;
 }
 
 interface AnswerRow {
@@ -273,6 +290,10 @@ export default function DiscussionDetailPage({
   const canViewDiscussionAiSummary = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_AI_SUMMARY_VIEW);
   const canViewAnswers = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.ANSWERS_VIEW);
   const canCreateAnswers = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.ANSWERS_CREATE);
+  const canBookmarkDiscussion = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_BOOKMARK);
+  const canFollowDiscussion = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_FOLLOW);
+  const canEditOwnDiscussion = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_EDIT_OWN);
+  const canDeleteOwnDiscussion = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_DELETE_OWN);
   const canAcceptAnswers = canAccessLawyerPermission(
     userRoles,
     userPermissions,
@@ -280,6 +301,17 @@ export default function DiscussionDetailPage({
   );
   const canViewComments = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.COMMENTS_VIEW);
   const canCreateComments = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.COMMENTS_CREATE);
+  const canViewPublicProfiles = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.PROFILE_PUBLIC_VIEW);
+  const [isSaved, setIsSaved] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [savePending, setSavePending] = useState(false);
+  const [followPending, setFollowPending] = useState(false);
+  const [isEditingDiscussion, setIsEditingDiscussion] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editBody, setEditBody] = useState('');
+  const [editPending, setEditPending] = useState(false);
+  const [editError, setEditError] = useState('');
+  const [deletePending, setDeletePending] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -344,6 +376,10 @@ export default function DiscussionDetailPage({
         setEmojiStats(reactionsResponse.data ?? {});
         setMyReaction(reactionsResponse.viewerReaction?.reactionType ?? null);
         setMyEmoji(reactionsResponse.viewerReaction?.emoji ?? null);
+        setIsSaved(Boolean(loadedDiscussion.viewerSaved));
+        setIsFollowing(Boolean(loadedDiscussion.viewerFollowing));
+        setEditTitle(loadedDiscussion.title);
+        setEditBody(loadedDiscussion.body);
       } catch (error) {
         if (!controller.signal.aborted) {
           setDiscussion(null);
@@ -451,6 +487,117 @@ export default function DiscussionDetailPage({
     }
   }
 
+  async function toggleSavedDiscussion() {
+    if (!discussion || savePending || !canBookmarkDiscussion) return;
+
+    if (!user) {
+      router.push('/lawyerlogin');
+      return;
+    }
+
+    const previousSaved = isSaved;
+    setSavePending(true);
+    setIsSaved((current) => !current);
+
+    try {
+      await apiRequest(`/api/discussions/${discussion.slug}/bookmark`, { method: 'POST' });
+    } catch {
+      setIsSaved(previousSaved);
+    } finally {
+      setSavePending(false);
+    }
+  }
+
+  async function toggleFollowingDiscussion() {
+    if (!discussion || followPending || !canFollowDiscussion) return;
+
+    if (!user) {
+      router.push('/lawyerlogin');
+      return;
+    }
+
+    const previousFollowing = isFollowing;
+    setFollowPending(true);
+    setIsFollowing((current) => !current);
+
+    try {
+      const payload = await apiRequest<{ following?: boolean }>(`/api/discussions/${discussion.slug}/follow`, {
+        method: 'POST',
+      });
+      setIsFollowing(Boolean(payload.following));
+    } catch {
+      setIsFollowing(previousFollowing);
+    } finally {
+      setFollowPending(false);
+    }
+  }
+
+  async function saveDiscussionEdits() {
+    if (!discussion || editPending) return;
+
+    setEditPending(true);
+    setEditError('');
+
+    try {
+      await apiRequest(`/api/discussions/${discussion.slug}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: editTitle,
+          body: editBody,
+        }),
+      });
+
+      setDiscussion((current) =>
+        current
+          ? {
+              ...current,
+              title: editTitle.trim(),
+              body: editBody.trim(),
+            }
+          : current,
+      );
+      setIsEditingDiscussion(false);
+    } catch (error) {
+      setEditError(getErrorMessage(error, 'Unable to save discussion changes.'));
+    } finally {
+      setEditPending(false);
+    }
+  }
+
+  async function deleteDiscussion() {
+    if (!discussion || deletePending) return;
+
+    const confirmed = window.confirm('Delete this discussion from your lawyer workspace?');
+    if (!confirmed) return;
+
+    setDeletePending(true);
+
+    try {
+      await apiRequest(`/api/discussions/${discussion.slug}`, { method: 'DELETE' });
+      router.replace('/topics');
+    } catch (error) {
+      setPageError(getErrorMessage(error, 'Unable to delete this discussion.'));
+      setDeletePending(false);
+    }
+  }
+
+  async function shareDiscussion() {
+    if (!discussion) return;
+
+    const url = typeof window === 'undefined' ? '' : `${window.location.origin}/discussions/${discussion.slug}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: discussion.title, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+      }
+    } catch {
+      // Ignore share cancellation and clipboard failures after fallback.
+    }
+  }
+
   async function handleLogout() {
     await apiRequest('/api/auth/logout', { method: 'POST' });
     router.replace('/lawyerlogin');
@@ -479,7 +626,8 @@ export default function DiscussionDetailPage({
   const isVerified = discussion.author.lawyerProfile?.verificationStatus === 'VERIFIED';
   const isResolved = discussion.status === 'RESOLVED';
   const activeEmojis = Object.entries(emojiStats);
-  const authorProfileHref = `/profile/user/${discussion.author.id}`;
+  const authorProfileHref = canViewPublicProfiles ? `/profile/user/${discussion.author.id}` : null;
+  const isOwnDiscussion = user?.id === discussion.author.id;
   const currentUserAuthor = user?.id
     ? {
         id: user.id,
@@ -572,11 +720,20 @@ export default function DiscussionDetailPage({
                 ))}
               </div>
 
-              <div className="mt-5 flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-                <div className="min-w-0 flex-1">
-                  <h1 className="text-[1.9rem] font-semibold leading-tight tracking-[-0.04em] text-[#2F1D3B] md:text-[2.35rem]">
-                    {discussion.title}
-                  </h1>
+              <div className="mt-5 space-y-5">
+                <div className="min-w-0">
+                  {isEditingDiscussion ? (
+                    <input
+                      value={editTitle}
+                      onChange={(event) => setEditTitle(event.target.value)}
+                      className="legal-field"
+                      placeholder="Discussion title"
+                    />
+                  ) : (
+                    <h1 className="text-[1.9rem] font-semibold leading-tight tracking-[-0.04em] text-[#2F1D3B] md:text-[2.35rem]">
+                      {discussion.title}
+                    </h1>
+                  )}
 
                   <div className="mt-4">
                     <ProfileHoverLink
@@ -620,15 +777,107 @@ export default function DiscussionDetailPage({
                   </div>
                 </div>
 
-                {discussion.isAiSummaryReady && canViewDiscussionAiSummary ? (
-                  <button onClick={() => setIsModalOpen(true)} className="legal-button-primary text-sm">
-                    View AI summary
+                <div className="flex w-full flex-wrap items-center gap-2">
+                  {discussion.isAiSummaryReady && canViewDiscussionAiSummary ? (
+                    <button onClick={() => setIsModalOpen(true)} className="legal-button-primary text-sm">
+                      View AI summary
+                    </button>
+                  ) : null}
+                  {canFollowDiscussion ? (
+                    <button
+                      type="button"
+                      onClick={toggleFollowingDiscussion}
+                      disabled={followPending}
+                      className="legal-button-secondary text-sm disabled:opacity-60"
+                    >
+                      {isFollowing ? <UserRoundCheck className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
+                      {followPending ? 'Updating...' : isFollowing ? 'Following' : 'Follow'}
+                    </button>
+                  ) : null}
+                  {canBookmarkDiscussion ? (
+                    <button
+                      type="button"
+                      onClick={toggleSavedDiscussion}
+                      disabled={savePending}
+                      className="legal-button-secondary text-sm disabled:opacity-60"
+                    >
+                      {isSaved ? <BookmarkCheck className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
+                      {savePending ? 'Saving...' : isSaved ? 'Saved' : 'Save'}
+                    </button>
+                  ) : null}
+                  <button type="button" onClick={shareDiscussion} className="legal-button-secondary text-sm">
+                    <Share2 className="h-4 w-4" />
+                    Share
                   </button>
-                ) : null}
+                  {isOwnDiscussion && canEditOwnDiscussion ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditTitle(discussion.title);
+                        setEditBody(discussion.body);
+                        setEditError('');
+                        setIsEditingDiscussion((current) => !current);
+                      }}
+                      className="legal-button-secondary text-sm"
+                    >
+                      <PencilLine className="h-4 w-4" />
+                      {isEditingDiscussion ? 'Cancel edit' : 'Edit'}
+                    </button>
+                  ) : null}
+                  {isOwnDiscussion && canDeleteOwnDiscussion ? (
+                    <button
+                      type="button"
+                      onClick={deleteDiscussion}
+                      disabled={deletePending}
+                      className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-60"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      {deletePending ? 'Deleting...' : 'Delete'}
+                    </button>
+                  ) : null}
+                </div>
               </div>
 
               <div className="mt-6 border-t border-[#2F1D3B]/8 pt-6">
-                <div className="whitespace-pre-wrap text-sm leading-7 text-[#4f5e6d]">{discussion.body}</div>
+                {isEditingDiscussion ? (
+                  <div className="space-y-4">
+                    <textarea
+                      value={editBody}
+                      onChange={(event) => setEditBody(event.target.value)}
+                      className="legal-field h-52 resize-none p-4"
+                      placeholder="Discussion details"
+                    />
+                    {editError ? (
+                      <div className="rounded-[16px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        {editError}
+                      </div>
+                    ) : null}
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={saveDiscussionEdits}
+                        disabled={editPending || !editTitle.trim() || !editBody.trim()}
+                        className="legal-button-primary text-sm disabled:opacity-60"
+                      >
+                        {editPending ? 'Saving...' : 'Save discussion'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditTitle(discussion.title);
+                          setEditBody(discussion.body);
+                          setEditError('');
+                          setIsEditingDiscussion(false);
+                        }}
+                        className="legal-button-secondary text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="whitespace-pre-wrap text-sm leading-7 text-[#4f5e6d]">{discussion.body}</div>
+                )}
               </div>
 
               <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-[#2F1D3B]/8 pt-4">
@@ -717,6 +966,7 @@ export default function DiscussionDetailPage({
                     discussionId={discussion.slug}
                     currentUser={currentUserAuthor}
                     canCreateComments={canCreateComments}
+                    canViewProfiles={canViewPublicProfiles}
                   />
                 </div>
               ) : null}
@@ -767,6 +1017,8 @@ export default function DiscussionDetailPage({
                     canAccept={canAcceptAnswers}
                     canViewComments={canViewComments}
                     canCreateComments={canCreateComments}
+                    authorProfileHref={canViewPublicProfiles ? `/profile/user/${answer.author.id}` : null}
+                    canViewProfiles={canViewPublicProfiles}
                   />
                 ))}
               </div>
@@ -867,6 +1119,7 @@ export default function DiscussionDetailPage({
                       ['Answers', answers.length],
                       ['Score', score],
                       ['Followers', discussion.followerCount],
+                      ['Bookmarks', discussion.bookmarkCount],
                     ].map(([label, value]) => (
                       <div key={label} className="flex items-center justify-between text-sm">
                         <span className="text-[#736683]">{label}</span>
@@ -885,7 +1138,7 @@ export default function DiscussionDetailPage({
                   {participants.slice(0, 18).map((author) => (
                     <ProfileHoverLink
                       key={author.id}
-                      href={`/profile/user/${author.id}`}
+                      href={canViewPublicProfiles ? `/profile/user/${author.id}` : null}
                       displayName={author.displayName}
                       username={author.profile?.username}
                       avatarUrl={author.avatarUrl}

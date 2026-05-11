@@ -201,6 +201,7 @@ export default function LegalDiscussionsPage() {
   const canReactToDiscussions = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_REACT);
   const canBookmarkDiscussions = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_BOOKMARK);
   const canViewAiSummaries = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_AI_SUMMARY_VIEW);
+  const canViewPublicProfiles = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.PROFILE_PUBLIC_VIEW);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -494,7 +495,7 @@ export default function LegalDiscussionsPage() {
           </span>
         </div>
 
-        <DiscussionsFeaturedSection featuredDiscussions={featuredDiscussions} />
+        <DiscussionsFeaturedSection featuredDiscussions={featuredDiscussions} canViewProfiles={canViewPublicProfiles} />
 
         <div className="mt-6 grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
           <DiscussionsDiscoverySidebar
@@ -507,6 +508,7 @@ export default function LegalDiscussionsPage() {
               setSelectedCategory(value);
               setActiveQuickFilter(value ? `category:${value}` : null);
             }}
+            canViewProfiles={canViewPublicProfiles}
           />
 
           <main className="min-w-0">
@@ -586,6 +588,7 @@ export default function LegalDiscussionsPage() {
                     canReact={canReactToDiscussions}
                     canBookmark={canBookmarkDiscussions}
                     canViewAiSummary={canViewAiSummaries}
+                    authorProfileHref={canViewPublicProfiles ? `/profile/user/${discussion.author.id}` : null}
                     initialEmojiStats={buildEmojiStats(discussion.reactions)}
                     userReaction={(() => {
                       const currentReaction = discussion.reactions?.find((reaction) => reaction.userId === user?.id);

@@ -52,6 +52,8 @@ interface Props {
   canAccept?: boolean;
   canViewComments?: boolean;
   canCreateComments?: boolean;
+  authorProfileHref?: string | null;
+  canViewProfiles?: boolean;
 }
 
 function ago(d: string) {
@@ -86,6 +88,8 @@ export default function AnswerCard({
   canAccept = false,
   canViewComments = false,
   canCreateComments = false,
+  authorProfileHref = null,
+  canViewProfiles = false,
 }: Props) {
   const [curScore, setScore] = useState(score);
   const [myReac, setMyReac] = useState<string | null>(userReaction ?? null);
@@ -97,8 +101,6 @@ export default function AnswerCard({
 
   const isAuthor = currentUserId === discussionAuthorId;
   const isVerified = author.lawyerProfile?.verificationStatus === 'VERIFIED';
-  const authorProfileHref = `/profile/user/${author.id}`;
-
   const router = useRouter();
 
   useEffect(() => {
@@ -291,6 +293,7 @@ export default function AnswerCard({
                   answerId={id}
                   currentUser={currentUser}
                   canCreateComments={canCreateComments}
+                  canViewProfiles={canViewProfiles}
                 />
               </div>
             ) : null}

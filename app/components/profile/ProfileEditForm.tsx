@@ -348,11 +348,17 @@ export default function ProfileEditForm({
   meta,
   mode,
   initialStep,
+  canManageVisibility = true,
+  canChangePassword = true,
+  canViewPublicProfile = true,
 }: {
   profile: ProfessionalProfile;
   meta: ProfileEditMeta;
   mode: "edit" | "setup";
   initialStep?: string;
+  canManageVisibility?: boolean;
+  canChangePassword?: boolean;
+  canViewPublicProfile?: boolean;
 }) {
   const router = useRouter();
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -1263,38 +1269,44 @@ export default function ProfileEditForm({
               </div>
             </div>
 
-            <div>
-              <div className="mb-3">
-                <h3 className="text-base font-semibold text-[#2F1D3B]">Visibility settings</h3>
-                <p className="text-sm text-[#736683]">Choose who can see each part of your profile.</p>
+            {canManageVisibility ? (
+              <div>
+                <div className="mb-3">
+                  <h3 className="text-base font-semibold text-[#2F1D3B]">Visibility settings</h3>
+                  <p className="text-sm text-[#736683]">Choose who can see each part of your profile.</p>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {Object.entries(form.visibility).map(([key, value]) => (
+                    <div key={key}>
+                      <FieldLabel>{formatVisibilityLabel(key)}</FieldLabel>
+                      <select
+                        className="legal-field"
+                        value={value}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            visibility: {
+                              ...current.visibility,
+                              [key]: event.target.value as ProfileVisibility,
+                            },
+                          }))
+                        }
+                      >
+                        {visibilityOptions.map((item) => (
+                          <option key={item.value} value={item.value}>
+                            {item.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {Object.entries(form.visibility).map(([key, value]) => (
-                  <div key={key}>
-                    <FieldLabel>{formatVisibilityLabel(key)}</FieldLabel>
-                    <select
-                      className="legal-field"
-                      value={value}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          visibility: {
-                            ...current.visibility,
-                            [key]: event.target.value as ProfileVisibility,
-                          },
-                        }))
-                      }
-                    >
-                      {visibilityOptions.map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ))}
+            ) : (
+              <div className="rounded-[18px] border border-[#4C2F5E]/8 bg-[#FBF9FD] px-4 py-4 text-sm text-[#736683]">
+                Visibility settings are not available for this account.
               </div>
-            </div>
+            )}
           </div>
         </StepPanel>
       );
@@ -1351,81 +1363,89 @@ export default function ProfileEditForm({
 
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
             <div className="space-y-4">
-              {[
-                {
-                  key: "currentPassword" as const,
-                  label: "Current password",
-                  autoComplete: "current-password",
-                },
-                {
-                  key: "newPassword" as const,
-                  label: "New password",
-                  autoComplete: "new-password",
-                },
-                {
-                  key: "confirmPassword" as const,
-                  label: "Confirm new password",
-                  autoComplete: "new-password",
-                },
-              ].map((field) => (
-                <div key={field.key}>
-                  <FieldLabel>{field.label}</FieldLabel>
-                  <div className="relative">
-                    <input
-                      type={showPasswords[field.key] ? "text" : "password"}
-                      autoComplete={field.autoComplete}
-                      className="legal-field pr-12"
-                      value={passwordForm[field.key]}
-                      onChange={(event) =>
-                        setPasswordForm((current) => ({
-                          ...current,
-                          [field.key]: event.target.value,
-                        }))
-                      }
-                    />
-                    <Tooltip content={showPasswords[field.key] ? "Hide password" : "Show password"}>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setShowPasswords((current) => ({
-                            ...current,
-                            [field.key]: !current[field.key],
-                          }))
-                        }
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--icon-muted)] transition hover:text-[var(--foreground)]"
-                        aria-label={showPasswords[field.key] ? "Hide password" : "Show password"}
-                      >
-                        {showPasswords[field.key] ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </button>
-                    </Tooltip>
-                  </div>
-                </div>
-              ))}
+              {canChangePassword ? (
+                <>
+                  {[
+                    {
+                      key: "currentPassword" as const,
+                      label: "Current password",
+                      autoComplete: "current-password",
+                    },
+                    {
+                      key: "newPassword" as const,
+                      label: "New password",
+                      autoComplete: "new-password",
+                    },
+                    {
+                      key: "confirmPassword" as const,
+                      label: "Confirm new password",
+                      autoComplete: "new-password",
+                    },
+                  ].map((field) => (
+                    <div key={field.key}>
+                      <FieldLabel>{field.label}</FieldLabel>
+                      <div className="relative">
+                        <input
+                          type={showPasswords[field.key] ? "text" : "password"}
+                          autoComplete={field.autoComplete}
+                          className="legal-field pr-12"
+                          value={passwordForm[field.key]}
+                          onChange={(event) =>
+                            setPasswordForm((current) => ({
+                              ...current,
+                              [field.key]: event.target.value,
+                            }))
+                          }
+                        />
+                        <Tooltip content={showPasswords[field.key] ? "Hide password" : "Show password"}>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setShowPasswords((current) => ({
+                                ...current,
+                                [field.key]: !current[field.key],
+                              }))
+                            }
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--icon-muted)] transition hover:text-[var(--foreground)]"
+                            aria-label={showPasswords[field.key] ? "Hide password" : "Show password"}
+                          >
+                            {showPasswords[field.key] ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </button>
+                        </Tooltip>
+                      </div>
+                    </div>
+                  ))}
 
-              {passwordError ? (
-                <div className="rounded-[18px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
-                  {passwordError}
-                </div>
-              ) : null}
-              {passwordSuccess ? (
-                <div className="rounded-[18px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
-                  {passwordSuccess}
-                </div>
-              ) : null}
+                  {passwordError ? (
+                    <div className="rounded-[18px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+                      {passwordError}
+                    </div>
+                  ) : null}
+                  {passwordSuccess ? (
+                    <div className="rounded-[18px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+                      {passwordSuccess}
+                    </div>
+                  ) : null}
 
-              <button
-                type="button"
-                onClick={handlePasswordSubmit}
-                disabled={isPasswordPending}
-                className="legal-button-secondary text-sm disabled:opacity-60"
-              >
-                <LockKeyhole className="h-4 w-4" />
-                {isPasswordPending ? "Updating..." : "Update password"}
-              </button>
+                  <button
+                    type="button"
+                    onClick={handlePasswordSubmit}
+                    disabled={isPasswordPending}
+                    className="legal-button-secondary text-sm disabled:opacity-60"
+                  >
+                    <LockKeyhole className="h-4 w-4" />
+                    {isPasswordPending ? "Updating..." : "Update password"}
+                  </button>
+                </>
+              ) : (
+                <div className="rounded-[18px] border border-[#4C2F5E]/8 bg-[#FBF9FD] px-4 py-4 text-sm text-[#736683]">
+                  Password changes are not available for this account.
+                </div>
+              )}
             </div>
 
             <div className="rounded-[22px] border border-[#4C2F5E]/8 bg-[#FBF9FD] p-5">
@@ -1434,7 +1454,9 @@ export default function ProfileEditForm({
               </p>
               <h3 className="mt-2 text-lg font-semibold text-[#2F1D3B]">Keep your account protected</h3>
               <p className="mt-3 text-sm leading-7 text-[#736683]">
-                Use at least 8 characters and avoid reusing a password from another account.
+                {canChangePassword
+                  ? "Use at least 8 characters and avoid reusing a password from another account."
+                  : "Security preferences for this account are managed elsewhere."}
               </p>
             </div>
           </div>
@@ -1586,7 +1608,7 @@ export default function ProfileEditForm({
                 )}
               </div>
 
-              {form.username ? (
+              {form.username && canViewPublicProfile ? (
                 <AnimatedLink
                   href={`/profile/${form.username}`}
                   className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#4C2F5E]/12 bg-white px-4 py-2 text-sm font-semibold text-[#4C2F5E] transition hover:bg-[#F7F3FA]"

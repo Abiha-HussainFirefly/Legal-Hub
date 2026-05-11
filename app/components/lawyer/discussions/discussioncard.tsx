@@ -49,6 +49,7 @@ interface Props {
   canReact?: boolean;
   canBookmark?: boolean;
   canViewAiSummary?: boolean;
+  authorProfileHref?: string | null;
   initialEmojiStats?: Record<string, { count: number; reactors: string[] }>;
 }
 
@@ -111,6 +112,7 @@ export default function DiscussionCard({
   canReact = false,
   canBookmark = false,
   canViewAiSummary = false,
+  authorProfileHref = null,
   initialEmojiStats = {},
 }: Props) {
   const [saved, setSaved] = useState(initialSaved);
@@ -239,7 +241,6 @@ export default function DiscussionCard({
 
   const isResolved = status === 'RESOLVED';
   const isVerified = author.lawyerProfile?.verificationStatus === 'VERIFIED';
-  const authorProfileHref = `/profile/user/${author.id}`;
   const activeEmojiEntries = Object.entries(emojiStats);
 
   return (

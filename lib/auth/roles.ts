@@ -103,6 +103,7 @@ const ADMIN_ROUTE_PERMISSION_RULES: Array<{ prefix: string; permission: AdminPer
 ];
 
 const LAWYER_ROUTE_PERMISSION_RULES: Array<{ prefix: string; permission: PermissionRequirement }> = [
+  { prefix: "/profile/notifications", permission: LAWYER_PERMISSION_KEYS.NOTIFICATIONS_VIEW_SELF },
   { prefix: "/profile/setup", permission: LAWYER_PERMISSION_KEYS.PROFILE_SETUP_SELF },
   { prefix: "/profile/edit", permission: LAWYER_PERMISSION_KEYS.PROFILE_EDIT_SELF },
   { prefix: "/profile/stats", permission: LAWYER_PERMISSION_KEYS.PROFILE_STATS_VIEW_SELF },

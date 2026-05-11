@@ -81,6 +81,7 @@ export default function ProfileWorkspaceShell({
   const canSetupProfile = canAccessLawyerPermission(roles, permissions, LAWYER_PERMISSION_KEYS.PROFILE_SETUP_SELF);
   const canEditProfile = canAccessLawyerPermission(roles, permissions, LAWYER_PERMISSION_KEYS.PROFILE_EDIT_SELF);
   const canViewStats = canAccessLawyerPermission(roles, permissions, LAWYER_PERMISSION_KEYS.PROFILE_STATS_VIEW_SELF);
+  const canViewPublicProfile = canAccessLawyerPermission(roles, permissions, LAWYER_PERMISSION_KEYS.PROFILE_PUBLIC_VIEW);
   const primaryAction = needsSetup
     ? { href: "/profile/setup", label: "Complete profile" }
     : { href: "/profile/edit", label: "Edit profile" };
@@ -168,7 +169,7 @@ export default function ProfileWorkspaceShell({
                     Edit details
                   </AnimatedLink>
                 ) : null}
-                {profile.username ? (
+                {profile.username && canViewPublicProfile ? (
                   <AnimatedLink
                     href={`/profile/${profile.username}`}
                     className="inline-flex justify-center items-center gap-2 rounded-full border border-[#4C2F5E]/12 bg-white px-4 py-2 text-sm font-semibold text-[#4C2F5E] transition hover:bg-[#F7F3FA] w-full sm:w-auto"

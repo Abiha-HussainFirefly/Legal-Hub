@@ -6,7 +6,7 @@ import { useCaseWorkspace } from '@/app/components/cases/case-workspace';
 import { useToast } from '@/app/components/ui/toast/toast-context';
 import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from '@/lib/auth/roles';
 import type { CaseRepositoryRecord } from '@/types/case';
-import { Bookmark, Clock3, Eye, Users } from 'lucide-react';
+import { Bookmark, Clock3, Eye } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -18,6 +18,7 @@ export default function SavedCasesPage() {
   const userPermissions = user?.permissions ?? [];
   const canBookmarkCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_BOOKMARK);
   const canShareCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_SHARE);
+  const canViewPublicProfiles = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.PROFILE_PUBLIC_VIEW);
   const canFetchSavedCases = Boolean(user?.id);
 
   useEffect(() => {
@@ -52,7 +53,6 @@ export default function SavedCasesPage() {
   const collections = useMemo(
     () => ({
       saved: canFetchSavedCases ? savedCases : [],
-      followed: [] as CaseRepositoryRecord[],
       recent: canFetchSavedCases ? savedCases.slice(0, 3) : [],
     }),
     [canFetchSavedCases, savedCases],
@@ -62,11 +62,10 @@ export default function SavedCasesPage() {
     <div className="mx-auto max-w-[1260px] px-4 py-8 md:px-6 lg:px-8">
       <CasePageHero
         kicker="Personal library"
-        title="Saved & Followed Cases"
-        description="Keep high-value decisions close, follow records that may update after review, and revisit recent case research."
+        title="Saved Cases"
+        description="Keep high-value decisions close and revisit recent case research from one lawyer-side workspace."
         metrics={[
           { label: 'Saved', value: `${collections.saved.length}`, icon: Bookmark },
-          { label: 'Followed', value: `${collections.followed.length}`, icon: Users },
           { label: 'Recent', value: `${collections.recent.length}`, icon: Clock3 },
         ]}
       />
@@ -85,34 +84,17 @@ export default function SavedCasesPage() {
           <div className="mt-5 space-y-4">
             {collections.saved.length ? (
               collections.saved.map((item) => (
-                <CaseResultCard key={item.id} item={item} canSave={canBookmarkCases} canShare={canShareCases} />
+                <CaseResultCard
+                  key={item.id}
+                  item={item}
+                  canSave={canBookmarkCases}
+                  canShare={canShareCases}
+                  canViewProfiles={canViewPublicProfiles}
+                />
               ))
             ) : (
               <div className="rounded-[22px] border border-dashed border-[#4C2F5E]/15 bg-[#FBF9FD] px-4 py-8 text-sm text-[#706181]">
                 No saved cases yet.
-              </div>
-            )}
-          </div>
-        </section>
-
-        <section className="rounded-[28px] border border-[#4C2F5E]/10 bg-white p-5 md:p-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-[#F1EAF6] text-[#4C2F5E]">
-              <Users className="h-4 w-4" />
-            </div>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Watching for updates</p>
-              <h2 className="text-xl font-semibold text-[#2F1D3B]">Followed cases</h2>
-            </div>
-          </div>
-          <div className="mt-5 space-y-4">
-            {collections.followed.length ? (
-              collections.followed.map((item) => (
-                <CaseResultCard key={item.id} item={item} compact canSave={canBookmarkCases} canShare={canShareCases} />
-              ))
-            ) : (
-              <div className="rounded-[22px] border border-dashed border-[#4C2F5E]/15 bg-[#FBF9FD] px-4 py-8 text-sm text-[#706181]">
-                Follow tracking is not available in this workspace yet.
               </div>
             )}
           </div>

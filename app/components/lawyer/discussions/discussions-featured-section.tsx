@@ -46,8 +46,10 @@ const fallbackGradients = [
 
 export default function DiscussionsFeaturedSection({
   featuredDiscussions,
+  canViewProfiles = true,
 }: {
   featuredDiscussions: FeaturedDiscussion[];
+  canViewProfiles?: boolean;
 }) {
   const cards = featuredDiscussions.slice(0, 3);
 
@@ -95,7 +97,7 @@ export default function DiscussionsFeaturedSection({
               <div className="mt-auto pt-8">
                 <div className="flex items-center justify-between gap-3">
                   <ProfileHoverLink
-                    href={`/profile/user/${discussion.authorId}`}
+                    href={canViewProfiles ? `/profile/user/${discussion.authorId}` : null}
                     displayName={discussion.authorName}
                     username={discussion.authorUsername}
                     avatarUrl={discussion.authorAvatarUrl}

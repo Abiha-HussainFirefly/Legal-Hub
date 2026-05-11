@@ -98,11 +98,19 @@ export default function CaseRepositoryPage() {
   const canCreateDrafts = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_CREATE_DRAFT);
   const canViewOwnDashboard = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_VIEW_OWN_DASHBOARD);
   const canViewSavedCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_VIEW_SAVED_OWN);
+  const canViewCaseMeta = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_META_VIEW);
   const canBookmarkCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_BOOKMARK);
   const canShareCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_SHARE);
+  const canViewPublicProfiles = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.PROFILE_PUBLIC_VIEW);
   const canFetchMine = filters.authorScope !== 'mine' || Boolean(user?.id);
 
   useEffect(() => {
+    if (!canViewCaseMeta) {
+      setFilterOptions(emptyFilterOptions);
+      setMetaLoading(false);
+      return;
+    }
+
     const controller = new AbortController();
 
     async function loadMeta() {
@@ -134,7 +142,7 @@ export default function CaseRepositoryPage() {
     void loadMeta();
 
     return () => controller.abort();
-  }, [addToast]);
+  }, [addToast, canViewCaseMeta]);
 
   useEffect(() => {
     if (!canFetchMine) {
@@ -516,6 +524,7 @@ export default function CaseRepositoryPage() {
                   compact={view === 'grid'}
                   canSave={canBookmarkCases}
                   canShare={canShareCases}
+                  canViewProfiles={canViewPublicProfiles}
                 />
               ))}
             </div>
