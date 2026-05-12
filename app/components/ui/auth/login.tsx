@@ -6,7 +6,7 @@ import { useToast } from "@/app/components/ui/toast/toast-context";
 import { GoogleIcon } from "@/public/icons/google-facebook-icon";
 import { commonInputClass, commonLabelClass } from "@/utils/custom-styling/input-label";
 import { EmailSchema, PasswordSchema } from "@/utils/validation";
-import { CheckCircle2, CheckSquare, Eye, EyeOff, XCircle } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff, XCircle } from "lucide-react";
 import { signIn } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
@@ -76,10 +76,6 @@ export default function LoginForm({
     }
   }, [searchParams, addToast, router, loginType]);
 
-  useEffect(() => {
-    router.prefetch(redirectPath);
-  }, [redirectPath, router]);
-
   const validateField = (field: keyof LoginFormData, value: string) => {
     const result = loginSchema.shape[field].safeParse(value);
     return result.success ? undefined : result.error.issues[0].message;
@@ -101,6 +97,30 @@ export default function LoginForm({
       ...prev,
       [field]: validateField(field, formData[field]),
     }));
+  };
+
+  const waitForAuthenticatedSession = async () => {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        const response = await fetch("/api/auth/me", {
+          cache: "no-store",
+          credentials: "same-origin",
+        });
+
+        if (response.ok) {
+          const payload = await response.json();
+          if (payload?.authenticated) {
+            return true;
+          }
+        }
+      } catch {
+        // Ignore transient readiness failures and retry.
+      }
+
+      await new Promise((resolve) => window.setTimeout(resolve, 150));
+    }
+
+    return false;
   };
 
   const runLoginPipeline = async (values: LoginFormData) => {
@@ -146,9 +166,16 @@ export default function LoginForm({
 
       setStep("success");
       addToast("success", "Access Granted", "Welcome back.");
+      const sessionReady = await waitForAuthenticatedSession();
+
+      if (!sessionReady) {
+        setStep("form");
+        addToast("error", "Redirect Delayed", "Your session was created but could not be confirmed. Please try again.");
+        return;
+      }
+
       startTransition(() => {
-        router.replace(redirectPath);
-        router.refresh();
+        window.location.replace(redirectPath);
       });
     } catch {
       setStep("form");
