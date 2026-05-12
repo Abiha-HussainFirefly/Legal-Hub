@@ -8,7 +8,7 @@ import CaseResultSkeleton from '@/app/components/cases/case-result-skeleton';
 import AnimatedLink from '@/app/components/ui/animated-link';
 import { useCaseWorkspace } from '@/app/components/cases/case-workspace';
 import { useToast } from '@/app/components/ui/toast/toast-context';
-import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from '@/lib/auth/roles';
+import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission, canAccessPermissionRequirement } from '@/lib/auth/roles';
 import { apiRequest, getErrorMessage } from '@/lib/api-client';
 import type { CaseRepositoryFilterOptions, CaseRepositoryFilters, CaseRepositoryRecord, CaseRepositorySort } from '@/types/case';
 import { BriefcaseBusiness, Grid2X2, List, Plus, Sparkles } from 'lucide-react';
@@ -95,7 +95,9 @@ export default function CaseRepositoryPage() {
   const deferredSearch = useDeferredValue(filters.search.trim());
   const userRoles = user?.roles ?? [];
   const userPermissions = user?.permissions ?? [];
-  const canCreateDrafts = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_CREATE_DRAFT);
+  const canCreateDrafts = canAccessPermissionRequirement(userPermissions, {
+    all: [LAWYER_PERMISSION_KEYS.CASES_CREATE_DRAFT, LAWYER_PERMISSION_KEYS.CASES_META_VIEW],
+  });
   const canViewOwnDashboard = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_VIEW_OWN_DASHBOARD);
   const canViewSavedCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_VIEW_SAVED_OWN);
   const canViewCaseMeta = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_META_VIEW);

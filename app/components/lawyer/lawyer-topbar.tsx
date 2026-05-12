@@ -2,7 +2,7 @@
 
 import AnimatedLink, { navigateWithTransition } from '@/app/components/ui/animated-link';
 import Tooltip from '@/app/components/ui/tooltip';
-import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from '@/lib/auth/roles';
+import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission, canAccessPermissionRequirement } from '@/lib/auth/roles';
 import { Bookmark, BriefcaseBusiness, ChevronDown, LayoutGrid, LogOut, Menu, MessageSquareText, User, X } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -63,6 +63,12 @@ export default function LawyerTopbar({
   const userPermissions = user?.permissions ?? [];
   const canViewProfile = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.PROFILE_VIEW_SELF);
   const canLogout = user ? canAccessLawyerPermission(userRoles, userPermissions, 'auth.logout') : false;
+  const canViewTopics = canAccessPermissionRequirement(userPermissions, {
+    all: [LAWYER_PERMISSION_KEYS.TOPICS_VIEW_SELF, LAWYER_PERMISSION_KEYS.DISCUSSIONS_VIEW_OWN],
+  });
+  const canViewSavedWorkspace = canAccessPermissionRequirement(userPermissions, {
+    all: [LAWYER_PERMISSION_KEYS.SAVED_VIEW_SELF, LAWYER_PERMISSION_KEYS.DISCUSSIONS_VIEW_SAVED_OWN],
+  });
   const visibleNavItems = navItems.filter(({ id }) => {
     if (id === 'discussions') {
       return canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_VIEW);
@@ -73,11 +79,11 @@ export default function LawyerTopbar({
     }
 
     if (id === 'topics') {
-      return canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.TOPICS_VIEW_SELF);
+      return canViewTopics;
     }
 
     if (id === 'saved') {
-      return canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.SAVED_VIEW_SELF);
+      return canViewSavedWorkspace;
     }
 
     return true;

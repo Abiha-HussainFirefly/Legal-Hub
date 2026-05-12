@@ -1,6 +1,6 @@
 // app/api/discussions/route.ts
 import { LAWYER_PERMISSION_KEYS } from "@/lib/auth/roles";
-import { getSessionUser, userHasLawyerPermission } from "@/lib/services/api-auth";
+import { getSessionUser, userHasLawyerPermission, userHasPermissionRequirement } from "@/lib/services/api-auth";
 import {
   createDiscussion,
   finalizeDiscussionCreation,
@@ -20,11 +20,27 @@ function parseEnumValue<T extends string>(value: string | null, allowedValues: r
 export async function GET(req: NextRequest) {
   try {
     const user = await getSessionUser(req);
-    if (!userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.DISCUSSIONS_VIEW)) {
+    const sp = new URL(req.url).searchParams;
+    const authorId = sp.get("authorId");
+    const savedByUserId = sp.get("savedByUserId");
+    const isOwnAuthorRequest = Boolean(user?.id && authorId === user.id);
+    const isOwnSavedRequest = Boolean(user?.id && savedByUserId === user.id);
+
+    if (isOwnAuthorRequest) {
+      if (
+        !userHasPermissionRequirement(user, {
+          any: [LAWYER_PERMISSION_KEYS.DISCUSSIONS_VIEW_OWN, LAWYER_PERMISSION_KEYS.DISCUSSIONS_VIEW],
+        })
+      ) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+    } else if (isOwnSavedRequest) {
+      if (!userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.DISCUSSIONS_VIEW_SAVED_OWN)) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+    } else if (!userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.DISCUSSIONS_VIEW)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    const sp = new URL(req.url).searchParams;
 
     const filters: DiscussionFilters = {
       kind: parseEnumValue(sp.get("kind"), DISCUSSION_TYPES),
@@ -32,8 +48,8 @@ export async function GET(req: NextRequest) {
       regionId: sp.get("regionId") || undefined,
       tagId: sp.get("tagId") || undefined,
       status: parseEnumValue(sp.get("status"), DISCUSSION_STATUSES),
-      authorId: sp.get("authorId") || undefined,
-      savedByUserId: sp.get("savedByUserId") || undefined,
+      authorId: authorId || undefined,
+      savedByUserId: savedByUserId || undefined,
       search: sp.get("search") || undefined,
       page: Math.max(1, parseInt(sp.get("page") || "1")),
       limit: Math.min(50, parseInt(sp.get("limit") || "20")),

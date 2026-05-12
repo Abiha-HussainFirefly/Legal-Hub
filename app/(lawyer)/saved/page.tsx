@@ -3,7 +3,7 @@
 import ProfileHoverLink from '@/app/components/lawyer/discussions/profile-hover-link';
 import AnimatedLink, { navigateWithTransition } from '@/app/components/ui/animated-link';
 import LawyerTopbar from '@/app/components/lawyer/lawyer-topbar';
-import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from '@/lib/auth/roles';
+import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission, canAccessPermissionRequirement } from '@/lib/auth/roles';
 import { ArrowLeft, Bookmark, BookmarkCheck, Eye, Plus, Sparkles, TrendingUp } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -96,7 +96,9 @@ export default function SavedPage() {
   const canCreateDiscussion = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_CREATE);
   const canBookmarkDiscussions = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_BOOKMARK);
   const canViewPublicProfiles = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.PROFILE_PUBLIC_VIEW);
-  const canViewTopics = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.TOPICS_VIEW_SELF);
+  const canViewTopics = canAccessPermissionRequirement(userPermissions, {
+    all: [LAWYER_PERMISSION_KEYS.TOPICS_VIEW_SELF, LAWYER_PERMISSION_KEYS.DISCUSSIONS_VIEW_OWN],
+  });
 
   useEffect(() => {
     fetch('/api/auth/me')

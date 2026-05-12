@@ -3,7 +3,7 @@
 import { CaseStatusBadge } from '@/app/components/cases/case-badges';
 import CasePageHero from '@/app/components/cases/case-page-hero';
 import { useCaseWorkspace } from '@/app/components/cases/case-workspace';
-import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from '@/lib/auth/roles';
+import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission, canAccessPermissionRequirement } from '@/lib/auth/roles';
 import type { CaseRepositoryRecord } from '@/types/case';
 import { Archive, ArrowRight, BriefcaseBusiness, PencilLine, Plus, Send } from 'lucide-react';
 import Link from 'next/link';
@@ -16,8 +16,12 @@ export default function MyCasesPage() {
   const [apiCases, setApiCases] = useState<CaseRepositoryRecord[]>([]);
   const userRoles = user?.roles ?? [];
   const userPermissions = user?.permissions ?? [];
-  const canCreateDrafts = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_CREATE_DRAFT);
-  const canEditOwnCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_EDIT_OWN);
+  const canCreateDrafts = canAccessPermissionRequirement(userPermissions, {
+    all: [LAWYER_PERMISSION_KEYS.CASES_CREATE_DRAFT, LAWYER_PERMISSION_KEYS.CASES_META_VIEW],
+  });
+  const canEditOwnCases = canAccessPermissionRequirement(userPermissions, {
+    all: [LAWYER_PERMISSION_KEYS.CASES_EDIT_OWN, LAWYER_PERMISSION_KEYS.CASES_META_VIEW],
+  });
   const canViewOwnUnpublished = canAccessLawyerPermission(
     userRoles,
     userPermissions,

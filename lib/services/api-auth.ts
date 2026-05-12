@@ -5,6 +5,7 @@ import { readSessionToken } from "@/lib/auth/session-cookie";
 import {
   canAccessLawyerPermission,
   canAccessPermissionRequirement,
+  type PermissionRequirement,
   resolveEffectivePermissions,
 } from "@/lib/auth/roles";
 
@@ -42,7 +43,7 @@ export function userHasLawyerPermission(
 
 export function userHasPermissionRequirement(
   user: { roles?: string[]; permissions?: string[] } | null | undefined,
-  permissionRequirement: string | string[],
+  permissionRequirement: PermissionRequirement,
 ) {
   if (!user) return false;
   return canAccessPermissionRequirement(getUserEffectivePermissions(user), permissionRequirement);

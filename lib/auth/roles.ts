@@ -1,5 +1,3 @@
-import { LAWYER_PERMISSION_KEYS as LAWYER_PERMISSION_KEY_LIST } from "@/lib/auth/permission-catalog";
-
 export const ADMIN_PERMISSION_KEYS = {
   DASHBOARD_VIEW: "admin.dashboard.view",
   REPORTS_VIEW: "reports.view",
@@ -66,57 +64,85 @@ export const LAWYER_PERMISSION_KEYS = {
 
 export type AdminPermissionKey = (typeof ADMIN_PERMISSION_KEYS)[keyof typeof ADMIN_PERMISSION_KEYS];
 export type LawyerPermissionKey = (typeof LAWYER_PERMISSION_KEYS)[keyof typeof LAWYER_PERMISSION_KEYS];
-type PermissionRequirement = string | string[];
+export type PermissionRequirement =
+  | string
+  | {
+      any: string[];
+    }
+  | {
+      all: string[];
+    };
+type RoutePermissionRule<TPermission> = {
+  matches: (pathname: string) => boolean;
+  path: string;
+  permission: TPermission;
+};
 
 const ADMIN_PORTAL_ROLES = new Set(["admin", "super_admin", "superadmin"]);
 const LAWYER_PORTAL_ROLES = new Set(["lawyer", "lawyer_user", "lawyeruser"]);
-const DEFAULT_ADMIN_PERMISSIONS = new Set<string>(Object.values(ADMIN_PERMISSION_KEYS));
-const DEFAULT_LAWYER_PERMISSIONS = new Set<string>(LAWYER_PERMISSION_KEY_LIST);
 
-const DEFAULT_ROLE_PERMISSIONS: Record<string, Set<string>> = {
-  admin: DEFAULT_ADMIN_PERMISSIONS,
-  super_admin: DEFAULT_ADMIN_PERMISSIONS,
-  superadmin: DEFAULT_ADMIN_PERMISSIONS,
-  lawyer: DEFAULT_LAWYER_PERMISSIONS,
-  lawyer_user: DEFAULT_LAWYER_PERMISSIONS,
-  lawyeruser: DEFAULT_LAWYER_PERMISSIONS,
-};
+function matchesExactOrChild(prefix: string) {
+  return (pathname: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
 
-const ADMIN_ROUTE_PERMISSION_RULES: Array<{ prefix: string; permission: AdminPermissionKey }> = [
-  { prefix: "/dashboard", permission: ADMIN_PERMISSION_KEYS.DASHBOARD_VIEW },
-  { prefix: "/reports", permission: ADMIN_PERMISSION_KEYS.REPORTS_VIEW },
-  { prefix: "/exports", permission: ADMIN_PERMISSION_KEYS.EXPORTS_VIEW },
-  { prefix: "/user", permission: ADMIN_PERMISSION_KEYS.USERS_MANAGE },
-  { prefix: "/roles", permission: ADMIN_PERMISSION_KEYS.ROLES_MANAGE },
-  { prefix: "/permissions", permission: ADMIN_PERMISSION_KEYS.PERMISSIONS_MANAGE },
-  { prefix: "/verification", permission: ADMIN_PERMISSION_KEYS.VERIFICATION_REVIEW },
-  { prefix: "/settings", permission: ADMIN_PERMISSION_KEYS.SECURITY_MANAGE },
-  { prefix: "/case-review", permission: ADMIN_PERMISSION_KEYS.CASE_REVIEW },
-  { prefix: "/discussion-ops", permission: ADMIN_PERMISSION_KEYS.DISCUSSIONS_MANAGE },
-  { prefix: "/moderation", permission: ADMIN_PERMISSION_KEYS.MODERATION_MANAGE },
-  { prefix: "/files", permission: ADMIN_PERMISSION_KEYS.FILES_MANAGE },
-  { prefix: "/notifications", permission: ADMIN_PERMISSION_KEYS.NOTIFICATIONS_MANAGE },
-  { prefix: "/system-jobs", permission: ADMIN_PERMISSION_KEYS.SYSTEM_JOBS_VIEW },
-  { prefix: "/taxonomy", permission: ADMIN_PERMISSION_KEYS.TAXONOMY_MANAGE },
-  { prefix: "/gamification", permission: ADMIN_PERMISSION_KEYS.GAMIFICATION_MANAGE },
-  { prefix: "/organizations", permission: ADMIN_PERMISSION_KEYS.ORGANIZATIONS_MANAGE },
+const ADMIN_ROUTE_PERMISSION_RULES: RoutePermissionRule<AdminPermissionKey>[] = [
+  { path: "/dashboard", matches: matchesExactOrChild("/dashboard"), permission: ADMIN_PERMISSION_KEYS.DASHBOARD_VIEW },
+  { path: "/reports", matches: matchesExactOrChild("/reports"), permission: ADMIN_PERMISSION_KEYS.REPORTS_VIEW },
+  { path: "/exports", matches: matchesExactOrChild("/exports"), permission: ADMIN_PERMISSION_KEYS.EXPORTS_VIEW },
+  { path: "/user", matches: matchesExactOrChild("/user"), permission: ADMIN_PERMISSION_KEYS.USERS_MANAGE },
+  { path: "/roles", matches: matchesExactOrChild("/roles"), permission: ADMIN_PERMISSION_KEYS.ROLES_MANAGE },
+  { path: "/permissions", matches: matchesExactOrChild("/permissions"), permission: ADMIN_PERMISSION_KEYS.PERMISSIONS_MANAGE },
+  { path: "/verification", matches: matchesExactOrChild("/verification"), permission: ADMIN_PERMISSION_KEYS.VERIFICATION_REVIEW },
+  { path: "/settings", matches: matchesExactOrChild("/settings"), permission: ADMIN_PERMISSION_KEYS.SECURITY_MANAGE },
+  { path: "/case-review", matches: matchesExactOrChild("/case-review"), permission: ADMIN_PERMISSION_KEYS.CASE_REVIEW },
+  { path: "/discussion-ops", matches: matchesExactOrChild("/discussion-ops"), permission: ADMIN_PERMISSION_KEYS.DISCUSSIONS_MANAGE },
+  { path: "/moderation", matches: matchesExactOrChild("/moderation"), permission: ADMIN_PERMISSION_KEYS.MODERATION_MANAGE },
+  { path: "/files", matches: matchesExactOrChild("/files"), permission: ADMIN_PERMISSION_KEYS.FILES_MANAGE },
+  { path: "/notifications", matches: matchesExactOrChild("/notifications"), permission: ADMIN_PERMISSION_KEYS.NOTIFICATIONS_MANAGE },
+  { path: "/system-jobs", matches: matchesExactOrChild("/system-jobs"), permission: ADMIN_PERMISSION_KEYS.SYSTEM_JOBS_VIEW },
+  { path: "/taxonomy", matches: matchesExactOrChild("/taxonomy"), permission: ADMIN_PERMISSION_KEYS.TAXONOMY_MANAGE },
+  { path: "/gamification", matches: matchesExactOrChild("/gamification"), permission: ADMIN_PERMISSION_KEYS.GAMIFICATION_MANAGE },
+  { path: "/organizations", matches: matchesExactOrChild("/organizations"), permission: ADMIN_PERMISSION_KEYS.ORGANIZATIONS_MANAGE },
 ];
 
-const LAWYER_ROUTE_PERMISSION_RULES: Array<{ prefix: string; permission: PermissionRequirement }> = [
-  { prefix: "/profile/notifications", permission: LAWYER_PERMISSION_KEYS.NOTIFICATIONS_VIEW_SELF },
-  { prefix: "/profile/setup", permission: LAWYER_PERMISSION_KEYS.PROFILE_SETUP_SELF },
-  { prefix: "/profile/edit", permission: LAWYER_PERMISSION_KEYS.PROFILE_EDIT_SELF },
-  { prefix: "/profile/stats", permission: LAWYER_PERMISSION_KEYS.PROFILE_STATS_VIEW_SELF },
-  { prefix: "/profile", permission: LAWYER_PERMISSION_KEYS.PROFILE_VIEW_SELF },
-  { prefix: "/topics", permission: LAWYER_PERMISSION_KEYS.TOPICS_VIEW_SELF },
-  { prefix: "/saved", permission: LAWYER_PERMISSION_KEYS.SAVED_VIEW_SELF },
-  { prefix: "/cases/new", permission: LAWYER_PERMISSION_KEYS.CASES_CREATE_DRAFT },
-  { prefix: "/cases/mine", permission: LAWYER_PERMISSION_KEYS.CASES_VIEW_OWN_DASHBOARD },
-  { prefix: "/cases/saved", permission: LAWYER_PERMISSION_KEYS.CASES_VIEW_SAVED_OWN },
-  { prefix: "/cases/", permission: LAWYER_PERMISSION_KEYS.CASES_VIEW },
-  { prefix: "/cases", permission: LAWYER_PERMISSION_KEYS.CASES_VIEW },
-  { prefix: "/discussions/", permission: LAWYER_PERMISSION_KEYS.DISCUSSIONS_VIEW },
-  { prefix: "/discussions", permission: LAWYER_PERMISSION_KEYS.DISCUSSIONS_VIEW },
+const LAWYER_ROUTE_PERMISSION_RULES: RoutePermissionRule<PermissionRequirement>[] = [
+  { path: "/profile/notifications", matches: matchesExactOrChild("/profile/notifications"), permission: LAWYER_PERMISSION_KEYS.NOTIFICATIONS_VIEW_SELF },
+  { path: "/profile/setup", matches: matchesExactOrChild("/profile/setup"), permission: LAWYER_PERMISSION_KEYS.PROFILE_SETUP_SELF },
+  { path: "/profile/edit", matches: matchesExactOrChild("/profile/edit"), permission: LAWYER_PERMISSION_KEYS.PROFILE_EDIT_SELF },
+  { path: "/profile/stats", matches: matchesExactOrChild("/profile/stats"), permission: LAWYER_PERMISSION_KEYS.PROFILE_STATS_VIEW_SELF },
+  { path: "/profile", matches: matchesExactOrChild("/profile"), permission: LAWYER_PERMISSION_KEYS.PROFILE_VIEW_SELF },
+  {
+    path: "/topics",
+    matches: matchesExactOrChild("/topics"),
+    permission: {
+      all: [LAWYER_PERMISSION_KEYS.TOPICS_VIEW_SELF, LAWYER_PERMISSION_KEYS.DISCUSSIONS_VIEW_OWN],
+    },
+  },
+  {
+    path: "/saved",
+    matches: matchesExactOrChild("/saved"),
+    permission: {
+      all: [LAWYER_PERMISSION_KEYS.SAVED_VIEW_SELF, LAWYER_PERMISSION_KEYS.DISCUSSIONS_VIEW_SAVED_OWN],
+    },
+  },
+  {
+    path: "/cases/new",
+    matches: matchesExactOrChild("/cases/new"),
+    permission: {
+      all: [LAWYER_PERMISSION_KEYS.CASES_CREATE_DRAFT, LAWYER_PERMISSION_KEYS.CASES_META_VIEW],
+    },
+  },
+  { path: "/cases/mine", matches: matchesExactOrChild("/cases/mine"), permission: LAWYER_PERMISSION_KEYS.CASES_VIEW_OWN_DASHBOARD },
+  { path: "/cases/saved", matches: matchesExactOrChild("/cases/saved"), permission: LAWYER_PERMISSION_KEYS.CASES_VIEW_SAVED_OWN },
+  {
+    path: "/cases",
+    matches: (pathname) => /^\/cases\/[^/]+\/edit(?:\/|$)/.test(pathname),
+    permission: {
+      all: [LAWYER_PERMISSION_KEYS.CASES_EDIT_OWN, LAWYER_PERMISSION_KEYS.CASES_META_VIEW],
+    },
+  },
+  { path: "/cases", matches: matchesExactOrChild("/cases"), permission: LAWYER_PERMISSION_KEYS.CASES_VIEW },
+  { path: "/discussions", matches: matchesExactOrChild("/discussions"), permission: LAWYER_PERMISSION_KEYS.DISCUSSIONS_VIEW },
 ];
 
 export function normalizeRoleName(roleName: string) {
@@ -139,23 +165,8 @@ export function resolveEffectivePermissions(roles: string[], assignedPermissionK
         .filter(Boolean),
     ),
   ).sort();
-
-  const resolved = new Set<string>();
-
-  for (const role of roles.map(normalizeRoleName)) {
-    const defaultPermissions = DEFAULT_ROLE_PERMISSIONS[role];
-    if (!defaultPermissions) continue;
-
-    for (const permissionKey of defaultPermissions) {
-        resolved.add(permissionKey);
-    }
-  }
-
-  for (const permissionKey of normalizedAssigned) {
-    resolved.add(permissionKey);
-  }
-
-  return Array.from(resolved).sort();
+  void roles;
+  return normalizedAssigned;
 }
 
 export function hasPermission(permissionKeys: string[], permissionKey: string) {
@@ -167,9 +178,15 @@ export function hasAnyPermission(permissionKeys: string[], permissionRequirement
 }
 
 export function canAccessPermissionRequirement(permissionKeys: string[], permissionRequirement: PermissionRequirement) {
-  return Array.isArray(permissionRequirement)
-    ? hasAnyPermission(permissionKeys, permissionRequirement)
-    : hasPermission(permissionKeys, permissionRequirement);
+  if (typeof permissionRequirement === "string") {
+    return hasPermission(permissionKeys, permissionRequirement);
+  }
+
+  if ("any" in permissionRequirement) {
+    return hasAnyPermission(permissionKeys, permissionRequirement.any);
+  }
+
+  return permissionRequirement.all.every((permissionKey) => hasPermission(permissionKeys, permissionKey));
 }
 
 export function canAccessAdminPermission(roles: string[], permissionKeys: string[], permissionKey: string) {
@@ -188,21 +205,14 @@ export function canAccessLawyerPermission(roles: string[], permissionKeys: strin
   return hasPermission(resolveEffectivePermissions(roles, permissionKeys), permissionKey);
 }
 
-export function getAdminPermissionForPath(pathname: string) {
-  const matchedRule = ADMIN_ROUTE_PERMISSION_RULES.find(
-    (rule) => pathname === rule.prefix || pathname.startsWith(`${rule.prefix}/`),
-  );
+export function getAdminPermissionForPath(pathname: string): AdminPermissionKey | null {
+  const matchedRule = ADMIN_ROUTE_PERMISSION_RULES.find((rule) => rule.matches(pathname));
 
   return matchedRule?.permission ?? null;
 }
 
-export function getLawyerPermissionForPath(pathname: string) {
-  const matchedRule = LAWYER_ROUTE_PERMISSION_RULES.find(
-    (rule) =>
-      pathname === rule.prefix ||
-      pathname.startsWith(`${rule.prefix}/`) ||
-      (rule.prefix.endsWith("/") && pathname.startsWith(rule.prefix)),
-  );
+export function getLawyerPermissionForPath(pathname: string): PermissionRequirement | null {
+  const matchedRule = LAWYER_ROUTE_PERMISSION_RULES.find((rule) => rule.matches(pathname));
 
   return matchedRule?.permission ?? null;
 }
@@ -226,10 +236,10 @@ export function getFirstAccessibleAdminPath(roles: string[], permissionKeys: str
   }
 
   const matchedRule = ADMIN_ROUTE_PERMISSION_RULES.find((rule) =>
-    canAccessAdminPermission(roles, permissionKeys, rule.permission),
+    canAccessAdminPermission(roles, permissionKeys, rule.permission as AdminPermissionKey),
   );
 
-  return matchedRule?.prefix ?? "/adminprofile";
+  return matchedRule?.path ?? "/adminprofile";
 }
 
 export function getFirstAccessibleLawyerPath(roles: string[], permissionKeys: string[]) {
@@ -242,5 +252,5 @@ export function getFirstAccessibleLawyerPath(roles: string[], permissionKeys: st
     canAccessPermissionRequirement(effectivePermissions, rule.permission),
   );
 
-  return matchedRule?.prefix ?? null;
+  return matchedRule?.path ?? null;
 }

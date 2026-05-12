@@ -8,9 +8,9 @@ import CasePageHero from '@/app/components/cases/case-page-hero';
 import CaseUserLink from '@/app/components/cases/case-user-link';
 import { useCaseWorkspace } from '@/app/components/cases/case-workspace';
 import { useToast } from '@/app/components/ui/toast/toast-context';
-import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from '@/lib/auth/roles';
+import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission, canAccessPermissionRequirement } from '@/lib/auth/roles';
 import type { CaseRepositoryRecord } from '@/types/case';
-import { BadgeCheck, Bookmark, ChevronRight, Eye, FileSearch, GitBranch, Landmark, Link2, MessageSquareText, PencilLine, Send, Share2, ShieldCheck, Users } from 'lucide-react';
+import { BadgeCheck, Bookmark, ChevronRight, Eye, FileSearch, GitBranch, Landmark, Link2, MessageSquareText, PencilLine, Send, Share2, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -61,7 +61,9 @@ export default function CaseDetailPage() {
   const userPermissions = user?.permissions ?? [];
   const canBookmarkCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_BOOKMARK);
   const canShareCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_SHARE);
-  const canEditOwnCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_EDIT_OWN);
+  const canEditOwnCases = canAccessPermissionRequirement(userPermissions, {
+    all: [LAWYER_PERMISSION_KEYS.CASES_EDIT_OWN, LAWYER_PERMISSION_KEYS.CASES_META_VIEW],
+  });
   const canViewPublicProfiles = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.PROFILE_PUBLIC_VIEW);
   const canSubmitOwnCases = canAccessLawyerPermission(
     userRoles,
