@@ -17,7 +17,7 @@ function getSessionToken(req: NextRequest): string | undefined {
   return undefined;
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const token = getSessionToken(req);

@@ -136,8 +136,10 @@ async function bindRolePermissions(
 }
 
 async function printSeedSummary(roles: Map<string, { id: string; name: string }>) {
-  const adminRoles = ADMIN_COMPATIBILITY_ROLE_NAMES.map((roleName) => roles.get(roleName)).filter(Boolean);
-  const lawyerRoles = LAWYER_COMPATIBILITY_ROLE_NAMES.map((roleName) => roles.get(roleName)).filter(Boolean);
+  const isRoleRecord = (role: { id: string; name: string } | undefined): role is { id: string; name: string } =>
+    Boolean(role);
+  const adminRoles = ADMIN_COMPATIBILITY_ROLE_NAMES.map((roleName) => roles.get(roleName)).filter(isRoleRecord);
+  const lawyerRoles = LAWYER_COMPATIBILITY_ROLE_NAMES.map((roleName) => roles.get(roleName)).filter(isRoleRecord);
 
   console.log("Roles ready:");
   for (const role of [...adminRoles, ...lawyerRoles]) {
