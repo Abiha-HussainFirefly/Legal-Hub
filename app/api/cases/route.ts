@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
       if (!userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.CASES_VIEW_SAVED_OWN)) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
-    } else if (!reviewQueue && !userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.CASES_VIEW)) {
+    } else if (reviewQueue && !isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { ADMIN_PERMISSION_KEYS, canAccessAdminPortal, canAccessAdminPermission, getAdminPermissionForPath } from '@/lib/auth/roles';
+import { logoutClientSession } from '@/lib/auth/client-session';
 import { useSidebar } from '@/app/components/admin/sidebar/SidebarContext';
 import {
   Activity,
@@ -25,7 +26,7 @@ import {
   Users,
 } from 'lucide-react';
 import Image from 'next/image';
-import { signOut, useSession } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
@@ -129,7 +130,7 @@ export default function Sidebar() {
   };
 
   const handleLogout = async () => {
-    await signOut({ redirect: false });
+    await logoutClientSession();
     router.push('/adminlogin');
   };
 

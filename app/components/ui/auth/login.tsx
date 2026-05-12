@@ -138,7 +138,6 @@ export default function LoginForm({
         return;
       }
 
-      localStorage.setItem("user", JSON.stringify(data.user));
       if (rememberMe) {
         localStorage.setItem(rememberMeKey, values.email);
       } else {

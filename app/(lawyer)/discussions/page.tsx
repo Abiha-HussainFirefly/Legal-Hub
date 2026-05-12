@@ -8,6 +8,7 @@ import DiscussionsFeaturedSection from '@/app/components/lawyer/discussions/disc
 import NotificationBell from '@/app/components/lawyer/discussions/notificationbell';
 import LawyerTopbar from '@/app/components/lawyer/lawyer-topbar';
 import { apiRequest, getErrorMessage } from '@/lib/api-client';
+import { logoutClientSession } from '@/lib/auth/client-session';
 import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from '@/lib/auth/roles';
 import { MessageSquareText, ShieldCheck, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -316,7 +317,7 @@ export default function LegalDiscussionsPage() {
   }, [deferredSearch, selectedCategory, selectedRegion, sort]);
 
   async function handleLogout() {
-    await apiRequest('/api/auth/logout', { method: 'POST' });
+    await logoutClientSession();
     router.replace('/lawyerlogin');
   }
 

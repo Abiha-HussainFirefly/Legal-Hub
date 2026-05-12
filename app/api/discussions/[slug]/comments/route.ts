@@ -2,17 +2,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { LAWYER_PERMISSION_KEYS } from '@/lib/auth/roles';
 import { getSessionUser } from '@/lib/services/api-auth';
-import { userHasLawyerPermission } from '@/lib/services/api-auth';
 import { prisma } from '@/lib/prisma';
 import { AUTHOR_SELECT, createComment } from '@/lib/services/discussion.service';
 type P = { params: Promise<{ slug: string }> };
 
 export async function GET(req: NextRequest, { params }: P) {
   try {
-    const user = await getSessionUser(req);
-    if (!userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.COMMENTS_VIEW)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
     const { slug } = await params;
     const discussion = await prisma.discussion.findUnique({
       where: { slug },

@@ -1,5 +1,3 @@
-import { LAWYER_PERMISSION_KEYS } from '@/lib/auth/roles';
-import { getSessionUser, userHasLawyerPermission } from '@/lib/services/api-auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
@@ -26,11 +24,7 @@ const NON_DEMO_USER_FILTER = {
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await getSessionUser(req);
-    if (!userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.DISCUSSIONS_VIEW)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
+    void req;
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);

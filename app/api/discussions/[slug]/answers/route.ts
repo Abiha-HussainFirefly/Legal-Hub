@@ -14,11 +14,6 @@ export async function GET(
 ) {
   try {
     const session = await auth();
-    const roles = session?.user?.roles ?? [];
-    const permissions = session?.user?.permissions ?? [];
-    if (!canAccessLawyerPermission(roles, permissions, LAWYER_PERMISSION_KEYS.ANSWERS_VIEW)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
     const { slug } = await params;
     const { searchParams } = new URL(req.url);
     const page  = Math.max(parseInt(searchParams.get('page')  ?? '1',  10), 1);

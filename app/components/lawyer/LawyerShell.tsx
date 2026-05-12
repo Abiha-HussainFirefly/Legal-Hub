@@ -1,6 +1,7 @@
 "use client";
 
 import LawyerTopbar from "@/app/components/lawyer/lawyer-topbar";
+import { logoutClientSession } from "@/lib/auth/client-session";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -49,7 +50,7 @@ export default function LawyerShell({
   }, [router]);
 
   async function handleLogout() {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await logoutClientSession();
     router.replace("/lawyerlogin");
   }
 

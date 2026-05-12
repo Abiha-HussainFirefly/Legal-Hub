@@ -27,15 +27,6 @@ export async function GET(
     }
 
     if (
-      record.status === 'PUBLISHED' &&
-      !userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.CASES_VIEW) &&
-      record.author.id !== user?.id &&
-      !isAdmin
-    ) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    if (
       record.status !== 'PUBLISHED' &&
       record.author.id === user?.id &&
       !userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.CASES_VIEW_OWN_UNPUBLISHED)

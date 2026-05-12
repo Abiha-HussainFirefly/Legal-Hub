@@ -23,18 +23,21 @@ export function middleware(req: NextRequest) {
   const token = getSessionToken(req);
   const isLoggedIn = !!token;
 
-  const isAdminAuth = pathname === "/adminlogin";
-  const isLawyerAuth = pathname === "/lawyerlogin" || pathname === "/lawyerregister";
-
   const isAdminProtected = pathname.startsWith("/dashboard");
   const isLawyerProtected =
-    pathname.startsWith("/cases") ||
     pathname.startsWith("/topics") ||
     pathname.startsWith("/saved") ||
     pathname === "/profile" ||
     pathname.startsWith("/profile/edit") ||
     pathname.startsWith("/profile/setup") ||
-    pathname.startsWith("/profile/stats");
+    pathname.startsWith("/profile/stats") ||
+    pathname === "/cases/new" ||
+    pathname.startsWith("/cases/new/") ||
+    pathname === "/cases/mine" ||
+    pathname.startsWith("/cases/mine/") ||
+    pathname === "/cases/saved" ||
+    pathname.startsWith("/cases/saved/") ||
+    /^\/cases\/[^/]+\/edit(?:\/|$)/.test(pathname);
 
   if (isAdminProtected && !isLoggedIn) {
     return NextResponse.redirect(new URL("/adminlogin", req.url));
@@ -42,14 +45,6 @@ export function middleware(req: NextRequest) {
 
   if (isLawyerProtected && !isLoggedIn) {
     return NextResponse.redirect(new URL("/lawyerlogin", req.url));
-  }
-
-  if (isAdminAuth && isLoggedIn) {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
-  }
-
-  if (isLawyerAuth && isLoggedIn) {
-    return NextResponse.redirect(new URL("/discussions", req.url));
   }
 
   return NextResponse.next();

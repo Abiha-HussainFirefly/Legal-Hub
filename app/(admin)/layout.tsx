@@ -6,6 +6,7 @@ import {
   getAdminPermissionForPath,
   getFirstAccessibleAdminPath,
 } from '@/lib/auth/roles';
+import { clearClientAuthState } from '@/lib/auth/client-session';
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { SidebarProvider, useSidebar } from '@/app/components/admin/sidebar/SidebarContext';
@@ -55,7 +56,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     async function checkAdminAuth() {
       try {
-        const res = await fetch('/api/auth/me');
+        const res = await fetch('/api/auth/me', { cache: 'no-store' });
         const data = await res.json();
 
         if (data.authenticated && data.user) {
@@ -66,6 +67,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           const requiredPermission = getAdminPermissionForPath(pathname ?? '');
 
           if (!isAdmin) {
+            clearClientAuthState();
             setStatus('unauthenticated');
             router.replace('/lawyerlogin');
             return;
@@ -80,16 +82,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           setUserData(data.user as AdminLayoutUser);
           setStatus('authenticated');
-
-          // Sync legacy storage
-          localStorage.setItem('isLoggedIn', 'true');
-          localStorage.setItem('user', JSON.stringify(data.user));
         } else {
+          clearClientAuthState();
           setStatus('unauthenticated');
           router.replace('/adminlogin');
         }
       } catch (err) {
         console.error('Admin Auth Check Failed:', err);
+        clearClientAuthState();
         setStatus('unauthenticated');
         router.replace('/adminlogin');
       }

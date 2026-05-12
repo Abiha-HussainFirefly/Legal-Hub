@@ -3,6 +3,7 @@
 import ProfileHoverLink from '@/app/components/lawyer/discussions/profile-hover-link';
 import AnimatedLink, { navigateWithTransition } from '@/app/components/ui/animated-link';
 import LawyerTopbar from '@/app/components/lawyer/lawyer-topbar';
+import { logoutClientSession } from '@/lib/auth/client-session';
 import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission, canAccessPermissionRequirement } from '@/lib/auth/roles';
 import { ArrowLeft, Eye, Hash, MessagesSquare, Plus, Sparkles, TrendingUp } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -115,7 +116,7 @@ export default function MyTopicsPage() {
   }, [router]);
 
   async function handleLogout() {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    await logoutClientSession();
     router.replace('/lawyerlogin');
   }
 

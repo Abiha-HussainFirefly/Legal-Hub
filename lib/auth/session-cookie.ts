@@ -26,3 +26,33 @@ export function readSessionToken(source: CookieSourceLike): string | undefined {
 
   return undefined;
 }
+
+interface MutableCookieResponseLike {
+  cookies: {
+    set: (
+      name: string,
+      value: string,
+      options: {
+        httpOnly: boolean;
+        secure: boolean;
+        sameSite: "lax";
+        path: string;
+        expires: Date;
+        maxAge: number;
+      },
+    ) => void;
+  };
+}
+
+export function clearSessionCookies(response: MutableCookieResponseLike) {
+  for (const name of SESSION_COOKIE_NAMES) {
+    response.cookies.set(name, "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      expires: new Date(0),
+      maxAge: 0,
+    });
+  }
+}

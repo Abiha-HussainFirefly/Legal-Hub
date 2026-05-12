@@ -38,8 +38,6 @@ export async function GET(req: NextRequest) {
       if (!userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.DISCUSSIONS_VIEW_SAVED_OWN)) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
-    } else if (!userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.DISCUSSIONS_VIEW)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const filters: DiscussionFilters = {

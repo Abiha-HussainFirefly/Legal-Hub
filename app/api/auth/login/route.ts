@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      expires: result.data!.expiresAt,
+      priority: "high",
     });
 
     return response;

@@ -4,7 +4,9 @@ import {
   canAccessLawyerPath,
   canAccessLawyerPortal,
   getFirstAccessibleLawyerPath,
+  isLawyerPublicPath,
 } from '@/lib/auth/roles';
+import { clearClientAuthState } from '@/lib/auth/client-session';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -22,12 +24,20 @@ export default function LawyerLayout({ children }: { children: React.ReactNode }
     let cancelled = false;
 
     async function verifyAccess() {
+      if (isLawyerPublicPath(pathname || '')) {
+        if (!cancelled) {
+          setStatus('authorized');
+        }
+        return;
+      }
+
       try {
         const response = await fetch('/api/auth/me', { cache: 'no-store' });
         const payload = await response.json();
 
         if (!payload?.authenticated || !payload.user) {
           if (!cancelled) {
+            clearClientAuthState();
             setStatus('unauthorized');
             router.replace('/lawyerlogin');
           }
@@ -40,6 +50,7 @@ export default function LawyerLayout({ children }: { children: React.ReactNode }
 
         if (!canAccessLawyerPortal(roles)) {
           if (!cancelled) {
+            clearClientAuthState();
             setStatus('unauthorized');
             router.replace('/lawyerlogin');
           }
@@ -60,6 +71,7 @@ export default function LawyerLayout({ children }: { children: React.ReactNode }
         }
       } catch {
         if (!cancelled) {
+          clearClientAuthState();
           setStatus('unauthorized');
           router.replace('/lawyerlogin');
         }

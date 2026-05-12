@@ -8,6 +8,7 @@ import LawyerTopbar from '@/app/components/lawyer/lawyer-topbar';
 import AnimatedLink from '@/app/components/ui/animated-link';
 import Tooltip from '@/app/components/ui/tooltip';
 import { apiRequest, getErrorMessage } from '@/lib/api-client';
+import { logoutClientSession } from '@/lib/auth/client-session';
 import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from '@/lib/auth/roles';
 import {
   ArrowUp,
@@ -599,7 +600,7 @@ export default function DiscussionDetailPage({
   }
 
   async function handleLogout() {
-    await apiRequest('/api/auth/logout', { method: 'POST' });
+    await logoutClientSession();
     router.replace('/lawyerlogin');
   }
 

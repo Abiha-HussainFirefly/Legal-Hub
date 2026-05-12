@@ -85,6 +85,22 @@ function matchesExactOrChild(prefix: string) {
   return (pathname: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);
 }
 
+export function isLawyerPublicPath(pathname: string) {
+  if (pathname === "/discussions" || pathname === "/cases") {
+    return true;
+  }
+
+  if (/^\/discussions\/[^/]+$/.test(pathname)) {
+    return true;
+  }
+
+  if (/^\/cases\/[^/]+$/.test(pathname)) {
+    return true;
+  }
+
+  return false;
+}
+
 const ADMIN_ROUTE_PERMISSION_RULES: RoutePermissionRule<AdminPermissionKey>[] = [
   { path: "/dashboard", matches: matchesExactOrChild("/dashboard"), permission: ADMIN_PERMISSION_KEYS.DASHBOARD_VIEW },
   { path: "/reports", matches: matchesExactOrChild("/reports"), permission: ADMIN_PERMISSION_KEYS.REPORTS_VIEW },
@@ -212,12 +228,20 @@ export function getAdminPermissionForPath(pathname: string): AdminPermissionKey 
 }
 
 export function getLawyerPermissionForPath(pathname: string): PermissionRequirement | null {
+  if (isLawyerPublicPath(pathname)) {
+    return null;
+  }
+
   const matchedRule = LAWYER_ROUTE_PERMISSION_RULES.find((rule) => rule.matches(pathname));
 
   return matchedRule?.permission ?? null;
 }
 
 export function canAccessLawyerPath(roles: string[], permissionKeys: string[], pathname: string) {
+  if (isLawyerPublicPath(pathname)) {
+    return true;
+  }
+
   if (!canAccessLawyerPortal(roles)) {
     return false;
   }
@@ -252,5 +276,5 @@ export function getFirstAccessibleLawyerPath(roles: string[], permissionKeys: st
     canAccessPermissionRequirement(effectivePermissions, rule.permission),
   );
 
-  return matchedRule?.path ?? null;
+  return matchedRule?.path ?? "/discussions";
 }

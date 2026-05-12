@@ -1,6 +1,7 @@
 'use client';
 
 import LawyerTopbar from '@/app/components/lawyer/lawyer-topbar';
+import { logoutClientSession } from '@/lib/auth/client-session';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -61,7 +62,7 @@ export default function CaseWorkspace({ children }: { children: React.ReactNode 
   const value = useMemo(() => ({ user, loading }), [user, loading]);
 
   async function handleLogout() {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    await logoutClientSession();
     router.replace('/lawyerlogin');
   }
 

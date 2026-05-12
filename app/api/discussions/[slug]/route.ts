@@ -18,14 +18,6 @@ export async function GET(
 ) {
   try {
     const session = await auth();
-    const roles = session?.user?.roles ?? [];
-    const permissions = session?.user?.permissions ?? [];
-    const canViewDiscussion = canAccessLawyerPermission(roles, permissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_VIEW);
-    const canViewComments = canAccessLawyerPermission(roles, permissions, LAWYER_PERMISSION_KEYS.COMMENTS_VIEW);
-    const canViewAiSummary = canAccessLawyerPermission(roles, permissions, LAWYER_PERMISSION_KEYS.DISCUSSIONS_AI_SUMMARY_VIEW);
-    if (!canViewDiscussion) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
     const { slug } = await params;
     
     // Crucial: Use the ID from the session to fetch user-specific states
@@ -208,8 +200,8 @@ export async function GET(
       discussion: {
         ...cleanDiscussion,
         tags,
-        comments: canViewComments ? cleanDiscussion.comments : [],
-        aiSummaries: canViewAiSummary ? cleanDiscussion.aiSummaries : [],
+        comments: cleanDiscussion.comments,
+        aiSummaries: cleanDiscussion.aiSummaries,
         viewerReaction,
         viewerFollowing,
         viewerSaved,
