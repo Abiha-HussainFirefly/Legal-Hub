@@ -75,6 +75,10 @@ function statusClasses(status: string) {
   return "bg-[#F6EBD6] text-[#8B642A]";
 }
 
+async function verificationDecisionAction(formData: FormData): Promise<void> {
+  await adminVerificationDecisionAction(null, formData);
+}
+
 export default async function VerificationPage({
   searchParams,
 }: {
@@ -277,7 +281,7 @@ export default async function VerificationPage({
                           Open trust tab
                         </Link>
                         {(row.status === "PENDING" || row.status === "UNDER_REVIEW") ? (
-                          <form action={adminVerificationDecisionAction} className="space-y-2">
+                          <form action={verificationDecisionAction} className="space-y-2">
                             <input type="hidden" name="requestId" value={row.id} />
                             <input
                               type="text"

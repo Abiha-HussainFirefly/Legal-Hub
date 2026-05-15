@@ -18,6 +18,7 @@ export function applyTheme(mode: ThemeMode) {
   const resolved = resolveTheme(mode);
   document.documentElement.dataset.theme = resolved;
   document.documentElement.style.colorScheme = resolved;
+  document.documentElement.classList.toggle("dark", resolved === "dark");
 }
 
 export function readStoredTheme(): ThemeMode {

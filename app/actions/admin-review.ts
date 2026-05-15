@@ -13,6 +13,12 @@ import {
 } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
+// ─── Shared result type ───────────────────────────────────────────────────────
+
+export type ActionResult = { success: true } | { success: false; error: string };
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
 function normalizeText(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -20,7 +26,9 @@ function normalizeText(value: FormDataEntryValue | null) {
 async function requireAdminActor(permissionKey: string) {
   const session = await auth();
   const actorId = session?.user?.id ?? null;
-  const actorRoles = ((session?.user as { roles?: string[] } | undefined)?.roles ?? []).map((role) => role.toLowerCase());
+  const actorRoles = ((session?.user as { roles?: string[] } | undefined)?.roles ?? []).map((role) =>
+    role.toLowerCase(),
+  );
   const actorPermissions = (session?.user as { permissions?: string[] } | undefined)?.permissions ?? [];
 
   if (!actorId || !canAccessAdminPermission(actorRoles, actorPermissions, permissionKey)) {
@@ -45,14 +53,22 @@ function revalidateVerificationSurfaces(userId: string) {
   revalidatePath("/reports");
 }
 
-export async function adminCaseReviewAction(formData: FormData) {
+// ─── Case review action ───────────────────────────────────────────────────────
+
+export async function adminCaseReviewAction(
+  _prevState: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  // Auth errors still throw — they represent a programming / security fault,
+  // not a recoverable user-facing validation failure.
   const { actorId } = await requireAdminActor(ADMIN_PERMISSION_KEYS.CASE_REVIEW);
+
   const slug = normalizeText(formData.get("slug"));
   const intent = normalizeText(formData.get("intent"));
   const note = normalizeText(formData.get("reviewNote"));
 
   if (!slug || !intent) {
-    throw new Error("Missing case review input");
+    return { success: false, error: "Missing case review input." };
   }
 
   const caseRecord = await prisma.caseRecord.findUnique({
@@ -73,38 +89,48 @@ export async function adminCaseReviewAction(formData: FormData) {
   });
 
   if (!caseRecord) {
-    throw new Error("Case record not found");
+    return { success: false, error: "Case record not found." };
   }
+
+  // ── Per-intent validation ────────────────────────────────────────────────
 
   if (intent === "publish") {
     if (caseRecord.status !== RepositoryItemStatus.PENDING_REVIEW) {
-      throw new Error("Only pending review cases can be published");
+      return { success: false, error: "Only cases in pending review can be published." };
     }
   } else if (intent === "reject") {
     if (caseRecord.status !== RepositoryItemStatus.PENDING_REVIEW) {
-      throw new Error("Only pending review cases can be rejected");
+      return { success: false, error: "Only cases in pending review can be rejected." };
     }
     if (!note) {
-      throw new Error("A rejection reason is required");
+      return { success: false, error: "A rejection reason is required." };
     }
   } else if (intent === "archive") {
-    if (caseRecord.status !== RepositoryItemStatus.PUBLISHED && caseRecord.status !== RepositoryItemStatus.REJECTED) {
-      throw new Error("Only published or rejected cases can be archived");
+    if (
+      caseRecord.status !== RepositoryItemStatus.PUBLISHED &&
+      caseRecord.status !== RepositoryItemStatus.REJECTED
+    ) {
+      return { success: false, error: "Only published or rejected cases can be archived." };
     }
     if (!note) {
-      throw new Error("An archive reason is required");
+      return { success: false, error: "An archive reason is required." };
     }
   } else if (intent === "restore") {
-    if (caseRecord.status !== RepositoryItemStatus.ARCHIVED && caseRecord.status !== RepositoryItemStatus.REMOVED) {
-      throw new Error("Only archived or removed cases can be restored");
+    if (
+      caseRecord.status !== RepositoryItemStatus.ARCHIVED &&
+      caseRecord.status !== RepositoryItemStatus.REMOVED
+    ) {
+      return { success: false, error: "Only archived or removed cases can be restored." };
     }
   } else if (intent === "save_note") {
     if (!note) {
-      throw new Error("A reviewer note is required");
+      return { success: false, error: "A reviewer note is required." };
     }
   } else {
-    throw new Error("Unsupported case review action");
+    return { success: false, error: "Unsupported case review action." };
   }
+
+  // ── Database transaction ──────────────────────────────────────────────────
 
   const now = new Date();
   const latestRevisionId = caseRecord.revisions[0]?.id ?? null;
@@ -151,9 +177,7 @@ export async function adminCaseReviewAction(formData: FormData) {
           type: NotificationType.CASE_PUBLISHED,
           title: "Case published",
           message: note || `Your case "${caseRecord.title}" was published to the repository.`,
-          data: {
-            source: "admin_case_review_publish",
-          },
+          data: { source: "admin_case_review_publish" },
         },
       });
 
@@ -187,11 +211,7 @@ export async function adminCaseReviewAction(formData: FormData) {
           targetUserId: caseRecord.authorId,
           targetType: ContentTargetType.CASE,
           targetId: caseRecord.id,
-          meta: {
-            slug: caseRecord.slug,
-            previousStatus: caseRecord.status,
-            note: note || null,
-          },
+          meta: { slug: caseRecord.slug, previousStatus: caseRecord.status, note: note || null },
         },
       });
     } else if (intent === "reject") {
@@ -235,10 +255,7 @@ export async function adminCaseReviewAction(formData: FormData) {
           type: NotificationType.SYSTEM,
           title: "Case review update",
           message: `Your case "${caseRecord.title}" was rejected for publication. Reason: ${note}`,
-          data: {
-            source: "admin_case_review_reject",
-            reason: note,
-          },
+          data: { source: "admin_case_review_reject", reason: note },
         },
       });
 
@@ -250,11 +267,7 @@ export async function adminCaseReviewAction(formData: FormData) {
           targetUserId: caseRecord.authorId,
           targetType: ContentTargetType.CASE,
           targetId: caseRecord.id,
-          meta: {
-            slug: caseRecord.slug,
-            previousStatus: caseRecord.status,
-            reason: note,
-          },
+          meta: { slug: caseRecord.slug, previousStatus: caseRecord.status, reason: note },
         },
       });
     } else if (intent === "archive") {
@@ -287,15 +300,13 @@ export async function adminCaseReviewAction(formData: FormData) {
           targetUserId: caseRecord.authorId,
           targetType: ContentTargetType.CASE,
           targetId: caseRecord.id,
-          meta: {
-            slug: caseRecord.slug,
-            previousStatus: caseRecord.status,
-            reason: note,
-          },
+          meta: { slug: caseRecord.slug, previousStatus: caseRecord.status, reason: note },
         },
       });
     } else if (intent === "restore") {
-      const restoredStatus = caseRecord.publishedAt ? RepositoryItemStatus.PUBLISHED : RepositoryItemStatus.PENDING_REVIEW;
+      const restoredStatus = caseRecord.publishedAt
+        ? RepositoryItemStatus.PUBLISHED
+        : RepositoryItemStatus.PENDING_REVIEW;
 
       await tx.caseRecord.update({
         where: { id: caseRecord.id },
@@ -309,11 +320,7 @@ export async function adminCaseReviewAction(formData: FormData) {
       if (latestRevisionId) {
         await tx.caseRevision.update({
           where: { id: latestRevisionId },
-          data: {
-            status: restoredStatus,
-            reviewedById: actorId,
-            reviewedAt: now,
-          },
+          data: { status: restoredStatus, reviewedById: actorId, reviewedAt: now },
         });
       }
 
@@ -325,11 +332,7 @@ export async function adminCaseReviewAction(formData: FormData) {
           targetUserId: caseRecord.authorId,
           targetType: ContentTargetType.CASE,
           targetId: caseRecord.id,
-          meta: {
-            slug: caseRecord.slug,
-            previousStatus: caseRecord.status,
-            restoredStatus,
-          },
+          meta: { slug: caseRecord.slug, previousStatus: caseRecord.status, restoredStatus },
         },
       });
     } else if (intent === "save_note") {
@@ -351,26 +354,30 @@ export async function adminCaseReviewAction(formData: FormData) {
           targetUserId: caseRecord.authorId,
           targetType: ContentTargetType.CASE,
           targetId: caseRecord.id,
-          meta: {
-            slug: caseRecord.slug,
-            note,
-          },
+          meta: { slug: caseRecord.slug, note },
         },
       });
     }
   });
 
   revalidateCaseSurfaces(caseRecord.slug);
+  return { success: true };
 }
 
-export async function adminVerificationDecisionAction(formData: FormData) {
+// ─── Verification decision action ─────────────────────────────────────────────
+
+export async function adminVerificationDecisionAction(
+  _prevState: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
   const { actorId } = await requireAdminActor(ADMIN_PERMISSION_KEYS.VERIFICATION_REVIEW);
+
   const requestId = normalizeText(formData.get("requestId"));
   const intent = normalizeText(formData.get("intent"));
   const note = normalizeText(formData.get("decisionNote"));
 
   if (!requestId || !intent) {
-    throw new Error("Missing verification input");
+    return { success: false, error: "Missing verification input." };
   }
 
   const request = await prisma.lawyerVerificationRequest.findUnique({
@@ -389,22 +396,22 @@ export async function adminVerificationDecisionAction(formData: FormData) {
   });
 
   if (!request) {
-    throw new Error("Verification request not found");
+    return { success: false, error: "Verification request not found." };
   }
 
   if (
     request.status !== LawyerVerificationStatus.PENDING &&
     request.status !== LawyerVerificationStatus.UNDER_REVIEW
   ) {
-    throw new Error("Only pending or under-review requests can be decided");
+    return { success: false, error: "Only pending or under-review requests can be decided." };
   }
 
   if (intent === "reject" && !note) {
-    throw new Error("A rejection reason is required");
+    return { success: false, error: "A rejection reason is required." };
   }
 
   if (!["approve", "reject"].includes(intent)) {
-    throw new Error("Unsupported verification action");
+    return { success: false, error: "Unsupported verification action." };
   }
 
   const now = new Date();
@@ -463,18 +470,12 @@ export async function adminVerificationDecisionAction(formData: FormData) {
           type: NotificationType.VERIFICATION_APPROVED,
           title: "Lawyer verification approved",
           message: note || `Your lawyer verification request has been approved.`,
-          data: {
-            source: "admin_verification_approve",
-          },
+          data: { source: "admin_verification_approve" },
         },
       });
 
       await tx.gamificationEvent.create({
-        data: {
-          userId,
-          eventType: "LAWYER_VERIFIED",
-          pointsDelta: 0,
-        },
+        data: { userId, eventType: "LAWYER_VERIFIED", pointsDelta: 0 },
       });
 
       await tx.auditLog.create({
@@ -485,11 +486,7 @@ export async function adminVerificationDecisionAction(formData: FormData) {
           targetUserId: userId,
           targetType: ContentTargetType.USER,
           targetId: userId,
-          meta: {
-            requestId: request.id,
-            previousStatus: request.status,
-            note: note || null,
-          },
+          meta: { requestId: request.id, previousStatus: request.status, note: note || null },
         },
       });
     } else {
@@ -530,10 +527,7 @@ export async function adminVerificationDecisionAction(formData: FormData) {
           type: NotificationType.VERIFICATION_REJECTED,
           title: "Lawyer verification rejected",
           message: `Your lawyer verification request was rejected. Reason: ${note}`,
-          data: {
-            source: "admin_verification_reject",
-            reason: note,
-          },
+          data: { source: "admin_verification_reject", reason: note },
         },
       });
 
@@ -545,15 +539,12 @@ export async function adminVerificationDecisionAction(formData: FormData) {
           targetUserId: userId,
           targetType: ContentTargetType.USER,
           targetId: userId,
-          meta: {
-            requestId: request.id,
-            previousStatus: request.status,
-            reason: note,
-          },
+          meta: { requestId: request.id, previousStatus: request.status, reason: note },
         },
       });
     }
   });
 
   revalidateVerificationSurfaces(userId);
+  return { success: true };
 }

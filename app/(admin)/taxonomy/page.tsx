@@ -1,6 +1,67 @@
 import { adminReferenceDataAction } from "@/app/actions/admin-platform";
+import AdminPagination from "@/app/components/admin/AdminPagination";
 import { getAdminTaxonomyPageData } from "@/lib/services/admin.server";
 import { FileSpreadsheet, MapPinned, Scale, Tags } from "lucide-react";
+
+const TABLE_PAGE_SIZE = 5;
+
+function getFirstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function parsePageParam(value: string | undefined) {
+  const parsed = Number.parseInt(value ?? "1", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+}
+
+function buildPageHref(
+  searchParams: Record<string, string | string[] | undefined>,
+  overrides: Record<string, number>,
+) {
+  const params = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(searchParams)) {
+    const firstValue = getFirstParam(value);
+    if (firstValue) params.set(key, firstValue);
+  }
+
+  for (const [key, value] of Object.entries(overrides)) {
+    if (value <= 1) {
+      params.delete(key);
+      continue;
+    }
+
+    params.set(key, `${value}`);
+  }
+
+  const query = params.toString();
+  return query ? `/taxonomy?${query}` : "/taxonomy";
+}
+
+function paginateRows<T>(rows: T[], page: number, pageSize: number) {
+  const total = rows.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const currentPage = Math.min(Math.max(page, 1), totalPages);
+  const startIndex = (currentPage - 1) * pageSize;
+  const pagedRows = rows.slice(startIndex, startIndex + pageSize);
+
+  return {
+    rows: pagedRows,
+    currentPage,
+    total,
+    totalPages,
+    start: total === 0 ? 0 : startIndex + 1,
+    end: total === 0 ? 0 : startIndex + pagedRows.length,
+  };
+}
+
+function buildVisiblePages(currentPage: number, totalPages: number) {
+  const startPage = Math.max(1, currentPage - 2);
+  const endPage = Math.min(totalPages, startPage + 4);
+  const adjustedStart = Math.max(1, endPage - 4);
+
+  return Array.from({ length: endPage - adjustedStart + 1 }, (_, index) => adjustedStart + index);
+}
 
 function prettyText(value: string) {
   return value
@@ -32,8 +93,22 @@ function TaxonomyCard({
   );
 }
 
-export default async function TaxonomyPage() {
+export default async function TaxonomyPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const resolvedSearchParams = (await searchParams) ?? {};
   const data = await getAdminTaxonomyPageData();
+  const categoryTable = paginateRows(data.categories, parsePageParam(getFirstParam(resolvedSearchParams.categoriesPage)), TABLE_PAGE_SIZE);
+  const tagTable = paginateRows(data.tags, parsePageParam(getFirstParam(resolvedSearchParams.tagsPage)), TABLE_PAGE_SIZE);
+  const regionTable = paginateRows(data.regions, parsePageParam(getFirstParam(resolvedSearchParams.regionsPage)), TABLE_PAGE_SIZE);
+  const courtTable = paginateRows(data.courts, parsePageParam(getFirstParam(resolvedSearchParams.courtsPage)), TABLE_PAGE_SIZE);
+
+  const categoryPages = buildVisiblePages(categoryTable.currentPage, categoryTable.totalPages);
+  const tagPages = buildVisiblePages(tagTable.currentPage, tagTable.totalPages);
+  const regionPages = buildVisiblePages(regionTable.currentPage, regionTable.totalPages);
+  const courtPages = buildVisiblePages(courtTable.currentPage, courtTable.totalPages);
 
   const summaryCards = [
     {
@@ -88,7 +163,7 @@ export default async function TaxonomyPage() {
                   <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-[#102033]">{card.value}</p>
                   <p className="mt-2 text-sm text-slate-600">{card.detail}</p>
                 </div>
-                <div className="rounded-[18px] bg-[#F4EFF8] p-3 text-[#4C2F5E]">
+                <div className="workspace-pill p-3">
                   <Icon className="h-5 w-5" />
                 </div>
               </div>
@@ -201,37 +276,74 @@ export default async function TaxonomyPage() {
           title="Categories"
           description="Dependency-aware deactivation is safer than deletion once discussions, cases, or lawyer-practice references exist."
         >
-          <div className="space-y-3">
-            {data.categories.map((category) => (
-              <div key={category.id} className="rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] p-4">
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadge(category.isActive)}`}>
-                        {category.isActive ? "Active" : "Inactive"}
-                      </span>
-                      <span className="workspace-pill">{prettyText(category.scope)}</span>
-                    </div>
-                    <p className="mt-3 text-base font-semibold text-[#2F1D3B]">{category.name}</p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      `{category.slug}` / Sort {category.sortOrder} / Parent {category.parentName ?? "None"}
-                    </p>
-                    <p className="mt-2 text-sm text-slate-600">{category.usageCount} linked records depend on this category.</p>
-                  </div>
+          <div className="legal-table-wrap overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="legal-table min-w-full table-auto">
+                <thead>
+                  <tr>
+                    <th className="min-w-[180px] px-6 py-4 text-left text-sm font-semibold">Category</th>
+                    <th className="min-w-[120px] px-6 py-4 text-left text-sm font-semibold">Scope</th>
+                    <th className="min-w-[170px] px-6 py-4 text-left text-sm font-semibold">Slug</th>
+                    <th className="min-w-[130px] px-6 py-4 text-left text-sm font-semibold">Parent</th>
+                    <th className="min-w-[120px] px-6 py-4 text-left text-sm font-semibold">Usage</th>
+                    <th className="min-w-[120px] px-6 py-4 text-left text-sm font-semibold">Status</th>
+                    <th className="min-w-[280px] px-6 py-4 text-left text-sm font-semibold">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {categoryTable.rows.map((category) => (
+                    <tr key={category.id}>
+                      <td className="px-6 py-4 align-top">
+                        <p className="text-sm font-semibold text-[#2F1D3B]">{category.name}</p>
+                        <p className="mt-1 text-xs text-slate-500">Sort order {category.sortOrder}</p>
+                      </td>
+                      <td className="px-6 py-4 align-top">
+                        <span className="workspace-pill">{prettyText(category.scope)}</span>
+                      </td>
+                      <td className="px-6 py-4 align-top text-sm leading-6 text-slate-600">`{category.slug}`</td>
+                      <td className="px-6 py-4 align-top text-sm leading-6 text-slate-600">{category.parentName ?? "None"}</td>
+                      <td className="px-6 py-4 align-top text-sm leading-6 text-slate-600">{category.usageCount}</td>
+                      <td className="px-6 py-4 align-top">
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadge(category.isActive)}`}>
+                          {category.isActive ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 align-top">
+                        <form action={adminReferenceDataAction} className="space-y-3">
+                          <input type="hidden" name="entity" value="category" />
+                          <input type="hidden" name="intent" value="toggle_active" />
+                          <input type="hidden" name="recordId" value={category.id} />
+                          <input type="hidden" name="nextActive" value={category.isActive ? "false" : "true"} />
+                          <input name="reason" placeholder="Reason for status change" className="legal-field w-full min-w-[220px]" required />
+                          <button type="submit" className="legal-button-secondary text-sm">
+                            {category.isActive ? "Deactivate" : "Reactivate"}
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-                  <form action={adminReferenceDataAction} className="grid gap-3 xl:w-[280px]">
-                    <input type="hidden" name="entity" value="category" />
-                    <input type="hidden" name="intent" value="toggle_active" />
-                    <input type="hidden" name="recordId" value={category.id} />
-                    <input type="hidden" name="nextActive" value={category.isActive ? "false" : "true"} />
-                    <input name="reason" placeholder="Reason for status change" className="legal-field" required />
-                    <button type="submit" className="legal-button-secondary text-sm">
-                      {category.isActive ? "Deactivate" : "Reactivate"}
-                    </button>
-                  </form>
-                </div>
-              </div>
-            ))}
+            <AdminPagination
+              start={categoryTable.start}
+              end={categoryTable.end}
+              total={categoryTable.total}
+              currentPage={categoryTable.currentPage}
+              pageLinks={categoryPages.map((pageNumber) => ({
+                pageNumber,
+                href: buildPageHref(resolvedSearchParams, { categoriesPage: pageNumber }),
+              }))}
+              previousHref={buildPageHref(resolvedSearchParams, {
+                categoriesPage: Math.max(1, categoryTable.currentPage - 1),
+              })}
+              nextHref={buildPageHref(resolvedSearchParams, {
+                categoriesPage: Math.min(categoryTable.totalPages, categoryTable.currentPage + 1),
+              })}
+              isFirstPage={categoryTable.currentPage === 1}
+              isLastPage={categoryTable.currentPage === categoryTable.totalPages}
+            />
           </div>
         </TaxonomyCard>
 
@@ -239,37 +351,71 @@ export default async function TaxonomyPage() {
           title="Tags"
           description="Use deactivation to retire noisy labels. Merge and bulk-curation workflows remain a recommended next step."
         >
-          <div className="space-y-3">
-            {data.tags.map((tag) => (
-              <div key={tag.id} className="rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] p-4">
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadge(tag.isActive)}`}>
-                        {tag.isActive ? "Active" : "Inactive"}
-                      </span>
-                      <span className="workspace-pill">{prettyText(tag.type)}</span>
-                    </div>
-                    <p className="mt-3 text-base font-semibold text-[#2F1D3B]">{tag.name}</p>
-                    <p className="mt-1 text-xs text-slate-500">`{tag.slug}`</p>
-                    <p className="mt-2 text-sm text-slate-600">
-                      {tag.discussionCount} discussions / {tag.caseCount} cases
-                    </p>
-                  </div>
+          <div className="legal-table-wrap overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="legal-table min-w-full table-auto">
+                <thead>
+                  <tr>
+                    <th className="min-w-[180px] px-6 py-4 text-left text-sm font-semibold">Tag</th>
+                    <th className="min-w-[130px] px-6 py-4 text-left text-sm font-semibold">Type</th>
+                    <th className="min-w-[170px] px-6 py-4 text-left text-sm font-semibold">Slug</th>
+                    <th className="min-w-[120px] px-6 py-4 text-left text-sm font-semibold">Discussions</th>
+                    <th className="min-w-[120px] px-6 py-4 text-left text-sm font-semibold">Cases</th>
+                    <th className="min-w-[120px] px-6 py-4 text-left text-sm font-semibold">Status</th>
+                    <th className="min-w-[280px] px-6 py-4 text-left text-sm font-semibold">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {tagTable.rows.map((tag) => (
+                    <tr key={tag.id}>
+                      <td className="px-6 py-4 align-top text-sm font-semibold leading-6 text-[#2F1D3B]">{tag.name}</td>
+                      <td className="px-6 py-4 align-top">
+                        <span className="workspace-pill">{prettyText(tag.type)}</span>
+                      </td>
+                      <td className="px-6 py-4 align-top text-sm leading-6 text-slate-600">`{tag.slug}`</td>
+                      <td className="px-6 py-4 align-top text-sm leading-6 text-slate-600">{tag.discussionCount}</td>
+                      <td className="px-6 py-4 align-top text-sm leading-6 text-slate-600">{tag.caseCount}</td>
+                      <td className="px-6 py-4 align-top">
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadge(tag.isActive)}`}>
+                          {tag.isActive ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 align-top">
+                        <form action={adminReferenceDataAction} className="space-y-3">
+                          <input type="hidden" name="entity" value="tag" />
+                          <input type="hidden" name="intent" value="toggle_active" />
+                          <input type="hidden" name="recordId" value={tag.id} />
+                          <input type="hidden" name="nextActive" value={tag.isActive ? "false" : "true"} />
+                          <input name="reason" placeholder="Reason for status change" className="legal-field w-full min-w-[220px]" required />
+                          <button type="submit" className="legal-button-secondary text-sm">
+                            {tag.isActive ? "Deactivate" : "Reactivate"}
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-                  <form action={adminReferenceDataAction} className="grid gap-3 xl:w-[280px]">
-                    <input type="hidden" name="entity" value="tag" />
-                    <input type="hidden" name="intent" value="toggle_active" />
-                    <input type="hidden" name="recordId" value={tag.id} />
-                    <input type="hidden" name="nextActive" value={tag.isActive ? "false" : "true"} />
-                    <input name="reason" placeholder="Reason for status change" className="legal-field" required />
-                    <button type="submit" className="legal-button-secondary text-sm">
-                      {tag.isActive ? "Deactivate" : "Reactivate"}
-                    </button>
-                  </form>
-                </div>
-              </div>
-            ))}
+            <AdminPagination
+              start={tagTable.start}
+              end={tagTable.end}
+              total={tagTable.total}
+              currentPage={tagTable.currentPage}
+              pageLinks={tagPages.map((pageNumber) => ({
+                pageNumber,
+                href: buildPageHref(resolvedSearchParams, { tagsPage: pageNumber }),
+              }))}
+              previousHref={buildPageHref(resolvedSearchParams, {
+                tagsPage: Math.max(1, tagTable.currentPage - 1),
+              })}
+              nextHref={buildPageHref(resolvedSearchParams, {
+                tagsPage: Math.min(tagTable.totalPages, tagTable.currentPage + 1),
+              })}
+              isFirstPage={tagTable.currentPage === 1}
+              isLastPage={tagTable.currentPage === tagTable.totalPages}
+            />
           </div>
         </TaxonomyCard>
       </div>
@@ -279,39 +425,74 @@ export default async function TaxonomyPage() {
           title="Regions"
           description="Region hierarchy influences courts, practice areas, and legal trust views."
         >
-          <div className="space-y-3">
-            {data.regions.map((region) => (
-              <div key={region.id} className="rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] p-4">
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadge(region.isActive)}`}>
-                        {region.isActive ? "Active" : "Inactive"}
-                      </span>
-                      <span className="workspace-pill">
-                        {prettyText(region.type)} / {region.countryCode}
-                      </span>
-                    </div>
-                    <p className="mt-3 text-base font-semibold text-[#2F1D3B]">{region.name}</p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      `{region.slug}` / Parent {region.parentName ?? "None"}
-                    </p>
-                    <p className="mt-2 text-sm text-slate-600">{region.courtCount} linked courts.</p>
-                  </div>
+          <div className="legal-table-wrap overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="legal-table min-w-full table-auto">
+                <thead>
+                  <tr>
+                    <th className="min-w-[180px] px-6 py-4 text-left text-sm font-semibold">Region</th>
+                    <th className="min-w-[140px] px-6 py-4 text-left text-sm font-semibold">Type</th>
+                    <th className="min-w-[110px] px-6 py-4 text-left text-sm font-semibold">Country</th>
+                    <th className="min-w-[130px] px-6 py-4 text-left text-sm font-semibold">Parent</th>
+                    <th className="min-w-[120px] px-6 py-4 text-left text-sm font-semibold">Linked Courts</th>
+                    <th className="min-w-[120px] px-6 py-4 text-left text-sm font-semibold">Status</th>
+                    <th className="min-w-[280px] px-6 py-4 text-left text-sm font-semibold">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {regionTable.rows.map((region) => (
+                    <tr key={region.id}>
+                      <td className="px-6 py-4 align-top">
+                        <p className="text-sm font-semibold text-[#2F1D3B]">{region.name}</p>
+                        <p className="mt-1 text-xs text-slate-500">`{region.slug}`</p>
+                      </td>
+                      <td className="px-6 py-4 align-top">
+                        <span className="workspace-pill">{prettyText(region.type)}</span>
+                      </td>
+                      <td className="px-6 py-4 align-top text-sm leading-6 text-slate-600">{region.countryCode}</td>
+                      <td className="px-6 py-4 align-top text-sm leading-6 text-slate-600">{region.parentName ?? "None"}</td>
+                      <td className="px-6 py-4 align-top text-sm leading-6 text-slate-600">{region.courtCount}</td>
+                      <td className="px-6 py-4 align-top">
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadge(region.isActive)}`}>
+                          {region.isActive ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 align-top">
+                        <form action={adminReferenceDataAction} className="space-y-3">
+                          <input type="hidden" name="entity" value="region" />
+                          <input type="hidden" name="intent" value="toggle_active" />
+                          <input type="hidden" name="recordId" value={region.id} />
+                          <input type="hidden" name="nextActive" value={region.isActive ? "false" : "true"} />
+                          <input name="reason" placeholder="Reason for status change" className="legal-field w-full min-w-[220px]" required />
+                          <button type="submit" className="legal-button-secondary text-sm">
+                            {region.isActive ? "Deactivate" : "Reactivate"}
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-                  <form action={adminReferenceDataAction} className="grid gap-3 xl:w-[280px]">
-                    <input type="hidden" name="entity" value="region" />
-                    <input type="hidden" name="intent" value="toggle_active" />
-                    <input type="hidden" name="recordId" value={region.id} />
-                    <input type="hidden" name="nextActive" value={region.isActive ? "false" : "true"} />
-                    <input name="reason" placeholder="Reason for status change" className="legal-field" required />
-                    <button type="submit" className="legal-button-secondary text-sm">
-                      {region.isActive ? "Deactivate" : "Reactivate"}
-                    </button>
-                  </form>
-                </div>
-              </div>
-            ))}
+            <AdminPagination
+              start={regionTable.start}
+              end={regionTable.end}
+              total={regionTable.total}
+              currentPage={regionTable.currentPage}
+              pageLinks={regionPages.map((pageNumber) => ({
+                pageNumber,
+                href: buildPageHref(resolvedSearchParams, { regionsPage: pageNumber }),
+              }))}
+              previousHref={buildPageHref(resolvedSearchParams, {
+                regionsPage: Math.max(1, regionTable.currentPage - 1),
+              })}
+              nextHref={buildPageHref(resolvedSearchParams, {
+                regionsPage: Math.min(regionTable.totalPages, regionTable.currentPage + 1),
+              })}
+              isFirstPage={regionTable.currentPage === 1}
+              isLastPage={regionTable.currentPage === regionTable.totalPages}
+            />
           </div>
         </TaxonomyCard>
 
@@ -319,55 +500,86 @@ export default async function TaxonomyPage() {
           title="Courts"
           description="Keep courts mapped carefully so case routing and reporting remain jurisdictionally accurate."
         >
-          <div className="space-y-3">
-            {data.courts.map((court) => (
-              <div key={court.id} className="rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] p-4">
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadge(court.isActive)}`}>
-                        {court.isActive ? "Active" : "Inactive"}
-                      </span>
-                      <span className="workspace-pill">{prettyText(court.level)}</span>
-                    </div>
-                    <p className="mt-3 text-base font-semibold text-[#2F1D3B]">{court.name}</p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      `{court.slug}` / {court.regionName ?? "No region mapped"}
-                    </p>
-                    <p className="mt-2 text-sm text-slate-600">{court.caseCount} linked case records.</p>
-                  </div>
+          <div className="legal-table-wrap overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="legal-table min-w-full table-auto">
+                <thead>
+                  <tr>
+                    <th className="min-w-[190px] px-6 py-4 text-left text-sm font-semibold">Court</th>
+                    <th className="min-w-[120px] px-6 py-4 text-left text-sm font-semibold">Level</th>
+                    <th className="min-w-[170px] px-6 py-4 text-left text-sm font-semibold">Region</th>
+                    <th className="min-w-[180px] px-6 py-4 text-left text-sm font-semibold">Website</th>
+                    <th className="min-w-[100px] px-6 py-4 text-left text-sm font-semibold">Cases</th>
+                    <th className="min-w-[120px] px-6 py-4 text-left text-sm font-semibold">Status</th>
+                    <th className="min-w-[280px] px-6 py-4 text-left text-sm font-semibold">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {courtTable.rows.map((court) => (
+                    <tr key={court.id}>
+                      <td className="px-6 py-4 align-top">
+                        <p className="text-sm font-semibold text-[#2F1D3B]">{court.name}</p>
+                        <p className="mt-1 text-xs text-slate-500">`{court.slug}`</p>
+                      </td>
+                      <td className="px-6 py-4 align-top">
+                        <span className="workspace-pill">{prettyText(court.level)}</span>
+                      </td>
+                      <td className="px-6 py-4 align-top text-sm leading-6 text-slate-600">{court.regionName ?? "No region mapped"}</td>
+                      <td className="px-6 py-4 align-top text-sm leading-6 text-slate-600">
+                        {court.websiteUrl ? (
+                          <a href={court.websiteUrl} target="_blank" rel="noreferrer" className="break-all text-[#4C2F5E] hover:text-[#2F1D3B]">
+                            {court.websiteUrl}
+                          </a>
+                        ) : (
+                          "No website"
+                        )}
+                      </td>
+                      <td className="px-6 py-4 align-top text-sm leading-6 text-slate-600">{court.caseCount}</td>
+                      <td className="px-6 py-4 align-top">
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadge(court.isActive)}`}>
+                          {court.isActive ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 align-top">
+                        <form action={adminReferenceDataAction} className="space-y-3">
+                          <input type="hidden" name="entity" value="court" />
+                          <input type="hidden" name="intent" value="toggle_active" />
+                          <input type="hidden" name="recordId" value={court.id} />
+                          <input type="hidden" name="nextActive" value={court.isActive ? "false" : "true"} />
+                          <input name="reason" placeholder="Reason for status change" className="legal-field w-full min-w-[220px]" required />
+                          <button type="submit" className="legal-button-secondary text-sm">
+                            {court.isActive ? "Deactivate" : "Reactivate"}
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-                  <form action={adminReferenceDataAction} className="grid gap-3 xl:w-[280px]">
-                    <input type="hidden" name="entity" value="court" />
-                    <input type="hidden" name="intent" value="toggle_active" />
-                    <input type="hidden" name="recordId" value={court.id} />
-                    <input type="hidden" name="nextActive" value={court.isActive ? "false" : "true"} />
-                    <input name="reason" placeholder="Reason for status change" className="legal-field" required />
-                    <button type="submit" className="legal-button-secondary text-sm">
-                      {court.isActive ? "Deactivate" : "Reactivate"}
-                    </button>
-                  </form>
-                </div>
-              </div>
-            ))}
+            <AdminPagination
+              start={courtTable.start}
+              end={courtTable.end}
+              total={courtTable.total}
+              currentPage={courtTable.currentPage}
+              pageLinks={courtPages.map((pageNumber) => ({
+                pageNumber,
+                href: buildPageHref(resolvedSearchParams, { courtsPage: pageNumber }),
+              }))}
+              previousHref={buildPageHref(resolvedSearchParams, {
+                courtsPage: Math.max(1, courtTable.currentPage - 1),
+              })}
+              nextHref={buildPageHref(resolvedSearchParams, {
+                courtsPage: Math.min(courtTable.totalPages, courtTable.currentPage + 1),
+              })}
+              isFirstPage={courtTable.currentPage === 1}
+              isLastPage={courtTable.currentPage === courtTable.totalPages}
+            />
           </div>
         </TaxonomyCard>
       </div>
 
-      <section className="legal-panel p-5 md:p-6">
-        <h2 className="text-xl font-semibold tracking-[-0.03em] text-[#2F1D3B]">Seed Pack Guardrails</h2>
-        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {[
-            "Bulk CSV/XLSX import with dry-run validation and rollback should be added before production-scale taxonomy maintenance.",
-            "Roles and permissions stay in restricted workflows with impact preview, two-step confirmation, and full audit logging.",
-            "Runtime tables such as sessions, audit logs, reports, alerts, notifications, and views remain visible elsewhere but not directly mutable here.",
-          ].map((note) => (
-            <div key={note} className="rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] p-4 text-sm leading-7 text-slate-600">
-              {note}
-            </div>
-          ))}
-        </div>
-      </section>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import {
   getAdminModerationQueueData,
   getAdminNotificationsPageData,
   getAdminPermissionsPageData,
+  getAdminReportsData,
   getAdminRolesPageData,
   getAdminSecurityPageData,
   getAdminUsersPageData,
@@ -54,6 +55,184 @@ async function collectPaginatedRows<TRow>(
   return { rows: collectedRows };
 }
 
+function buildAdminReportsCsv(
+  data: Awaited<ReturnType<typeof getAdminReportsData>>,
+  section: string,
+) {
+  if (section === "summary") {
+    return buildCsv(
+      ["Metric", "Value", "Detail"],
+      [
+        ["New Users", data.summary.newUsersInRange, `Accounts created in the last ${data.filters.rangeDays} days`],
+        ["Published Cases", data.summary.publishedCasesInRange, `Published in the last ${data.filters.rangeDays} days`],
+        ["Open Moderation Signals", data.summary.openModerationSignals, "Current open reports plus actionable AI alerts"],
+        [
+          "Verification Approval Rate",
+          data.summary.verificationApprovalRateInRange === null ? "N/A" : `${data.summary.verificationApprovalRateInRange}%`,
+          `Decided verification requests in the last ${data.filters.rangeDays} days`,
+        ],
+        ...data.summaryNotes.map((note, index) => [`Summary Note ${index + 1}`, note, "Narrative highlight"]),
+      ],
+    );
+  }
+
+  if (section === "user_growth") {
+    return buildCsv(
+      ["Bucket", "New Users"],
+      data.userGrowth.map((row) => [row.label, row.users]),
+    );
+  }
+
+  if (section === "verification") {
+    return buildCsv(
+      ["Bucket", "Submitted", "Approved", "Rejected"],
+      data.verificationThroughput.map((row) => [row.label, row.submitted, row.approved, row.rejected]),
+    );
+  }
+
+  if (section === "content") {
+    return buildCsv(
+      ["Bucket", "Discussions", "Answers", "Comments", "Cases"],
+      data.contentCreation.map((row) => [row.label, row.discussions, row.answers, row.comments, row.cases]),
+    );
+  }
+
+  if (section === "moderation") {
+    return buildCsv(
+      ["Bucket", "Reports", "Alerts", "Actions"],
+      data.moderationLoad.map((row) => [row.label, row.reports, row.alerts, row.actions]),
+    );
+  }
+
+  if (section === "queue_aging") {
+    return buildCsv(
+      ["Label", "Value", "Href"],
+      data.queueAging.map((row) => [row.label, row.value, row.href]),
+    );
+  }
+
+  if (section === "anomalies") {
+    return buildCsv(
+      ["Label", "Status", "Detail"],
+      data.anomalies.map((row) => [row.label, row.status, row.detail]),
+    );
+  }
+
+  if (section === "rankings_regions") {
+    return buildCsv(
+      ["Region", "Count"],
+      data.rankings.regions.map((row) => [row.label, row.count]),
+    );
+  }
+
+  if (section === "rankings_courts") {
+    return buildCsv(
+      ["Court", "Count"],
+      data.rankings.courts.map((row) => [row.label, row.count]),
+    );
+  }
+
+  if (section === "rankings_categories") {
+    return buildCsv(
+      ["Category", "Count"],
+      data.rankings.categories.map((row) => [row.label, row.count]),
+    );
+  }
+
+  if (section === "rankings_tags") {
+    return buildCsv(
+      ["Tag", "Engagement Score"],
+      data.rankings.tags.map((row) => [row.label, row.score]),
+    );
+  }
+
+  const rows: Array<Array<string | number | boolean | null | undefined>> = [
+    ...data.summaryNotes.map((note, index) => ["summary_note", `Note ${index + 1}`, "text", note, "", "", ""]),
+    ...[
+      ["summary", `New Users ${data.filters.rangeDays}d`, "value", data.summary.newUsersInRange, "Accounts created in the selected range", "", ""],
+      ["summary", `Published Cases ${data.filters.rangeDays}d`, "value", data.summary.publishedCasesInRange, "Published in the selected range", "", ""],
+      ["summary", "Open Moderation Signals", "value", data.summary.openModerationSignals, "Current snapshot", "", ""],
+      [
+        "summary",
+        "Verification Approval Rate",
+        "value",
+        data.summary.verificationApprovalRateInRange === null ? "N/A" : `${data.summary.verificationApprovalRateInRange}%`,
+        "Selected range",
+        "",
+        "",
+      ],
+    ],
+    ...data.userGrowth.map((row) => ["user_growth", row.label, "users", row.users, "", "", ""]),
+    ...data.verificationThroughput.flatMap((row) => [
+      ["verification", row.label, "submitted", row.submitted, "", "", ""],
+      ["verification", row.label, "approved", row.approved, "", "", ""],
+      ["verification", row.label, "rejected", row.rejected, "", "", ""],
+    ]),
+    ...data.contentCreation.flatMap((row) => [
+      ["content", row.label, "discussions", row.discussions, "", "", ""],
+      ["content", row.label, "answers", row.answers, "", "", ""],
+      ["content", row.label, "comments", row.comments, "", "", ""],
+      ["content", row.label, "cases", row.cases, "", "", ""],
+    ]),
+    ...data.moderationLoad.flatMap((row) => [
+      ["moderation", row.label, "reports", row.reports, "", "", ""],
+      ["moderation", row.label, "alerts", row.alerts, "", "", ""],
+      ["moderation", row.label, "actions", row.actions, "", "", ""],
+    ]),
+    ...data.queueAging.map((row) => ["queue_aging", row.label, "value", row.value, "", row.href, ""]),
+    ...data.anomalies.map((row) => ["anomalies", row.label, "detail", row.detail, "", "", row.status]),
+    ...data.rankings.regions.map((row) => ["rankings_regions", row.label, "count", row.count, "", "", ""]),
+    ...data.rankings.courts.map((row) => ["rankings_courts", row.label, "count", row.count, "", "", ""]),
+    ...data.rankings.categories.map((row) => ["rankings_categories", row.label, "count", row.count, "", "", ""]),
+    ...data.rankings.tags.map((row) => ["rankings_tags", row.label, "score", row.score, "", "", ""]),
+  ];
+
+  return buildCsv(["Section", "Label", "Metric", "Value", "Detail", "Href", "Status"], rows);
+}
+
+function buildAdminReportsJson(
+  data: Awaited<ReturnType<typeof getAdminReportsData>>,
+  section: string,
+) {
+  if (section === "user_growth") {
+    return {
+      section,
+      filters: data.filters,
+      rows: data.userGrowth,
+    };
+  }
+
+  if (section === "verification") {
+    return {
+      section,
+      filters: data.filters,
+      rows: data.verificationThroughput,
+    };
+  }
+
+  if (section === "content") {
+    return {
+      section,
+      filters: data.filters,
+      rows: data.contentCreation,
+    };
+  }
+
+  if (section === "moderation") {
+    return {
+      section,
+      filters: data.filters,
+      rows: data.moderationLoad,
+    };
+  }
+
+  return {
+    section,
+    filters: data.filters,
+    rows: [],
+  };
+}
+
 export async function GET(req: NextRequest) {
   const user = await getSessionUser(req);
   const roles = user?.roles ?? [];
@@ -72,6 +251,7 @@ export async function GET(req: NextRequest) {
 
   let filenameBase = "export";
   let csv = "";
+  let jsonBody: unknown = null;
   let rowCount = 0;
   let filterMeta: Record<string, string> = {};
 
@@ -575,6 +755,43 @@ export async function GET(req: NextRequest) {
         row.metaSummary,
       ]),
     );
+  } else if (dataset === "reports") {
+    const section = firstParam(params, "section") || "all";
+    const format = firstParam(params, "format") || "csv";
+
+    filterMeta = {
+      range: firstParam(params, "range"),
+      bucket: firstParam(params, "bucket"),
+      rankingLimit: firstParam(params, "rankingLimit"),
+      section,
+      format,
+    };
+
+    const data = await getAdminReportsData({
+      range: filterMeta.range,
+      bucket: filterMeta.bucket,
+      rankingLimit: filterMeta.rankingLimit,
+    });
+
+    rowCount =
+      data.summaryNotes.length +
+      data.userGrowth.length +
+      data.verificationThroughput.length +
+      data.contentCreation.length +
+      data.moderationLoad.length +
+      data.queueAging.length +
+      data.anomalies.length +
+      data.rankings.regions.length +
+      data.rankings.courts.length +
+      data.rankings.categories.length +
+      data.rankings.tags.length;
+    filenameBase = section === "all" ? "reports-overview" : `reports-${section}`;
+
+    if (format === "json") {
+      jsonBody = buildAdminReportsJson(data, section);
+    } else {
+      csv = buildAdminReportsCsv(data, section);
+    }
   } else {
     return NextResponse.json({ error: "Unsupported dataset" }, { status: 400 });
   }
@@ -591,6 +808,16 @@ export async function GET(req: NextRequest) {
       },
     },
   });
+
+  if (jsonBody !== null) {
+    return new NextResponse(JSON.stringify(jsonBody, null, 2), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Disposition": `attachment; filename="legal-hub-${filenameBase}-${new Date().toISOString().slice(0, 10)}.json"`,
+      },
+    });
+  }
 
   return new NextResponse(csv, {
     status: 200,

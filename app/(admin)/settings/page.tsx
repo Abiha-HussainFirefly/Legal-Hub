@@ -44,6 +44,7 @@ function buildQueryString(
     category: string;
     failedOnly: string;
     privilegedOnly: string;
+    sessionPage: number;
     auditPage: number;
   },
   overrides: Partial<{
@@ -51,6 +52,7 @@ function buildQueryString(
     category: string;
     failedOnly: string;
     privilegedOnly: string;
+    sessionPage: number;
     auditPage: number;
   }> = {},
 ) {
@@ -61,6 +63,7 @@ function buildQueryString(
   if (next.category) params.set("category", next.category);
   if (next.failedOnly === "1") params.set("failedOnly", "1");
   if (next.privilegedOnly === "1") params.set("privilegedOnly", "1");
+  if (next.sessionPage > 1) params.set("sessionPage", `${next.sessionPage}`);
   if (next.auditPage > 1) params.set("auditPage", `${next.auditPage}`);
 
   const query = params.toString();
@@ -98,8 +101,13 @@ export default async function AdminSecurityPage({
     category: getFirstParam(resolvedSearchParams.category),
     failedOnly: getFirstParam(resolvedSearchParams.failedOnly),
     privilegedOnly: getFirstParam(resolvedSearchParams.privilegedOnly),
+    sessionPage: Number.parseInt(getFirstParam(resolvedSearchParams.sessionPage) ?? "1", 10),
     auditPage: Number.parseInt(getFirstParam(resolvedSearchParams.auditPage) ?? "1", 10),
   });
+  const sessionVisiblePages = Array.from({ length: data.sessionPagination.totalPages }, (_, index) => index + 1).slice(
+    Math.max(0, data.filters.sessionPage - 3),
+    data.filters.sessionPage + 2,
+  );
   const auditVisiblePages = Array.from({ length: data.auditPagination.totalPages }, (_, index) => index + 1).slice(
     Math.max(0, data.filters.auditPage - 3),
     data.filters.auditPage + 2,
@@ -147,11 +155,11 @@ export default async function AdminSecurityPage({
               </option>
             ))}
           </select>
-          <label className="flex items-center gap-2 rounded-[18px] border border-[#4C2F5E]/10 bg-[#FBF9FD] px-4 py-3 text-sm text-[#2F1D3B]">
+          <label className="legal-soft-panel flex items-center gap-2 px-4 py-3 text-sm text-[#2F1D3B]">
             <input type="checkbox" name="failedOnly" value="1" defaultChecked={data.filters.failedOnly === "1"} />
             Failed attempts only
           </label>
-          <label className="flex items-center gap-2 rounded-[18px] border border-[#4C2F5E]/10 bg-[#FBF9FD] px-4 py-3 text-sm text-[#2F1D3B]">
+          <label className="legal-soft-panel flex items-center gap-2 px-4 py-3 text-sm text-[#2F1D3B]">
             <input type="checkbox" name="privilegedOnly" value="1" defaultChecked={data.filters.privilegedOnly === "1"} />
             Privileged sessions only
           </label>
@@ -162,137 +170,162 @@ export default async function AdminSecurityPage({
       </Panel>
 
       <Panel title="Active Sessions" description="Revoke individual sessions with a mandatory reason. Session tokens remain hidden.">
-        <div className="legal-table-wrap overflow-x-auto">
-          <table className="legal-table w-full min-w-[1360px] table-fixed">
-            <thead>
-              <tr>
-                <th className="w-[19%] px-6 py-4 text-left text-sm font-semibold">User</th>
-                <th className="w-[10%] px-6 py-4 text-left text-sm font-semibold">Roles</th>
-                <th className="w-[17%] px-6 py-4 text-left text-sm font-semibold">Device</th>
-                <th className="w-[22%] px-6 py-4 text-left text-sm font-semibold">Network</th>
-                <th className="w-[10%] px-6 py-4 text-left text-sm font-semibold">Last Seen</th>
-                <th className="w-[10%] px-6 py-4 text-left text-sm font-semibold">Expires</th>
-                <th className="w-[12%] px-6 py-4 text-left text-sm font-semibold">Revoke</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {data.sessions.length ? (
-                data.sessions.map((session) => (
-                  <tr key={session.id}>
-                    <td className="px-6 py-5 align-top">
-                      <div className="space-y-2">
-                        <Link href={`/user/${session.userId}?tab=security`} className="text-sm font-semibold text-[#2F1D3B] hover:text-[#4C2F5E]">
-                          {session.displayName}
-                        </Link>
-                        <p className="break-words text-sm leading-6 text-slate-600">{session.primaryEmail ?? "No primary email"}</p>
-                      </div>
-                    </td>
-                    <td className="px-6 py-5 align-top text-sm leading-6 text-slate-600">{formatSessionRoles(session.roles)}</td>
-                    <td className="px-6 py-5 align-top">
-                      <div className="space-y-2 text-sm leading-6 text-slate-600">
-                        <p className="break-words">{session.deviceLabel ?? "Unlabeled device"}</p>
-                        <p className="text-xs leading-6 text-slate-500">Started {formatDateTime(session.createdAt)}</p>
-                      </div>
-                    </td>
-                    <td className="px-6 py-5 align-top">
-                      <div className="space-y-2 text-sm leading-6 text-slate-600">
-                        <p>{session.ip ?? "No IP"}</p>
-                        <p className="w-full break-all text-justify text-xs leading-6 text-slate-500">
-                          {session.userAgent ?? "No user agent"}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="px-6 py-5 align-top text-sm leading-6 text-slate-600">{formatDateTime(session.lastSeenAt)}</td>
-                    <td className="px-6 py-5 align-top text-sm leading-6 text-slate-600">{formatDateTime(session.expiresAt)}</td>
-                    <td className="px-6 py-5 align-top">
-                      <form action={adminSessionRevokeAction} className="space-y-3 rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] p-4">
-                        <input type="hidden" name="sessionId" value={session.id} />
-                        <input name="reason" placeholder="Reason for revocation" className="legal-field w-full" required />
-                        <button type="submit" className="legal-button-primary w-full text-sm">
-                          Revoke Session
-                        </button>
-                      </form>
+        <div className="legal-table-wrap overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="legal-table w-full min-w-[1480px] table-auto">
+              <thead>
+                <tr>
+                  <th className="min-w-[220px] px-6 py-4 text-left text-sm font-semibold">User</th>
+                  <th className="min-w-[130px] px-6 py-4 text-left text-sm font-semibold">Roles</th>
+                  <th className="min-w-[180px] px-6 py-4 text-left text-sm font-semibold">Device</th>
+                  <th className="min-w-[380px] px-6 py-4 text-left text-sm font-semibold">Network</th>
+                  <th className="min-w-[180px] px-6 py-4 text-left text-sm font-semibold">Last Seen</th>
+                  <th className="min-w-[180px] px-6 py-4 text-left text-sm font-semibold">Expires</th>
+                  <th className="min-w-[260px] px-6 py-4 text-left text-sm font-semibold">Revoke</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {data.sessions.length ? (
+                  data.sessions.map((session) => (
+                    <tr key={session.id}>
+                      <td className="px-6 py-5 align-top">
+                        <div className="space-y-2">
+                          <Link href={`/user/${session.userId}?tab=security`} className="text-sm font-semibold text-[#2F1D3B] hover:text-[#4C2F5E]">
+                            {session.displayName}
+                          </Link>
+                          <p className="break-words text-sm leading-6 text-slate-600">{session.primaryEmail ?? "No primary email"}</p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-5 align-top text-sm leading-6 text-slate-600">{formatSessionRoles(session.roles)}</td>
+                      <td className="px-6 py-5 align-top">
+                        <div className="space-y-2 text-sm leading-6 text-slate-600">
+                          <p className="break-words">{session.deviceLabel ?? "Unlabeled device"}</p>
+                          <p className="text-xs leading-6 text-slate-500">Started {formatDateTime(session.createdAt)}</p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-5 align-top">
+                        <div className="space-y-2 text-sm leading-6 text-slate-600">
+                          <p>{session.ip ?? "No IP"}</p>
+                          <p className="block min-w-[340px] break-all text-xs leading-6 text-slate-500">
+                            {session.userAgent ?? "No user agent"}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-5 align-top text-sm leading-6 text-slate-600">
+                        <span className="whitespace-nowrap">{formatDateTime(session.lastSeenAt)}</span>
+                      </td>
+                      <td className="px-6 py-5 align-top text-sm leading-6 text-slate-600">
+                        <span className="whitespace-nowrap">{formatDateTime(session.expiresAt)}</span>
+                      </td>
+                      <td className="px-6 py-5 align-top">
+                        <form action={adminSessionRevokeAction} className="legal-soft-panel space-y-3 p-4">
+                          <input type="hidden" name="sessionId" value={session.id} />
+                          <input name="reason" placeholder="Reason for revocation" className="legal-field w-full min-w-[220px]" required />
+                          <button type="submit" className="legal-button-primary w-full text-sm">
+                            Revoke Session
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-10 text-center text-sm text-slate-500">
+                      No active sessions match the current filters.
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={7} className="px-6 py-10 text-center text-sm text-slate-500">
-                    No active sessions match the current filters.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <AdminPagination
+            start={data.sessionPagination.start}
+            end={data.sessionPagination.end}
+            total={data.sessionPagination.total}
+            currentPage={data.filters.sessionPage}
+            pageLinks={sessionVisiblePages.map((pageNumber) => ({
+              pageNumber,
+              href: buildQueryString(data.filters, { sessionPage: pageNumber }),
+            }))}
+            previousHref={buildQueryString(data.filters, { sessionPage: Math.max(1, data.filters.sessionPage - 1) })}
+            nextHref={buildQueryString(data.filters, {
+              sessionPage: Math.min(data.sessionPagination.totalPages, data.filters.sessionPage + 1),
+            })}
+            isFirstPage={data.filters.sessionPage === 1}
+            isLastPage={data.filters.sessionPage === data.sessionPagination.totalPages}
+          />
         </div>
       </Panel>
 
       <Panel title="Audit Timeline" description="Privileged actions, moderation operations, and platform security events remain append-only.">
-        <div className="legal-table-wrap overflow-x-auto">
-          <table className="legal-table w-full min-w-[1180px] table-auto">
-            <thead>
-              <tr>
-                <th className="min-w-[150px] px-6 py-4 text-left text-sm font-semibold">Timestamp</th>
-                <th className="min-w-[110px] px-6 py-4 text-left text-sm font-semibold">Category</th>
-                <th className="min-w-[190px] px-6 py-4 text-left text-sm font-semibold">Action</th>
-                <th className="min-w-[120px] px-6 py-4 text-left text-sm font-semibold">Actor</th>
-                <th className="min-w-[150px] px-6 py-4 text-left text-sm font-semibold">Target</th>
-                <th className="min-w-[360px] px-6 py-4 text-left text-sm font-semibold">Summary</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {data.auditRows.length ? (
-                data.auditRows.map((row) => (
-                  <tr key={row.id}>
-                    <td className="min-w-[150px] px-6 py-4 align-top text-sm leading-6 text-slate-600">{formatDateTime(row.createdAt)}</td>
-                    <td className="px-6 py-4 align-top">
-                      <div className="flex flex-wrap gap-2">
-                        <span className="rounded-full bg-[#102033] px-2.5 py-1 text-xs font-semibold text-white">
-                          {prettyText(row.category)}
-                        </span>
-                        {row.targetType ? (
-                          <span className="rounded-full border border-[#4C2F5E]/12 bg-white px-2.5 py-1 text-xs font-semibold text-[#4C2F5E]">
-                            {prettyText(row.targetType)}
+        <div className="legal-table-wrap overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="legal-table min-w-full table-auto">
+              <thead>
+                <tr>
+                  <th className="min-w-[190px] px-6 py-4 text-left text-sm font-semibold">Action</th>
+                  <th className="min-w-[140px] px-6 py-4 text-left text-sm font-semibold">Category</th>
+                  <th className="min-w-[120px] px-6 py-4 text-left text-sm font-semibold">Actor</th>
+                  <th className="min-w-[150px] px-6 py-4 text-left text-sm font-semibold">Target</th>
+                  <th className="min-w-[360px] px-6 py-4 text-left text-sm font-semibold">Summary</th>
+                  <th className="min-w-[190px] px-6 py-4 text-left text-sm font-semibold">Timestamp</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {data.auditRows.length ? (
+                  data.auditRows.map((row) => (
+                    <tr key={row.id}>
+                      <td className="px-6 py-4 align-top text-sm font-semibold leading-6 text-[#2F1D3B]">{row.action}</td>
+                      <td className="px-6 py-4 align-top">
+                        <div className="flex flex-wrap gap-2">
+                          <span className="workspace-pill">
+                            {prettyText(row.category)}
                           </span>
-                        ) : null}
-                      </div>
-                    </td>
-                    <td className="min-w-[190px] px-6 py-4 align-top text-sm font-semibold leading-6 text-[#2F1D3B]">{row.action}</td>
-                    <td className="min-w-[120px] px-6 py-4 align-top text-sm leading-6 text-slate-600">
-                      <span className="block break-words">{row.actorName ?? "System"}</span>
-                    </td>
-                    <td className="min-w-[150px] px-6 py-4 align-top">
-                      {row.targetUserId ? (
-                        <Link href={`/user/${row.targetUserId}?tab=audit`} className="block break-words text-sm font-semibold leading-6 text-[#4C2F5E] hover:text-[#2F1D3B]">
-                          {row.targetUserName ?? "Open target audit"}
-                        </Link>
-                      ) : (
-                        <span className="block break-words text-sm leading-6 text-slate-600">{row.targetUserName ?? "Not linked"}</span>
-                      )}
-                    </td>
-                    <td className="min-w-[360px] px-6 py-4 align-top">
-                      <div className="min-w-[360px] space-y-1">
-                        {formatAuditSummaryLines(row.metaSummary).map((line, index) => (
-                          <p key={`${row.id}-${index}`} className="block whitespace-normal break-all text-sm leading-6 text-slate-600">
-                            {line}
-                          </p>
-                        ))}
-                      </div>
+                          {row.targetType ? (
+                            <span className="workspace-pill">
+                              {prettyText(row.targetType)}
+                            </span>
+                          ) : null}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 align-top text-sm leading-6 text-slate-600">
+                        <span className="block break-words">{row.actorName ?? "System"}</span>
+                      </td>
+                      <td className="px-6 py-4 align-top">
+                        {row.targetUserId ? (
+                          <Link href={`/user/${row.targetUserId}?tab=audit`} className="block break-words text-sm font-semibold leading-6 text-[#4C2F5E] hover:text-[#2F1D3B]">
+                            {row.targetUserName ?? "Open target audit"}
+                          </Link>
+                        ) : (
+                          <span className="block break-words text-sm leading-6 text-slate-600">{row.targetUserName ?? "Not linked"}</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 align-top">
+                        <div className="flex max-w-[420px] flex-wrap gap-x-4 gap-y-1">
+                          {formatAuditSummaryLines(row.metaSummary).map((line, index) => (
+                            <p key={`${row.id}-${index}`} className="whitespace-normal break-all text-sm leading-6 text-slate-600">
+                              {line}
+                            </p>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 align-top text-sm leading-6 text-slate-600">
+                        <span className="whitespace-nowrap">{formatDateTime(row.createdAt)}</span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-10 text-center text-sm text-slate-500">
+                      No audit rows match the current filters.
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-sm text-slate-500">
-                    No audit rows match the current filters.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                )}
+              </tbody>
+            </table>
+          </div>
 
-        <div className="mt-5">
           <AdminPagination
             start={data.auditPagination.start}
             end={data.auditPagination.end}
@@ -317,7 +350,7 @@ export default async function AdminSecurityPage({
           <div className="space-y-3">
             {data.lockedCredentialsRows.length ? (
               data.lockedCredentialsRows.map((row) => (
-                <Link key={row.userId} href={`/user/${row.userId}?tab=security`} className="block rounded-[18px] border border-[#4C2F5E]/10 bg-[#FBF9FD] p-4 transition hover:border-[#4C2F5E]/18">
+                <Link key={row.userId} href={`/user/${row.userId}?tab=security`} className="legal-soft-panel block p-4 transition hover:border-[#4C2F5E]/18">
                   <p className="text-sm font-semibold text-[#2F1D3B]">{row.displayName}</p>
                   <p className="mt-1 text-xs leading-6 text-slate-500">
                     {row.primaryEmail ?? "No primary email"} / {row.failedAttempts} failed attempts
@@ -335,7 +368,7 @@ export default async function AdminSecurityPage({
           <div className="space-y-3">
             {data.loginAttemptRows.length ? (
               data.loginAttemptRows.map((attempt) => (
-                <div key={attempt.id} className="rounded-[18px] border border-[#4C2F5E]/10 bg-[#FBF9FD] p-4">
+                <div key={attempt.id} className="legal-soft-panel p-4">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${attempt.success ? "bg-[#E8F4EF] text-[#1B7A5A]" : "bg-[#FCE8E6] text-[#A33A31]"}`}>
                       {attempt.success ? "Success" : "Failed"}

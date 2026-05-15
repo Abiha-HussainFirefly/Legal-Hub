@@ -59,6 +59,18 @@ function buildQueryString(
   return query ? `/case-review?${query}` : "/case-review";
 }
 
+// ─── Status tab definitions ───────────────────────────────────────────────────
+
+const STATUS_TABS = [
+  { label: "All cases",      value: ""               },
+  { label: "Pending review", value: "PENDING_REVIEW" },
+  { label: "Published",      value: "PUBLISHED"      },
+  { label: "Rejected",       value: "REJECTED"       },
+  { label: "Archived",       value: "ARCHIVED"       },
+  { label: "Draft",          value: "DRAFT"          },
+  { label: "Removed",        value: "REMOVED"        },
+] as const;
+
 export default async function CaseReviewQueuePage({
   searchParams,
 }: {
@@ -117,6 +129,29 @@ export default async function CaseReviewQueuePage({
         metrics={metrics.map(({ label, value, icon }) => ({ label, value, icon }))}
       />
 
+      {/* ── Status tab bar ──────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap gap-2">
+        {STATUS_TABS.map((tab) => {
+          const isActive = currentFilters.status === tab.value;
+          const href = buildQueryString(currentFilters, { status: tab.value, page: 1 });
+
+          return (
+            <Link
+              key={tab.value || "all"}
+              href={href}
+              className={[
+                "rounded-full border px-4 py-1.5 text-sm font-semibold transition-colors",
+                isActive
+                  ? "border-[#4C2F5E] bg-[#4C2F5E] text-white"
+                  : "border-[#4C2F5E]/20 bg-white text-[#4C2F5E] hover:border-[#4C2F5E]/50 hover:bg-[#F1EAF6]",
+              ].join(" ")}
+            >
+              {tab.label}
+            </Link>
+          );
+        })}
+      </div>
+
       <section className="legal-panel p-4 md:p-6">
         <form className="grid gap-4 xl:grid-cols-4">
           <AdminSearchField
@@ -126,7 +161,7 @@ export default async function CaseReviewQueuePage({
           />
 
           <select name="status" defaultValue={currentFilters.status} className="legal-field">
-            <option value="">Queue default statuses</option>
+            <option value="">All statuses</option>
             <option value="DRAFT">Draft</option>
             <option value="PENDING_REVIEW">Pending review</option>
             <option value="REJECTED">Rejected</option>

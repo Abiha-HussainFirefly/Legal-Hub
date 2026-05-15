@@ -75,7 +75,7 @@ export default function LawyerLayout({ children }: { children: React.ReactNode }
 
   if (status !== 'authorized') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,#f8f4ee_0%,#efe7dc_100%)]">
+      <div className="flex min-h-screen items-center justify-center bg-[var(--background-page)]">
         <div className="h-9 w-9 animate-spin rounded-full border-4 border-[#d8c7a6] border-t-[#102033]" />
       </div>
     );

@@ -1,6 +1,10 @@
 import { getAdminReportsData } from "@/lib/services/admin.server";
-import { AlertTriangle, BarChart3, Gavel, ShieldAlert, Users } from "lucide-react";
+import { BarChart3, Download, Filter, Gavel, ShieldAlert, Users } from "lucide-react";
 import Link from "next/link";
+
+function getFirstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
@@ -17,6 +21,28 @@ function formatTimestamp(value: Date) {
 
 function maxValue(values: number[]) {
   return Math.max(...values, 1);
+}
+
+function buildExportHref(
+  filters: {
+    rangeDays: number;
+    bucket: "week" | "month";
+    rankingLimit: number;
+  },
+  section: string,
+  format: "csv" = "csv",
+) {
+  const params = new URLSearchParams({
+    dataset: "reports",
+    section,
+  });
+
+  if (filters.rangeDays !== 180) params.set("range", `${filters.rangeDays}`);
+  if (filters.bucket !== "month") params.set("bucket", filters.bucket);
+  if (filters.rankingLimit !== 5) params.set("rankingLimit", `${filters.rankingLimit}`);
+  if (format !== "csv") params.set("format", format);
+
+  return `/api/admin/exports?${params.toString()}`;
 }
 
 function TrendBars({
@@ -64,32 +90,79 @@ function StatusPill({ status }: { status: "warning" | "stable" }) {
   );
 }
 
-export default async function ReportsPage() {
-  const data = await getAdminReportsData();
+function DownloadActions({ csvHref }: { csvHref: string }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <a href={csvHref} className="legal-button-secondary inline-flex items-center gap-2 text-xs">
+        <Download className="h-4 w-4" />
+        Download CSV
+      </a>
+    </div>
+  );
+}
+
+function SectionHeader({
+  eyebrow,
+  title,
+  description,
+  actions,
+}: {
+  eyebrow: string;
+  title?: string;
+  description?: string;
+  actions?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">{eyebrow}</p>
+        {title ? <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#2F1D3B]">{title}</h2> : null}
+        {description ? <p className="mt-2 text-sm leading-7 text-slate-600">{description}</p> : null}
+      </div>
+      {actions ?? null}
+    </div>
+  );
+}
+
+export default async function ReportsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const data = await getAdminReportsData({
+    range: getFirstParam(resolvedSearchParams.range),
+    bucket: getFirstParam(resolvedSearchParams.bucket),
+    rankingLimit: getFirstParam(resolvedSearchParams.rankingLimit),
+  });
+
+  const currentFilters = data.filters;
+  const rangeLabel = `${currentFilters.rangeDays}d`;
+  const bucketLabel = currentFilters.bucket === "week" ? "Weekly" : "Monthly";
 
   const summaryCards = [
     {
-      title: "New Users 30d",
-      value: formatNumber(data.summary.newUsers30d),
-      detail: "Accounts created across the last 30 days",
+      title: `New Users ${rangeLabel}`,
+      value: formatNumber(data.summary.newUsersInRange),
+      detail: `Accounts created across the last ${currentFilters.rangeDays} days`,
       icon: Users,
     },
     {
-      title: "Published Cases 30d",
-      value: formatNumber(data.summary.publishedCases30d),
-      detail: "Repository items that reached published state",
+      title: `Published Cases ${rangeLabel}`,
+      value: formatNumber(data.summary.publishedCasesInRange),
+      detail: `Repository items that reached published state in the last ${currentFilters.rangeDays} days`,
       icon: Gavel,
     },
     {
       title: "Open Moderation Signals",
       value: formatNumber(data.summary.openModerationSignals),
-      detail: "Open reports plus acknowledged/open AI alerts",
+      detail: "Current open reports plus acknowledged/open AI alerts",
       icon: ShieldAlert,
     },
     {
       title: "Verification Approval Rate",
-      value: data.summary.verificationApprovalRate30d === null ? "N/A" : `${data.summary.verificationApprovalRate30d}%`,
-      detail: "Decided lawyer verification requests in the last 30 days",
+      value: data.summary.verificationApprovalRateInRange === null ? "N/A" : `${data.summary.verificationApprovalRateInRange}%`,
+      detail: `Decided lawyer verification requests in the last ${currentFilters.rangeDays} days`,
       icon: BarChart3,
     },
   ];
@@ -97,23 +170,75 @@ export default async function ReportsPage() {
   return (
     <div className="space-y-6">
       <section className="legal-panel px-6 py-7 md:px-8">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl">
             <p className="legal-kicker">Analytics & Reports</p>
             <h1 className="mt-4 text-4xl font-semibold tracking-[-0.05em] text-[#102033]">
-              Platform analytics now come from the live schema.
+              Live platform reporting now supports filtered analytics and direct exports.
             </h1>
             <p className="mt-4 text-sm leading-7 text-slate-600 md:text-base">
-              This page shows real user growth, content throughput, verification, moderation, queue-aging,
-              and operational anomaly summaries built from Prisma-backed records.
+              This page reads Prisma-backed platform activity and lets admins narrow the reporting window, change the
+              aggregation cadence, and export the same filtered report state to CSV.
             </p>
           </div>
 
-          <div className="rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] px-5 py-4 text-sm text-slate-600">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Last refresh</p>
-            <p className="mt-2 text-base font-semibold text-[#2F1D3B]">{formatTimestamp(data.generatedAt)}</p>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] px-5 py-4 text-sm text-slate-600">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Current filter set</p>
+              <p className="mt-2 text-base font-semibold text-[#2F1D3B]">
+                {rangeLabel} / {bucketLabel} / Top {currentFilters.rankingLimit}
+              </p>
+            </div>
+
+            <div className="rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] px-5 py-4 text-sm text-slate-600">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Last refresh</p>
+              <p className="mt-2 text-base font-semibold text-[#2F1D3B]">{formatTimestamp(data.generatedAt)}</p>
+            </div>
           </div>
         </div>
+      </section>
+
+      <section className="legal-panel p-4 md:p-6">
+        <div className="flex items-center gap-3">
+          <div className="rounded-[18px] bg-[#F4EFF8] p-3 text-[#4C2F5E]">
+            <Filter className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold tracking-[-0.03em] text-[#2F1D3B]">Report Filters</h2>
+            <p className="mt-1 text-sm leading-7 text-slate-600">
+              Change the analysis window once, then export the exact same filtered report state.
+            </p>
+          </div>
+        </div>
+
+        <form className="mt-5 grid gap-4 xl:grid-cols-3">
+          <select name="range" defaultValue={`${currentFilters.rangeDays}`} className="legal-field">
+            <option value="30">Last 30 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="180">Last 180 days</option>
+            <option value="365">Last 365 days</option>
+          </select>
+
+          <select name="bucket" defaultValue={currentFilters.bucket} className="legal-field">
+            <option value="month">Monthly buckets</option>
+            <option value="week">Weekly buckets</option>
+          </select>
+
+          <select name="rankingLimit" defaultValue={`${currentFilters.rankingLimit}`} className="legal-field">
+            <option value="5">Top 5 rankings</option>
+            <option value="10">Top 10 rankings</option>
+            <option value="15">Top 15 rankings</option>
+          </select>
+
+          <div className="flex flex-col gap-3 sm:flex-row xl:col-span-3">
+            <button type="submit" className="legal-button-primary w-full sm:w-auto">
+              Apply Filters
+            </button>
+            <Link href="/reports" className="legal-button-secondary w-full sm:w-auto">
+              Reset
+            </Link>
+          </div>
+        </form>
       </section>
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -138,7 +263,10 @@ export default async function ReportsPage() {
       </section>
 
       <section className="legal-panel p-5 md:p-6">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Summary Notes</p>
+        <SectionHeader
+          eyebrow="Summary Notes"
+          description={`Narrative highlights generated from the current ${rangeLabel} / ${bucketLabel.toLowerCase()} view.`}
+        />
         <div className="mt-4 grid gap-3 lg:grid-cols-3">
           {data.summaryNotes.map((note) => (
             <div key={note} className="rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] px-4 py-4 text-sm leading-7 text-slate-600">
@@ -150,21 +278,29 @@ export default async function ReportsPage() {
 
       <section className="grid gap-6 xl:grid-cols-2">
         <div className="legal-panel p-5 md:p-6">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">User Growth</p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#2F1D3B]">New users by month</h2>
+          <SectionHeader
+            eyebrow="User Growth"
+            title="New users by bucket"
+            description={`${bucketLabel} signup totals across the selected reporting range.`}
+            actions={<DownloadActions csvHref={buildExportHref(currentFilters, "user_growth")} />}
+          />
           <div className="mt-6">
             <TrendBars rows={data.userGrowth} valueKey="users" />
           </div>
         </div>
 
         <div className="legal-panel p-5 md:p-6">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Verification Throughput</p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#2F1D3B]">Submitted, approved, rejected</h2>
+          <SectionHeader
+            eyebrow="Verification Throughput"
+            title="Submitted, approved, rejected"
+            description="Review volume and decision outcomes across the same filtered window."
+            actions={<DownloadActions csvHref={buildExportHref(currentFilters, "verification")} />}
+          />
           <div className="mt-6 overflow-x-auto">
             <table className="legal-table w-full min-w-[560px]">
               <thead>
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Month</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Bucket</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Submitted</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Approved</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Rejected</th>
@@ -187,13 +323,17 @@ export default async function ReportsPage() {
 
       <section className="grid gap-6 xl:grid-cols-2">
         <div className="legal-panel p-5 md:p-6">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Content Creation</p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#2F1D3B]">Discussions, answers, comments, cases</h2>
+          <SectionHeader
+            eyebrow="Content Creation"
+            title="Discussions, answers, comments, cases"
+            description={`Cross-surface publishing volume grouped into ${bucketLabel.toLowerCase()} buckets.`}
+            actions={<DownloadActions csvHref={buildExportHref(currentFilters, "content")} />}
+          />
           <div className="mt-6 overflow-x-auto">
             <table className="legal-table w-full min-w-[640px]">
               <thead>
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Month</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Bucket</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Discussions</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Answers</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Comments</th>
@@ -216,13 +356,17 @@ export default async function ReportsPage() {
         </div>
 
         <div className="legal-panel p-5 md:p-6">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Moderation Load</p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#2F1D3B]">Reports, alerts, actions</h2>
+          <SectionHeader
+            eyebrow="Moderation Load"
+            title="Reports, alerts, actions"
+            description="Operational moderation volume across the same filtered reporting range."
+            actions={<DownloadActions csvHref={buildExportHref(currentFilters, "moderation")} />}
+          />
           <div className="mt-6 overflow-x-auto">
             <table className="legal-table w-full min-w-[560px]">
               <thead>
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Month</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Bucket</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Reports</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Alerts</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Actions</th>
@@ -245,47 +389,82 @@ export default async function ReportsPage() {
 
       <section className="grid gap-6 xl:grid-cols-2">
         <div className="legal-panel p-5 md:p-6">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Queue Aging</p>
-          <div className="mt-4 space-y-3">
-            {data.queueAging.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className="flex items-center justify-between gap-4 rounded-[18px] border border-[#4C2F5E]/10 bg-[#FBF9FD] px-4 py-3 transition hover:border-[#4C2F5E]/20"
-              >
-                <span className="text-sm font-medium text-[#2F1D3B]">{item.label}</span>
-                <span className="text-sm font-semibold text-[#4C2F5E]">{item.value}</span>
-              </Link>
-            ))}
+          <SectionHeader
+            eyebrow="Queue Aging"
+            description="Live operational backlog ages remain snapshot-based and are exportable separately."
+          />
+          <div className="mt-4 overflow-x-auto">
+            <table className="legal-table w-full min-w-[560px]">
+              <thead>
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Queue</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Oldest age</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Open</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#ECE7F2]">
+                {data.queueAging.map((item) => (
+                  <tr key={item.label}>
+                    <td className="px-4 py-3 text-sm font-medium text-[#2F1D3B]">{item.label}</td>
+                    <td className="px-4 py-3 text-sm text-slate-600">{item.value}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <Link href={item.href} className="font-semibold text-[#4C2F5E] hover:text-[#2F1D3B]">
+                        View queue
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
 
         <div className="legal-panel p-5 md:p-6">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Operational Anomalies</p>
-          <div className="mt-4 space-y-3">
-            {data.anomalies.map((item) => (
-              <div key={item.label} className="rounded-[18px] border border-[#4C2F5E]/10 bg-[#FBF9FD] px-4 py-3">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-[#2F1D3B]">{item.label}</p>
-                  <StatusPill status={item.status} />
-                </div>
-                <p className="mt-2 text-sm text-slate-600">{item.detail}</p>
-              </div>
-            ))}
+          <SectionHeader
+            eyebrow="Operational Anomalies"
+            description="Comparisons are based on the current bucket mode so weekly and monthly views stay consistent."
+          />
+          <div className="mt-4 overflow-x-auto">
+            <table className="legal-table w-full min-w-[620px]">
+              <thead>
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Signal</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Comparison</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#8C7A9B]">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#ECE7F2]">
+                {data.anomalies.map((item) => (
+                  <tr key={item.label}>
+                    <td className="px-4 py-3 text-sm font-medium text-[#2F1D3B]">{item.label}</td>
+                    <td className="px-4 py-3 text-sm text-slate-600">{item.detail}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <StatusPill status={item.status} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
 
       <section className="grid gap-6 xl:grid-cols-2">
         <div className="legal-panel p-5 md:p-6">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Top Regions</p>
+          <SectionHeader
+            eyebrow="Top Regions"
+            description={`Top ${currentFilters.rankingLimit} published-case regions across the selected range.`}
+          />
           <div className="mt-5">
             <TrendBars rows={data.rankings.regions} valueKey="count" />
           </div>
         </div>
 
         <div className="legal-panel p-5 md:p-6">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Top Courts</p>
+          <SectionHeader
+            eyebrow="Top Courts"
+            description={`Top ${currentFilters.rankingLimit} courts based on published-case volume.`}
+          />
           <div className="mt-5">
             <TrendBars rows={data.rankings.courts} valueKey="count" tone="bg-[#735092]" />
           </div>
@@ -294,14 +473,20 @@ export default async function ReportsPage() {
 
       <section className="grid gap-6 xl:grid-cols-2">
         <div className="legal-panel p-5 md:p-6">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Top Categories</p>
+          <SectionHeader
+            eyebrow="Top Categories"
+            description={`Top ${currentFilters.rankingLimit} case categories within the filtered reporting range.`}
+          />
           <div className="mt-5">
             <TrendBars rows={data.rankings.categories} valueKey="count" tone="bg-[#8C7A9B]" />
           </div>
         </div>
 
         <div className="legal-panel p-5 md:p-6">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Top Tags By Engagement</p>
+          <SectionHeader
+            eyebrow="Top Tags By Engagement"
+            description={`Top ${currentFilters.rankingLimit} tag engagement scores within the selected window.`}
+          />
           <div className="mt-5">
             {data.rankings.tags.length ? (
               <TrendBars rows={data.rankings.tags} valueKey="score" tone="bg-[#A0606E]" />
@@ -311,15 +496,6 @@ export default async function ReportsPage() {
               </div>
             )}
           </div>
-        </div>
-      </section>
-
-      <section className="legal-panel p-5 md:p-6">
-        <div className="flex items-center gap-3">
-          <AlertTriangle className="h-5 w-5 text-[#4C2F5E]" />
-          <p className="text-sm text-slate-600">
-            Export workflows and scheduled reports are still pending. This page currently focuses on live, read-only platform analytics.
-          </p>
         </div>
       </section>
     </div>

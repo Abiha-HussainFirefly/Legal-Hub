@@ -485,6 +485,14 @@ export async function adminGamificationAction(formData: FormData) {
 
     if (!badge) throw new Error("Badge not found");
 
+    // ✅ Validate user exists before entering the transaction
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+
+    if (!user) throw new Error("User not found");
+
     await prisma.$transaction(async (tx) => {
       await tx.userBadge.create({
         data: {

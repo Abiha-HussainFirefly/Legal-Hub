@@ -50,7 +50,12 @@ export default function Header({ userData: _userData }: HeaderProps) {
   const mobileSearchRef = useRef<HTMLDivElement>(null);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
+    const nextQuery = e.target.value;
+    setSearchQuery(nextQuery);
+    if (!nextQuery.trim()) {
+      setSearchResults([]);
+      setSearchLoading(false);
+    }
     setShowResults(true);
   };
 
@@ -70,8 +75,6 @@ export default function Header({ userData: _userData }: HeaderProps) {
 
   useEffect(() => {
     if (!searchQuery.trim()) {
-      setSearchResults([]);
-      setSearchLoading(false);
       return;
     }
 
@@ -123,23 +126,23 @@ export default function Header({ userData: _userData }: HeaderProps) {
   const leftOffset = isMobile ? '0px' : isOpen ? '256px' : '72px';
 
   const searchResultsDropdown = showResults && searchQuery.trim().length > 0 ? (
-    <div className="absolute left-0 right-0 top-full z-[100] mt-2 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+    <div className="absolute left-0 right-0 top-full z-[100] mt-2 overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--background-surface)] shadow-2xl animate-in fade-in zoom-in-95 duration-200">
       {searchLoading ? (
         <div className="px-4 py-8 text-center">
-          <p className="text-sm italic text-gray-400">Searching live records...</p>
+          <p className="text-sm italic text-[var(--text-muted)]">Searching live records...</p>
         </div>
       ) : searchResults.length > 0 ? (
         <>
-          <div className="max-h-[350px] divide-y divide-gray-50 overflow-y-auto">
+          <div className="max-h-[350px] divide-y divide-[var(--border-subtle)] overflow-y-auto">
             {searchResults.map((item) => (
               <button
                 key={item.id}
                 onClick={() => handleResultClick(item.href)}
-                className="group flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left transition hover:bg-purple-50"
+                className="group flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left transition hover:bg-[var(--background-card-nested)]"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-gray-800 group-hover:text-[#4C2F5E]">{item.label}</p>
-                  <p className="truncate text-[11px] text-gray-400">{item.subLabel}</p>
+                  <p className="truncate text-sm font-bold text-[var(--heading)] group-hover:text-[var(--primary)]">{item.label}</p>
+                  <p className="truncate text-[11px] text-[var(--text-muted)]">{item.subLabel}</p>
                 </div>
                 <span
                   className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
@@ -151,15 +154,15 @@ export default function Header({ userData: _userData }: HeaderProps) {
               </button>
             ))}
           </div>
-          <div className="border-t border-gray-100 bg-gray-50/50 px-4 py-2 text-center">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+          <div className="border-t border-[var(--border-subtle)] bg-[var(--background-card-nested)] px-4 py-2 text-center">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
               {searchResults.length} Result{searchResults.length !== 1 ? 's' : ''} Found
             </p>
           </div>
         </>
       ) : (
         <div className="px-4 py-8 text-center">
-          <p className="text-sm italic text-gray-400">No live records found</p>
+          <p className="text-sm italic text-[var(--text-muted)]">No live records found</p>
         </div>
       )}
     </div>
@@ -167,14 +170,14 @@ export default function Header({ userData: _userData }: HeaderProps) {
 
   return (
     <header
-      className="fixed right-0 top-0 z-30 w-full bg-[#F3F0F4] transition-all duration-300"
+      className="fixed right-0 top-0 z-30 w-full bg-[var(--background-card-nested)] transition-all duration-300"
       style={{ left: leftOffset, width: `calc(100% - ${leftOffset})` }}
     >
       <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
         <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
           <button
             onClick={toggle}
-            className="flex-shrink-0 cursor-pointer rounded-lg p-2 text-gray-600 transition-all hover:bg-white hover:text-[#4C2F5E]"
+            className="flex-shrink-0 cursor-pointer rounded-lg p-2 text-[var(--foreground)] transition-all hover:bg-[var(--background-surface)] hover:text-[var(--heading)]"
             aria-label="Toggle sidebar"
           >
             <List size={24} />
@@ -190,7 +193,7 @@ export default function Header({ userData: _userData }: HeaderProps) {
               onChange={handleSearchChange}
               onFocus={() => setShowResults(true)}
               placeholder="Search users, cases, discussions, verification, reports"
-              className="block w-full rounded-xl border-none bg-white py-2.5 pl-11 pr-9 text-sm placeholder-gray-400 shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-[#9F63C4]/20"
+              className="block w-full rounded-xl border-none bg-[var(--background-surface)] py-2.5 pl-11 pr-9 text-sm text-[var(--foreground)] placeholder-[var(--text-muted)] shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-[#9F63C4]/20"
             />
             {searchQuery ? (
               <Tooltip content="Clear search">
@@ -210,7 +213,7 @@ export default function Header({ userData: _userData }: HeaderProps) {
         <div className="flex flex-shrink-0 items-center gap-2 sm:gap-4">
           <Tooltip content={showMobileSearch ? 'Close search' : 'Open search'}>
             <button
-              className="cursor-pointer rounded-xl bg-white p-2.5 text-gray-500 shadow-sm sm:hidden"
+              className="cursor-pointer rounded-xl bg-[var(--background-surface)] p-2.5 text-[var(--foreground)] shadow-sm sm:hidden"
               onClick={() => setMobSearch((v) => !v)}
               aria-label={showMobileSearch ? 'Close search' : 'Open search'}
             >
@@ -221,7 +224,7 @@ export default function Header({ userData: _userData }: HeaderProps) {
       </div>
 
       <div
-        className={`overflow-hidden border-b border-gray-100 bg-white transition-all duration-300 sm:hidden ${
+        className={`overflow-hidden border-b border-[var(--border-subtle)] bg-[var(--background-surface)] transition-all duration-300 sm:hidden ${
           showMobileSearch ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0'
         }`}
       >
@@ -236,7 +239,7 @@ export default function Header({ userData: _userData }: HeaderProps) {
               onChange={handleSearchChange}
               onFocus={() => setShowResults(true)}
               placeholder="Search users, cases, discussions, verification, reports"
-              className="block w-full rounded-xl border-none bg-gray-50 py-2.5 pl-11 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-[#9F63C4]/20"
+              className="block w-full rounded-xl border-none bg-[var(--background-card-nested)] py-2.5 pl-11 pr-9 text-sm text-[var(--foreground)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[#9F63C4]/20"
               autoFocus={showMobileSearch}
             />
             {searchQuery ? (
