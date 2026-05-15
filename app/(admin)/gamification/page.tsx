@@ -1,4 +1,5 @@
 import { adminGamificationAction } from "@/app/actions/admin-platform";
+import BadgeSearchSelect from "@/app/components/admin/BadgeSearchSelect";
 import { getAdminGamificationPageData } from "@/lib/services/admin.server";
 import { Award, BadgeCheck, Crown, Sparkles } from "lucide-react";
 import Link from "next/link";
@@ -151,16 +152,16 @@ export default async function GamificationPage() {
             </p>
             <form action={adminGamificationAction} className="mt-5 space-y-3">
               <input type="hidden" name="intent" value="award_badge" />
-              <select name="badgeId" className="legal-field" defaultValue="" required>
-                <option value="" disabled>
-                  Select badge
-                </option>
-                {data.badges.map((badge) => (
-                  <option key={badge.id} value={badge.id}>
-                    {badge.name} / {badge.code} / {badge.pointsAwarded} pts
-                  </option>
-                ))}
-              </select>
+              <BadgeSearchSelect
+                name="badgeId"
+                badges={data.badges.map((badge) => ({
+                  id: badge.id,
+                  code: badge.code,
+                  name: badge.name,
+                  pointsAwarded: badge.pointsAwarded,
+                  isActive: badge.isActive,
+                }))}
+              />
               <input name="userId" placeholder="Target user ID" className="legal-field" required />
               <input name="reason" placeholder="Award reason" className="legal-field" required />
               <button type="submit" className="legal-button-primary w-full">

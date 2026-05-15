@@ -100,7 +100,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (status === 'loading' || !userData) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[linear-gradient(180deg,#f8f4ee_0%,#efe7dc_100%)]">
+      <div className="flex min-h-screen items-center justify-center bg-[var(--background-page)]">
         <div className="w-9 h-9 border-4 border-[#d8c7a6] border-t-[#102033] rounded-full animate-spin" />
       </div>
     );

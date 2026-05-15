@@ -1,5 +1,6 @@
 'use client';
 
+import ThemeModeSelector from '@/app/components/theme/ThemeModeSelector';
 import { ADMIN_PERMISSION_KEYS, canAccessAdminPortal, canAccessAdminPermission, getAdminPermissionForPath } from '@/lib/auth/roles';
 import { logoutClientSession } from '@/lib/auth/client-session';
 import { useSidebar } from '@/app/components/admin/sidebar/SidebarContext';
@@ -208,7 +209,7 @@ export default function Sidebar() {
 
   return (
     <aside
-      className="fixed left-0 top-0 z-20 flex h-screen flex-col overflow-hidden border-r border-gray-200 bg-[#F3F0F4] transition-all duration-300"
+      className="fixed left-0 top-0 z-20 flex h-screen flex-col overflow-hidden border-r border-[var(--border-subtle)] bg-[var(--background-card-nested)] transition-all duration-300"
       style={{ width: sidebarWidth }}
     >
       <div className="flex h-[80px] shrink-0 items-center px-4">
@@ -328,7 +329,7 @@ export default function Sidebar() {
 
       <div className="relative mt-auto shrink-0" ref={dropdownRef}>
         {isUserMenuOpen ? (
-          <div className="animate-in slide-in-from-bottom-2 mx-2 mb-2 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl duration-200">
+          <div className="animate-in slide-in-from-bottom-2 mx-2 mb-2 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--background-surface)] shadow-2xl duration-200">
             <div className="space-y-0.5 p-2">
               <button
                 onClick={() => {
@@ -360,7 +361,9 @@ export default function Sidebar() {
                 {showNotifications ? <ChevronDown size={15} /> : <Bell size={15} className="text-gray-400" />}
               </button>
 
-              <div className="mx-2 my-1 h-px bg-gray-100" />
+              <ThemeModeSelector className="mt-2" />
+
+              <div className="mx-2 my-1 h-px bg-[var(--border-subtle)]" />
 
               <button
                 onClick={handleLogout}
@@ -371,8 +374,8 @@ export default function Sidebar() {
               </button>
             </div>
 
-            <div className="h-px bg-gray-100" />
-            <div className="flex items-center gap-3 bg-gray-50/50 px-4 py-3">
+            <div className="h-px bg-[var(--border-subtle)]" />
+            <div className="flex items-center gap-3 bg-[var(--background-card-nested)] px-4 py-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#4C2F5E] text-sm font-bold text-white">
                 {getInitials(session?.user?.name)}
               </div>
@@ -395,14 +398,14 @@ export default function Sidebar() {
 
         <button
           onClick={() => setMenuOpen(!isUserMenuOpen)}
-          className={`flex w-full cursor-pointer items-center gap-3 border-t border-gray-200 p-4 transition-colors hover:bg-white ${
+          className={`flex w-full cursor-pointer items-center gap-3 border-t border-[var(--border-subtle)] p-4 transition-colors hover:bg-[var(--background-surface)] ${
             !showLabels ? 'justify-center' : ''
           }`}
         >
           <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#4C2F5E] text-sm font-bold text-white shadow-sm">
             {getInitials(session?.user?.name)}
             {!showNotifications && unreadCount > 0 ? (
-              <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full border-2 border-[#F3F0F4] bg-[#9F63C4] text-[8px] font-bold text-white">
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full border-2 border-[var(--background-card-nested)] bg-[#9F63C4] text-[8px] font-bold text-white">
                 {unreadCount}
               </span>
             ) : null}

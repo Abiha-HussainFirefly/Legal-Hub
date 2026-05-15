@@ -1,6 +1,7 @@
 'use client';
 
 import AnimatedLink, { navigateWithTransition } from '@/app/components/ui/animated-link';
+import ThemeModeSelector from '@/app/components/theme/ThemeModeSelector';
 import Tooltip from '@/app/components/ui/tooltip';
 import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission, canAccessPermissionRequirement } from '@/lib/auth/roles';
 import { Bookmark, BriefcaseBusiness, ChevronDown, LayoutGrid, LogOut, Menu, MessageSquareText, User, X } from 'lucide-react';
@@ -102,12 +103,12 @@ export default function LawyerTopbar({
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[#162033]/8 bg-[rgba(255,255,255,0.92)] backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b border-[var(--border-subtle)] bg-[var(--background-surface)] backdrop-blur-xl">
       <div className="mx-auto flex max-w-[1380px] items-center justify-between gap-4 px-4 py-3 md:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-3">
           <AnimatedLink
             href={homeHref}
-            className="inline-flex shrink-0 items-center rounded-full border border-[#4C2F5E]/10 bg-[#F8F4FB] px-3 py-2 transition hover:bg-white"
+            className="inline-flex shrink-0 items-center rounded-full border border-[var(--border-subtle)] bg-[var(--background-card-nested)] px-3 py-2 transition hover:bg-[var(--background-surface)]"
           >
             <Image
               src="/logo-legal-hub.png"
@@ -145,7 +146,7 @@ export default function LawyerTopbar({
 
           {user ? (
             <>
-              <div className="inline-flex max-w-[220px] shrink-0 items-center gap-3 rounded-full border border-[#4C2F5E]/10 bg-white px-2 py-2 transition hover:bg-[#FBF9FD] xl:max-w-[260px]">
+              <div className="inline-flex max-w-[220px] shrink-0 items-center gap-3 rounded-full border border-[var(--border-subtle)] bg-[var(--background-surface)] px-2 py-2 transition hover:bg-[var(--background-page)] xl:max-w-[260px]">
                 {canViewProfile ? (
                   <AnimatedLink
                     href="/profile"
@@ -157,8 +158,8 @@ export default function LawyerTopbar({
                       {initials(displayName)}
                     </div>
                     <div className="hidden min-w-0 md:block">
-                      <p className="truncate text-sm font-semibold text-[#2F1D3B]">{displayName}</p>
-                      <p className="truncate text-xs text-[#8B7D99]">{displayEmail}</p>
+                      <p className="truncate text-sm font-semibold text-[var(--heading)]">{displayName}</p>
+                      <p className="truncate text-xs text-[var(--text-muted)]">{displayEmail}</p>
                     </div>
                   </AnimatedLink>
                 ) : (
@@ -167,15 +168,15 @@ export default function LawyerTopbar({
                       {initials(displayName)}
                     </div>
                     <div className="hidden min-w-0 md:block">
-                      <p className="truncate text-sm font-semibold text-[#2F1D3B]">{displayName}</p>
-                      <p className="truncate text-xs text-[#8B7D99]">{displayEmail}</p>
+                      <p className="truncate text-sm font-semibold text-[var(--heading)]">{displayName}</p>
+                      <p className="truncate text-xs text-[var(--text-muted)]">{displayEmail}</p>
                     </div>
                   </div>
                 )}
                 <button
                   type="button"
                   onClick={() => setIsDropdownOpen((current) => !current)}
-                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#8B7D99] transition hover:bg-[#F7F3FA]"
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--icon-muted)] transition hover:bg-[var(--background-card-nested)]"
                   aria-label="Open account menu"
                 >
                   <ChevronDown className="h-4 w-4" />
@@ -183,8 +184,8 @@ export default function LawyerTopbar({
               </div>
 
               {isDropdownOpen ? (
-                <div className="absolute right-4 top-[68px] w-72 rounded-[18px] border border-[#4C2F5E]/10 bg-white p-2 shadow-[0_18px_36px_rgba(76,47,94,0.08)] md:right-6 lg:right-8 lh-form-enter">
-                  <div className="flex items-center gap-3 rounded-[14px] bg-[#F6F1FA] p-4">
+                <div className="absolute right-4 top-[68px] w-72 rounded-[18px] border border-[var(--border-subtle)] bg-[var(--background-surface)] p-2 shadow-[0_18px_36px_rgba(76,47,94,0.08)] md:right-6 lg:right-8 lh-form-enter">
+                  <div className="flex items-center gap-3 rounded-[14px] bg-[var(--background-card-nested)] p-4">
                     <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-[#4C2F5E] text-sm font-semibold text-white">
                       {user?.avatarUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -198,12 +199,14 @@ export default function LawyerTopbar({
                       )}
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-[#2F1D3B]">{displayName}</p>
-                      <p className="mt-1 truncate text-xs text-[#8B7D99]">{displayEmail}</p>
+                      <p className="truncate text-sm font-semibold text-[var(--heading)]">{displayName}</p>
+                      <p className="mt-1 truncate text-xs text-[var(--text-muted)]">{displayEmail}</p>
                     </div>
                   </div>
 
                   <div className="mt-2 grid gap-1">
+                    <ThemeModeSelector className="mb-1" />
+
                     {canViewProfile ? (
                       <button
                         onClick={() => {

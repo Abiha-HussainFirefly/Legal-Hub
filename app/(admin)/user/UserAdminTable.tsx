@@ -78,7 +78,7 @@ function prettyText(value: string | null) {
 }
 
 function getUserRecordLabel(user: AdminUserRow) {
-  return user.email ?? (user.username ? `@${user.username}` : `User ${user.id.slice(0, 8).toUpperCase()}`);
+  return user.email ?? (user.username ? `@${user.username}` : user.displayName);
 }
 
 export default function UserAdminTable({
@@ -304,9 +304,6 @@ export default function UserAdminTable({
                   <td className="px-6 py-4 align-top">
                     <div className="space-y-1">
                       <p className="break-all text-sm font-semibold text-[#2F1D3B]">{getUserRecordLabel(user)}</p>
-                      <p className="text-xs font-medium uppercase tracking-[0.14em] text-[#8C7A9B]">
-                        Record ID {user.id.slice(0, 8).toUpperCase()}
-                      </p>
                       <p className="text-xs text-slate-500">
                         {user.username ? `@${user.username}` : "No username"} / {user.isLawyer ? "Lawyer profile" : "Standard profile"}
                       </p>
@@ -317,10 +314,7 @@ export default function UserAdminTable({
                     <div className="flex flex-wrap gap-2">
                       {user.roles.length ? (
                         user.roles.map((role) => (
-                          <span
-                            key={role}
-                            className="rounded-full border border-[#4C2F5E]/12 bg-[#F4EFF8] px-2.5 py-1 text-xs font-semibold text-[#4C2F5E]"
-                          >
+                          <span key={role} className="workspace-pill">
                             {prettyText(role)}
                           </span>
                         ))
@@ -361,7 +355,7 @@ export default function UserAdminTable({
                   <td className="px-6 py-4 align-top">
                     <Link
                       href={`/user/${user.id}`}
-                      className="inline-flex rounded-full border border-[#4C2F5E]/12 bg-white px-4 py-2 text-sm font-semibold text-[#4C2F5E] transition hover:bg-[#FBF9FD]"
+                      className="legal-button-secondary inline-flex w-full min-w-[156px] justify-center px-4 py-2 text-center text-sm"
                     >
                       Open admin record
                     </Link>

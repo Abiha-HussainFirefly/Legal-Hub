@@ -1,4 +1,5 @@
 import { getAdminDashboardData } from "@/lib/services/admin.server";
+import AdminDashboardCharts from "@/app/components/admin/dashboard/AdminDashboardCharts";
 import {
   AlertTriangle,
   BellRing,
@@ -10,6 +11,10 @@ import {
   Users,
 } from "lucide-react";
 import Link from "next/link";
+
+function getFirstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
@@ -46,8 +51,16 @@ function queueStatusClasses(status: string) {
   return "bg-[#EEF2F7] text-[#36506E]";
 }
 
-export default async function DashboardPage() {
-  const data = await getAdminDashboardData();
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const data = await getAdminDashboardData({
+    range: getFirstParam(resolvedSearchParams.range),
+    bucket: getFirstParam(resolvedSearchParams.bucket),
+  });
 
   const kpiCards = [
     {
@@ -174,18 +187,27 @@ export default async function DashboardPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl">
             <p className="legal-kicker">Super Admin Command Center</p>
-            <h1 className="mt-4 text-4xl font-semibold tracking-[-0.05em] text-[#102033]">
+            <h1 className="mt-4 text-4xl font-semibold tracking-[-0.05em] text-[var(--heading)]">
               Platform health, queues, and risk signals in one control surface.
             </h1>
-            <p className="mt-4 text-sm leading-7 text-slate-600 md:text-base">
+            <p className="mt-4 text-sm leading-7 text-[var(--text-muted)] md:text-base">
               All cards and queues on this page are sourced from current database records across identity, review,
               moderation, files, notifications, and security activity.
             </p>
           </div>
 
-          <div className="rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] px-5 py-4 text-sm text-slate-600">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Last refresh</p>
-            <p className="mt-2 text-base font-semibold text-[#2F1D3B]">{formatTimestamp(data.generatedAt)}</p>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="rounded-[20px] border border-[var(--border-subtle)] bg-[var(--background-card-nested)] px-5 py-4 text-sm text-[var(--text-muted)]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">Current filter set</p>
+              <p className="mt-2 text-base font-semibold text-[var(--heading)]">
+                {data.filters.rangeDays}d / {data.filters.bucket === "day" ? "Daily" : data.filters.bucket === "week" ? "Weekly" : "Monthly"}
+              </p>
+            </div>
+
+            <div className="rounded-[20px] border border-[var(--border-subtle)] bg-[var(--background-card-nested)] px-5 py-4 text-sm text-[var(--text-muted)]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">Last refresh</p>
+              <p className="mt-2 text-base font-semibold text-[var(--heading)]">{formatTimestamp(data.generatedAt)}</p>
+            </div>
           </div>
         </div>
       </section>
@@ -198,15 +220,15 @@ export default async function DashboardPage() {
             <Link key={card.title} href={card.href} className="legal-panel lh-transition-link p-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">{card.title}</p>
-                  <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[#2F1D3B]">{card.primary}</p>
-                  <p className="mt-1 text-sm font-medium text-[#4C2F5E]">{card.secondary}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">{card.title}</p>
+                  <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[var(--heading)]">{card.primary}</p>
+                  <p className="mt-1 text-sm font-medium text-[var(--primary)]">{card.secondary}</p>
                 </div>
-                <div className="rounded-[18px] bg-[#F4EFF8] p-3 text-[#4C2F5E]">
+                <div className="rounded-[18px] bg-[var(--background-card-nested)] p-3 text-[var(--primary)]">
                   <Icon className="h-5 w-5" />
                 </div>
               </div>
-              <p className="mt-4 text-sm leading-7 text-slate-600">{card.detail}</p>
+              <p className="mt-4 text-sm leading-7 text-[var(--text-muted)]">{card.detail}</p>
             </Link>
           );
         })}
@@ -216,8 +238,8 @@ export default async function DashboardPage() {
         <div className="legal-panel p-5 md:p-6">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Operational Queues</p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[#2F1D3B]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">Operational Queues</p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[var(--heading)]">
                 Triage by backlog age, not guesswork.
               </h2>
             </div>
@@ -225,13 +247,13 @@ export default async function DashboardPage() {
 
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
             {queueSections.map((section) => (
-              <div key={section.title} className="rounded-[22px] border border-[#4C2F5E]/10 bg-[#FBF9FD] p-4">
+              <div key={section.title} className="rounded-[22px] border border-[var(--border-subtle)] bg-[var(--background-card-nested)] p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h3 className="text-base font-semibold text-[#2F1D3B]">{section.title}</h3>
-                    <p className="mt-1 text-sm text-slate-500">{formatNumber(section.total)} items currently open</p>
+                    <h3 className="text-base font-semibold text-[var(--heading)]">{section.title}</h3>
+                    <p className="mt-1 text-sm text-[var(--text-muted)]">{formatNumber(section.total)} items currently open</p>
                   </div>
-                  <Link href={section.href} className="text-sm font-semibold text-[#4C2F5E] hover:text-[#2F1D3B]">
+                  <Link href={section.href} className="text-sm font-semibold text-[var(--primary)] hover:text-[var(--heading)]">
                     Open
                   </Link>
                 </div>
@@ -242,22 +264,22 @@ export default async function DashboardPage() {
                       <Link
                         key={item.id}
                         href={item.href}
-                        className="block rounded-[18px] border border-[#4C2F5E]/10 bg-white px-4 py-3 transition hover:border-[#4C2F5E]/20"
+                        className="block rounded-[18px] border border-[var(--border-subtle)] bg-[var(--background-surface)] px-4 py-3 transition hover:border-[var(--primary)]"
                       >
                         <div className="flex items-start justify-between gap-3">
-                          <p className="text-sm font-semibold leading-6 text-[#2F1D3B]">{item.title}</p>
-                          <span className="shrink-0 text-xs font-medium text-slate-500">{item.ageLabel}</span>
+                          <p className="text-sm font-semibold leading-6 text-[var(--heading)]">{item.title}</p>
+                          <span className="shrink-0 text-xs font-medium text-[var(--text-muted)]">{item.ageLabel}</span>
                         </div>
                         <div className="mt-2 flex flex-wrap items-center gap-2">
                           <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${queueStatusClasses(item.status)}`}>
                             {prettyText(item.status)}
                           </span>
-                          <span className="text-xs text-slate-500">{item.meta}</span>
+                          <span className="text-xs text-[var(--text-muted)]">{item.meta}</span>
                         </div>
                       </Link>
                     ))
                   ) : (
-                    <div className="rounded-[18px] border border-dashed border-[#4C2F5E]/14 bg-white px-4 py-5 text-sm text-slate-500">
+                    <div className="rounded-[18px] border border-dashed border-[var(--border-subtle)] bg-[var(--background-surface)] px-4 py-5 text-sm text-[var(--text-muted)]">
                       No items are waiting in this queue.
                     </div>
                   )}
@@ -267,49 +289,14 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-2">
-          <section className="legal-panel p-5 md:p-6">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Most Viewed Cases</p>
-            <div className="mt-4 space-y-3">
-              {data.insights.mostViewedCases.length ? (
-                data.insights.mostViewedCases.map((item) => (
-                  <Link
-                    key={item.id}
-                    href={`/cases/${item.slug}`}
-                    className="block rounded-[18px] border border-[#4C2F5E]/10 bg-[#FBF9FD] px-4 py-3 transition hover:border-[#4C2F5E]/18"
-                  >
-                    <p className="text-sm font-semibold text-[#2F1D3B]">{item.title}</p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      {formatNumber(item.viewCount)} views / {formatNumber(item.followerCount)} follows / {formatNumber(
-                        item.bookmarkCount,
-                      )} bookmarks
-                    </p>
-                  </Link>
-                ))
-              ) : (
-                <p className="text-sm text-slate-500">No case view data is available from the database yet.</p>
-              )}
-            </div>
-          </section>
-
-          <section className="legal-panel p-5 md:p-6">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Top Tags</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {data.insights.topTags.length ? (
-                data.insights.topTags.map((tag) => (
-                  <div
-                    key={tag.tagId}
-                    className="rounded-full border border-[#4C2F5E]/12 bg-[#FBF9FD] px-3 py-2 text-sm text-[#4C2F5E]"
-                  >
-                    {tag.name} / {formatNumber(tag.totalLinks)}
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-slate-500">No tag activity is available from the database yet.</p>
-              )}
-            </div>
-          </section>
-        </div>
+        <AdminDashboardCharts
+          data={{
+            filters: data.filters,
+            kpis: data.kpis,
+            charts: data.charts,
+            insights: data.insights,
+          }}
+        />
       </section>
     </div>
   );

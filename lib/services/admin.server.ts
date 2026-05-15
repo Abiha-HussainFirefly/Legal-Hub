@@ -35,6 +35,14 @@ const AI_ALERT_SEVERITIES = new Set(Object.values(AIAlertSeverity));
 const FILE_SCAN_STATUSES = new Set(Object.values(FileScanStatus));
 const NOTIFICATION_TYPES = new Set(Object.values(NotificationType));
 const REQUIRED_VERIFICATION_DOCUMENT_TYPES = ["BAR_LICENSE", "NATIONAL_ID"] as const;
+const GAMIFICATION_LEADERBOARD_EXCLUDED_TOKENS = [
+  "fatimanoor",
+  "ahmedali",
+  "nimrakhan",
+  "hassanraza",
+  "shahidkhan",
+  "admin",
+] as const;
 
 export interface AdminQueueItem {
   id: string;
@@ -47,6 +55,10 @@ export interface AdminQueueItem {
 
 export interface AdminDashboardData {
   generatedAt: Date;
+  filters: {
+    rangeDays: number;
+    bucket: "day" | "week" | "month";
+  };
   kpis: {
     users: {
       total: number;
@@ -103,6 +115,50 @@ export interface AdminDashboardData {
       activePrivilegedSessions: number;
     };
   };
+  charts: {
+    userActivityBreakdown: Array<{
+      label: string;
+      total: number;
+    }>;
+    activityTimeline: Array<{
+      dateKey: string;
+      dateLabel: string;
+      newUsers: number;
+      discussions: number;
+      answers: number;
+      comments: number;
+      caseSubmissions: number;
+      casePublished: number;
+      notifications: number;
+    }>;
+    riskTimeline: Array<{
+      dateKey: string;
+      dateLabel: string;
+      reports: number;
+      alerts: number;
+      failedLogins: number;
+      fileUploads: number;
+    }>;
+    caseReviewTimeline: Array<{
+      dateKey: string;
+      dateLabel: string;
+      submitted: number;
+      published: number;
+      rejected: number;
+    }>;
+    caseStatusBreakdown: Array<{
+      status: string;
+      total: number;
+    }>;
+    discussionStatusBreakdown: Array<{
+      status: string;
+      total: number;
+    }>;
+    discussionContentBreakdown: Array<{
+      status: string;
+      total: number;
+    }>;
+  };
   queues: {
     caseReview: { total: number; items: AdminQueueItem[] };
     verification: { total: number; items: AdminQueueItem[] };
@@ -112,15 +168,6 @@ export interface AdminDashboardData {
     fileExceptions: { total: number; items: AdminQueueItem[] };
   };
   insights: {
-    topContributors: Array<{
-      userId: string;
-      displayName: string;
-      username: string | null;
-      totalPoints: number;
-      casesPublished: number;
-      acceptedAnswers: number;
-      badgesCount: number;
-    }>;
     mostViewedCases: Array<{
       id: string;
       slug: string;
@@ -896,6 +943,7 @@ export interface AdminSecurityPageData {
     category: string;
     failedOnly: string;
     privilegedOnly: string;
+    sessionPage: number;
     auditPage: number;
   };
   summary: {
@@ -918,6 +966,12 @@ export interface AdminSecurityPageData {
     lastSeenAt: Date;
     expiresAt: Date;
   }>;
+  sessionPagination: {
+    total: number;
+    totalPages: number;
+    start: number;
+    end: number;
+  };
   lockedCredentialsRows: Array<{
     userId: string;
     displayName: string;
@@ -988,11 +1042,16 @@ export interface AdminSystemJobsData {
 
 export interface AdminReportsData {
   generatedAt: Date;
+  filters: {
+    rangeDays: number;
+    bucket: "week" | "month";
+    rankingLimit: number;
+  };
   summary: {
-    newUsers30d: number;
-    publishedCases30d: number;
+    newUsersInRange: number;
+    publishedCasesInRange: number;
     openModerationSignals: number;
-    verificationApprovalRate30d: number | null;
+    verificationApprovalRateInRange: number | null;
   };
   summaryNotes: string[];
   userGrowth: Array<{ label: string; users: number }>;
@@ -1033,6 +1092,17 @@ export interface AdminReportsData {
   }>;
 }
 
+export interface AdminReportsFilters {
+  range?: string;
+  bucket?: string;
+  rankingLimit?: string;
+}
+
+export interface AdminDashboardFilters {
+  range?: string;
+  bucket?: string;
+}
+
 function startOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
@@ -1041,12 +1111,30 @@ function daysAgo(date: Date, amount: number) {
   return new Date(date.getTime() - amount * DAY_IN_MS);
 }
 
+function addDays(date: Date, amount: number) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + amount);
+}
+
 function startOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 
 function addMonths(date: Date, amount: number) {
   return new Date(date.getFullYear(), date.getMonth() + amount, 1);
+}
+
+function toDayKey(date: Date) {
+  const normalized = startOfDay(date);
+  const year = normalized.getFullYear();
+  const month = String(normalized.getMonth() + 1).padStart(2, "0");
+  const day = String(normalized.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function startOfWeek(date: Date) {
+  const normalized = startOfDay(date);
+  const offset = (normalized.getDay() + 6) % 7;
+  return addDays(normalized, -offset);
 }
 
 function hoursBetween(start: Date, end: Date) {
@@ -1096,18 +1184,140 @@ function buildRealUserWhere() {
   };
 }
 
-function buildMonthlyBuckets(now: Date, count: number) {
-  const currentMonthStart = startOfMonth(now);
-  return Array.from({ length: count }, (_, index) => {
-    const start = addMonths(currentMonthStart, index - (count - 1));
-    const end = addMonths(start, 1);
+function normalizePersonLabel(value: string | null | undefined) {
+  return (value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+}
 
-    return {
-      start,
-      end,
-      label: new Intl.DateTimeFormat("en-US", { month: "short" }).format(start),
-    };
+function normalizeCompactIdentity(value: string | null | undefined) {
+  return normalizePersonLabel(value).replace(/^adv\.?\s*/i, "").replace(/^@/, "").replace(/[^a-z0-9]+/g, "");
+}
+
+function normalizeDashboardRangeDays(value?: string) {
+  const allowed = new Set([7, 14, 30, 90, 365]);
+  const parsed = Number.parseInt(value ?? "", 10);
+  return allowed.has(parsed) ? parsed : 14;
+}
+
+function normalizeDashboardBucket(value?: string): "day" | "week" | "month" {
+  if (value === "week" || value === "month") return value;
+  return "day";
+}
+
+function buildDashboardBuckets(now: Date, rangeDays: number, bucket: "day" | "week" | "month") {
+  const rangeStart = daysAgo(startOfDay(now), rangeDays - 1);
+
+  if (bucket === "day") {
+    const labelFormatter = new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+    const buckets = Array.from({ length: rangeDays }, (_, index) => {
+      const start = addDays(rangeStart, index);
+      return {
+        start,
+        end: addDays(start, 1),
+        label: labelFormatter.format(start),
+      };
+    });
+
+    return { rangeStart, buckets };
+  }
+
+  if (bucket === "week") {
+    const firstBucketStart = startOfWeek(rangeStart);
+    const lastBucketStart = startOfWeek(now);
+    const labelFormatter = new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+    const buckets: Array<{ start: Date; end: Date; label: string }> = [];
+
+    for (let cursor = firstBucketStart; cursor <= lastBucketStart; cursor = addDays(cursor, 7)) {
+      buckets.push({
+        start: cursor,
+        end: addDays(cursor, 7),
+        label: labelFormatter.format(cursor),
+      });
+    }
+
+    return { rangeStart, buckets };
+  }
+
+  const firstBucketStart = startOfMonth(rangeStart);
+  const currentMonthStart = startOfMonth(now);
+  const labelFormatter = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    year: "numeric",
   });
+  const buckets: Array<{ start: Date; end: Date; label: string }> = [];
+
+  for (let cursor = firstBucketStart; cursor <= currentMonthStart; cursor = addMonths(cursor, 1)) {
+    buckets.push({
+      start: cursor,
+      end: addMonths(cursor, 1),
+      label: labelFormatter.format(cursor),
+    });
+  }
+
+  return { rangeStart, buckets };
+}
+
+function normalizeReportsRangeDays(value?: string) {
+  const allowed = new Set([30, 90, 180, 365]);
+  const parsed = Number.parseInt(value ?? "", 10);
+  return allowed.has(parsed) ? parsed : 180;
+}
+
+function normalizeReportsBucket(value?: string): "week" | "month" {
+  return value === "week" ? "week" : "month";
+}
+
+function normalizeReportsRankingLimit(value?: string) {
+  const allowed = new Set([5, 10, 15]);
+  const parsed = Number.parseInt(value ?? "", 10);
+  return allowed.has(parsed) ? parsed : 5;
+}
+
+function buildReportBuckets(now: Date, rangeDays: number, bucket: "week" | "month") {
+  const rangeStart = daysAgo(startOfDay(now), rangeDays - 1);
+
+  if (bucket === "week") {
+    const firstBucketStart = startOfWeek(rangeStart);
+    const lastBucketStart = startOfWeek(now);
+    const labelFormatter = new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+    const buckets: Array<{ start: Date; end: Date; label: string }> = [];
+
+    for (let cursor = firstBucketStart; cursor <= lastBucketStart; cursor = addDays(cursor, 7)) {
+      buckets.push({
+        start: cursor,
+        end: addDays(cursor, 7),
+        label: labelFormatter.format(cursor),
+      });
+    }
+
+    return { rangeStart, buckets };
+  }
+
+  const firstBucketStart = startOfMonth(rangeStart);
+  const currentMonthStart = startOfMonth(now);
+  const labelFormatter = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    year: "numeric",
+  });
+  const buckets: Array<{ start: Date; end: Date; label: string }> = [];
+
+  for (let cursor = firstBucketStart; cursor <= currentMonthStart; cursor = addMonths(cursor, 1)) {
+    buckets.push({
+      start: cursor,
+      end: addMonths(cursor, 1),
+      label: labelFormatter.format(cursor),
+    });
+  }
+
+  return { rangeStart, buckets };
 }
 
 function getPermissionModule(permissionKey: string) {
@@ -1174,7 +1384,10 @@ function containsDemoIdentityText(value: string | null | undefined) {
   );
 }
 
-function bucketDatesByMonth<T extends Date | null | undefined>(dates: T[], buckets: ReturnType<typeof buildMonthlyBuckets>) {
+function bucketDates<T extends Date | null | undefined>(
+  dates: T[],
+  buckets: Array<{ start: Date; end: Date; label: string }>,
+) {
   return buckets.map((bucket) =>
     dates.reduce((count, value) => {
       if (!value) return count;
@@ -1239,15 +1452,19 @@ function buildCommentTarget(comment: {
   };
 }
 
-export async function getAdminDashboardData(): Promise<AdminDashboardData> {
+export async function getAdminDashboardData(filters: AdminDashboardFilters = {}): Promise<AdminDashboardData> {
   const now = new Date();
   const todayStart = startOfDay(now);
   const sevenDaysStart = daysAgo(todayStart, 6);
   const thirtyDaysStart = daysAgo(todayStart, 29);
+  const rangeDays = normalizeDashboardRangeDays(filters.range);
+  const bucket = normalizeDashboardBucket(filters.bucket);
+  const { rangeStart, buckets } = buildDashboardBuckets(now, rangeDays, bucket);
   const last24HoursStart = new Date(now.getTime() - DAY_IN_MS);
   const nextSevenDays = new Date(now.getTime() + 7 * DAY_IN_MS);
   const moderationOpenStatuses = [ReportStatus.OPEN, ReportStatus.UNDER_REVIEW];
   const alertOpenStatuses = [AIAlertStatus.OPEN, AIAlertStatus.ACKNOWLEDGED];
+  const realUserWhere = buildRealUserWhere();
 
   const [
     totalUsers,
@@ -1297,20 +1514,35 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     aiAlertQueue,
     securityQueue,
     fileExceptionQueue,
-    topContributors,
     mostViewedCases,
     discussionTagCounts,
     caseTagCounts,
     allTags,
+    userTrendRecords,
+    discussionTrendRecords,
+    answerTrendRecords,
+    commentTrendRecords,
+    caseSubmissionTrendRecords,
+    casePublishedTrendRecords,
+    caseRejectedTrendRecords,
+    notificationTrendRecords,
+    reportTrendRecords,
+    alertTrendRecords,
+    failedLoginTrendRecords,
+    fileUploadTrendRecords,
+    caseStatusBreakdown,
+    discussionStatusBreakdown,
+    discussionContentBreakdown,
   ] = await Promise.all([
-    prisma.user.count(),
-    prisma.user.count({ where: { createdAt: { gte: todayStart } } }),
-    prisma.user.count({ where: { lastLoginAt: { gte: sevenDaysStart } } }),
-    prisma.user.count({ where: { lastLoginAt: { gte: thirtyDaysStart } } }),
-    prisma.user.count({ where: { status: UserStatus.SUSPENDED } }),
-    prisma.user.count({ where: { status: UserStatus.DISABLED } }),
+    prisma.user.count({ where: realUserWhere }),
+    prisma.user.count({ where: { AND: [realUserWhere], createdAt: { gte: todayStart } } }),
+    prisma.user.count({ where: { AND: [realUserWhere], lastLoginAt: { gte: sevenDaysStart } } }),
+    prisma.user.count({ where: { AND: [realUserWhere], lastLoginAt: { gte: thirtyDaysStart } } }),
+    prisma.user.count({ where: { AND: [realUserWhere], status: UserStatus.SUSPENDED } }),
+    prisma.user.count({ where: { AND: [realUserWhere], status: UserStatus.DISABLED } }),
     prisma.user.count({
       where: {
+        AND: [realUserWhere],
         OR: [{ status: UserStatus.DELETED }, { deletedAt: { not: null } }],
       },
     }),
@@ -1538,23 +1770,6 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       orderBy: { createdAt: "asc" },
       take: 5,
     }),
-    prisma.userGamification.findMany({
-      select: {
-        userId: true,
-        totalPoints: true,
-        casesPublished: true,
-        acceptedAnswers: true,
-        badgesCount: true,
-        user: {
-          select: {
-            displayName: true,
-            profile: { select: { username: true } },
-          },
-        },
-      },
-      orderBy: [{ totalPoints: "desc" }, { updatedAt: "desc" }],
-      take: 5,
-    }),
     prisma.caseRecord.findMany({
       where: { status: RepositoryItemStatus.PUBLISHED },
       select: {
@@ -1582,6 +1797,75 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     }),
     prisma.tag.findMany({
       select: { id: true, name: true },
+    }),
+    prisma.user.findMany({
+      where: {
+        createdAt: { gte: rangeStart },
+        ...realUserWhere,
+      },
+      select: { createdAt: true },
+    }),
+    prisma.discussion.findMany({
+      where: { createdAt: { gte: rangeStart } },
+      select: { createdAt: true },
+    }),
+    prisma.answer.findMany({
+      where: { createdAt: { gte: rangeStart } },
+      select: { createdAt: true },
+    }),
+    prisma.comment.findMany({
+      where: { createdAt: { gte: rangeStart } },
+      select: { createdAt: true },
+    }),
+    prisma.caseRecord.findMany({
+      where: { createdAt: { gte: rangeStart } },
+      select: { createdAt: true },
+    }),
+    prisma.caseRecord.findMany({
+      where: { publishedAt: { gte: rangeStart } },
+      select: { publishedAt: true },
+    }),
+    prisma.caseRecord.findMany({
+      where: {
+        status: RepositoryItemStatus.REJECTED,
+        reviewedAt: { gte: rangeStart },
+      },
+      select: { reviewedAt: true },
+    }),
+    prisma.notification.findMany({
+      where: { createdAt: { gte: rangeStart } },
+      select: { createdAt: true },
+    }),
+    prisma.contentReport.findMany({
+      where: { createdAt: { gte: rangeStart } },
+      select: { createdAt: true },
+    }),
+    prisma.aIAlert.findMany({
+      where: { detectedAt: { gte: rangeStart } },
+      select: { detectedAt: true },
+    }),
+    prisma.loginAttempt.findMany({
+      where: {
+        success: false,
+        createdAt: { gte: rangeStart },
+      },
+      select: { createdAt: true },
+    }),
+    prisma.fileAsset.findMany({
+      where: { createdAt: { gte: rangeStart } },
+      select: { createdAt: true },
+    }),
+    prisma.caseRecord.groupBy({
+      by: ["status"],
+      _count: { _all: true },
+    }),
+    prisma.discussion.groupBy({
+      by: ["status"],
+      _count: { _all: true },
+    }),
+    prisma.discussion.groupBy({
+      by: ["contentStatus"],
+      _count: { _all: true },
     }),
   ]);
 
@@ -1615,8 +1899,56 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       totalLinks,
     }));
 
+  const userTrendCounts = bucketDates(userTrendRecords.map((item) => item.createdAt), buckets);
+  const discussionTrendCounts = bucketDates(discussionTrendRecords.map((item) => item.createdAt), buckets);
+  const answerTrendCounts = bucketDates(answerTrendRecords.map((item) => item.createdAt), buckets);
+  const commentTrendCounts = bucketDates(commentTrendRecords.map((item) => item.createdAt), buckets);
+  const caseSubmissionTrendCounts = bucketDates(caseSubmissionTrendRecords.map((item) => item.createdAt), buckets);
+  const casePublishedTrendCounts = bucketDates(casePublishedTrendRecords.map((item) => item.publishedAt), buckets);
+  const caseRejectedTrendCounts = bucketDates(caseRejectedTrendRecords.map((item) => item.reviewedAt), buckets);
+  const notificationTrendCounts = bucketDates(notificationTrendRecords.map((item) => item.createdAt), buckets);
+  const reportTrendCounts = bucketDates(reportTrendRecords.map((item) => item.createdAt), buckets);
+  const alertTrendCounts = bucketDates(alertTrendRecords.map((item) => item.detectedAt), buckets);
+  const failedLoginTrendCounts = bucketDates(failedLoginTrendRecords.map((item) => item.createdAt), buckets);
+  const fileUploadTrendCounts = bucketDates(fileUploadTrendRecords.map((item) => item.createdAt), buckets);
+
+  const activityTimeline = buckets.map((currentBucket, index) => ({
+    dateKey: toDayKey(currentBucket.start),
+    dateLabel: currentBucket.label,
+    newUsers: userTrendCounts[index] ?? 0,
+    discussions: discussionTrendCounts[index] ?? 0,
+    answers: answerTrendCounts[index] ?? 0,
+    comments: commentTrendCounts[index] ?? 0,
+    caseSubmissions: caseSubmissionTrendCounts[index] ?? 0,
+    casePublished: casePublishedTrendCounts[index] ?? 0,
+    notifications: notificationTrendCounts[index] ?? 0,
+  }));
+
+  const riskTimeline = buckets.map((currentBucket, index) => ({
+    dateKey: toDayKey(currentBucket.start),
+    dateLabel: currentBucket.label,
+    reports: reportTrendCounts[index] ?? 0,
+    alerts: alertTrendCounts[index] ?? 0,
+    failedLogins: failedLoginTrendCounts[index] ?? 0,
+    fileUploads: fileUploadTrendCounts[index] ?? 0,
+  }));
+
+  const caseReviewTimeline = buckets.map((currentBucket, index) => ({
+    dateKey: toDayKey(currentBucket.start),
+    dateLabel: currentBucket.label,
+    submitted: caseSubmissionTrendCounts[index] ?? 0,
+    published: casePublishedTrendCounts[index] ?? 0,
+    rejected: caseRejectedTrendCounts[index] ?? 0,
+  }));
+
+  const inactiveUsers30d = Math.max(totalUsers - activeUsers30d, 0);
+
   return {
     generatedAt: now,
+    filters: {
+      rangeDays,
+      bucket,
+    },
     kpis: {
       users: {
         total: totalUsers,
@@ -1674,6 +2006,27 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
         activePrivilegedSessions,
       },
     },
+    charts: {
+      userActivityBreakdown: [
+        { label: "Active 30d", total: activeUsers30d },
+        { label: "Inactive", total: inactiveUsers30d },
+      ],
+      activityTimeline,
+      riskTimeline,
+      caseReviewTimeline,
+      caseStatusBreakdown: caseStatusBreakdown.map((item) => ({
+        status: item.status,
+        total: item._count._all,
+      })),
+      discussionStatusBreakdown: discussionStatusBreakdown.map((item) => ({
+        status: item.status,
+        total: item._count._all,
+      })),
+      discussionContentBreakdown: discussionContentBreakdown.map((item) => ({
+        status: item.contentStatus,
+        total: item._count._all,
+      })),
+    },
     queues: {
       caseReview: {
         total: pendingReviewCases,
@@ -1692,7 +2045,6 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
         total: openVerificationRequests,
         items: verificationQueue.map((item) => {
           const user = item.lawyerProfile.user;
-          const username = user.profile?.username ?? null;
           const regionName = user.profile?.primaryRegion?.name ?? "No region";
           return {
             id: item.id,
@@ -1762,15 +2114,6 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       },
     },
     insights: {
-      topContributors: topContributors.map((item) => ({
-        userId: item.userId,
-        displayName: item.user.displayName ?? "Unnamed member",
-        username: item.user.profile?.username ?? null,
-        totalPoints: item.totalPoints,
-        casesPublished: item.casesPublished,
-        acceptedAnswers: item.acceptedAnswers,
-        badgesCount: item.badgesCount,
-      })),
       mostViewedCases,
       topTags,
     },
@@ -1910,7 +2253,7 @@ export async function getAdminUsersPageData(filters: AdminUsersFilters = {}): Pr
       skip,
       take: pageSize,
     }),
-    prisma.user.count(),
+    prisma.user.count({ where: realUserWhere }),
     prisma.user.count({
       where: {
         AND: [realUserWhere],
@@ -2545,7 +2888,7 @@ export async function getAdminGamificationPageData(): Promise<AdminGamificationP
     await Promise.all([
       prisma.userGamification.findMany({
         orderBy: [{ totalPoints: "desc" }, { level: "desc" }, { updatedAt: "desc" }],
-        take: 12,
+        take: 32,
         select: {
           userId: true,
           totalPoints: true,
@@ -2622,16 +2965,28 @@ export async function getAdminGamificationPageData(): Promise<AdminGamificationP
       totalPointsAwarded: totalPointsAwarded._sum.pointsDelta ?? 0,
       manualAdjustments30d,
     },
-    leaders: leaders.map((leader) => ({
-      userId: leader.userId,
-      displayName: leader.user.displayName ?? "Unnamed member",
-      username: leader.user.profile?.username ?? null,
-      totalPoints: leader.totalPoints,
-      level: leader.level,
-      badgesCount: leader.badgesCount,
-      acceptedAnswers: leader.acceptedAnswers,
-      casesPublished: leader.casesPublished,
-    })),
+    leaders: leaders
+      .map((leader) => ({
+        userId: leader.userId,
+        displayName: leader.user.displayName ?? "Unnamed member",
+        username: leader.user.profile?.username ?? null,
+        totalPoints: leader.totalPoints,
+        level: leader.level,
+        badgesCount: leader.badgesCount,
+        acceptedAnswers: leader.acceptedAnswers,
+        casesPublished: leader.casesPublished,
+      }))
+      .filter((leader) => {
+        const displayName = normalizeCompactIdentity(leader.displayName);
+        const username = normalizeCompactIdentity(leader.username);
+
+        return (
+          !GAMIFICATION_LEADERBOARD_EXCLUDED_TOKENS.some(
+            (token) => displayName.includes(token) || username.includes(token),
+          )
+        );
+      })
+      .slice(0, 12),
     badges: badges.map((badge) => ({
       id: badge.id,
       code: badge.code,
@@ -3165,8 +3520,15 @@ export async function getAdminVerificationQueueData(
   const pageSize = Math.min(Math.max(filters.pageSize ?? 12, 1), 50);
   const page = Math.max(filters.page ?? 1, 1);
   const skip = (page - 1) * pageSize;
+  const realUserWhere = buildRealUserWhere();
 
-  const where: Record<string, unknown> = {};
+  const where: Prisma.LawyerVerificationRequestWhereInput = {
+    lawyerProfile: {
+      is: {
+        user: realUserWhere,
+      },
+    },
+  };
 
   if (q) {
     where.OR = [
@@ -3178,25 +3540,30 @@ export async function getAdminVerificationQueueData(
   }
 
   if (status) {
-    where.status = status;
+    where.status = status as LawyerVerificationStatus;
   }
 
   if (region) {
     where.lawyerProfile = {
       is: {
         user: {
-          profile: {
-            is: {
-              primaryRegion: {
+          AND: [
+            realUserWhere,
+            {
+              profile: {
                 is: {
-                  name: {
-                    equals: region,
-                    mode: "insensitive",
+                  primaryRegion: {
+                    is: {
+                      name: {
+                        equals: region,
+                        mode: "insensitive",
+                      },
+                    },
                   },
                 },
               },
             },
-          },
+          ],
         },
       },
     };
@@ -3287,17 +3654,37 @@ export async function getAdminVerificationQueueData(
       : Promise.resolve([]),
     prisma.lawyerVerificationRequest.count({
       where: {
+        lawyerProfile: {
+          is: {
+            user: realUserWhere,
+          },
+        },
         status: { in: [LawyerVerificationStatus.PENDING, LawyerVerificationStatus.UNDER_REVIEW] },
       },
     }),
     prisma.lawyerProfile.count({
-      where: { verificationStatus: LawyerVerificationStatus.VERIFIED },
+      where: {
+        verificationStatus: LawyerVerificationStatus.VERIFIED,
+        user: realUserWhere,
+      },
     }),
     prisma.lawyerVerificationRequest.count({
-      where: { status: LawyerVerificationStatus.REJECTED },
+      where: {
+        lawyerProfile: {
+          is: {
+            user: realUserWhere,
+          },
+        },
+        status: LawyerVerificationStatus.REJECTED,
+      },
     }),
     prisma.lawyerVerificationRequest.findMany({
       where: {
+        lawyerProfile: {
+          is: {
+            user: realUserWhere,
+          },
+        },
         status: { in: [LawyerVerificationStatus.PENDING, LawyerVerificationStatus.UNDER_REVIEW] },
       },
       select: {
@@ -4383,6 +4770,7 @@ export async function getAdminSecurityPageData(filters: {
   category?: string;
   failedOnly?: string;
   privilegedOnly?: string;
+  sessionPage?: number;
   auditPage?: number;
 } = {}): Promise<AdminSecurityPageData> {
   const now = new Date();
@@ -4391,7 +4779,10 @@ export async function getAdminSecurityPageData(filters: {
   const category = AUDIT_CATEGORIES.has(filters.category as AuditCategory) ? (filters.category as AuditCategory) : "";
   const failedOnly = filters.failedOnly === "1" ? "1" : "";
   const privilegedOnly = filters.privilegedOnly === "1" ? "1" : "";
-  const auditPageSize = 4;
+  const sessionPageSize = 5;
+  const requestedSessionPage = Number.isFinite(filters.sessionPage) ? filters.sessionPage : 1;
+  const sessionPage = Math.max(requestedSessionPage ?? 1, 1);
+  const auditPageSize = 5;
   const requestedAuditPage = Number.isFinite(filters.auditPage) ? filters.auditPage : 1;
   const auditPage = Math.max(requestedAuditPage ?? 1, 1);
   const realUserWhere = buildRealUserWhere();
@@ -4599,6 +4990,11 @@ export async function getAdminSecurityPageData(filters: {
   const safeAuditPage = Math.min(auditPage, auditTotalPages);
   const auditSkip = (safeAuditPage - 1) * auditPageSize;
   const auditRows = filteredAuditRows.slice(auditSkip, auditSkip + auditPageSize);
+  const sessionRowsTotal = sessions.length;
+  const sessionTotalPages = Math.max(1, Math.ceil(sessionRowsTotal / sessionPageSize));
+  const safeSessionPage = Math.min(sessionPage, sessionTotalPages);
+  const sessionSkip = (safeSessionPage - 1) * sessionPageSize;
+  const paginatedSessions = sessions.slice(sessionSkip, sessionSkip + sessionPageSize);
 
   return {
     filters: {
@@ -4606,6 +5002,7 @@ export async function getAdminSecurityPageData(filters: {
       category,
       failedOnly,
       privilegedOnly,
+      sessionPage: safeSessionPage,
       auditPage: safeAuditPage,
     },
     summary: {
@@ -4615,7 +5012,7 @@ export async function getAdminSecurityPageData(filters: {
       activePrivilegedSessions,
       revokedSessions24h,
     },
-    sessions: sessions.map((session) => ({
+    sessions: paginatedSessions.map((session) => ({
       id: session.id,
       userId: session.userId,
       displayName: session.user.displayName ?? "Unnamed member",
@@ -4628,6 +5025,12 @@ export async function getAdminSecurityPageData(filters: {
       lastSeenAt: session.lastSeenAt,
       expiresAt: session.expiresAt,
     })),
+    sessionPagination: {
+      total: sessionRowsTotal,
+      totalPages: sessionTotalPages,
+      start: sessionRowsTotal === 0 ? 0 : sessionSkip + 1,
+      end: sessionRowsTotal === 0 ? 0 : Math.min(sessionSkip + sessionPageSize, sessionRowsTotal),
+    },
     lockedCredentialsRows: lockedCredentialRows.map((row) => ({
       userId: row.user.id,
       displayName: row.user.displayName ?? "Unnamed member",
@@ -4891,14 +5294,17 @@ export async function getAdminSystemJobsData(): Promise<AdminSystemJobsData> {
   };
 }
 
-export async function getAdminReportsData(): Promise<AdminReportsData> {
+export async function getAdminReportsData(filters: AdminReportsFilters = {}): Promise<AdminReportsData> {
   const now = new Date();
-  const buckets = buildMonthlyBuckets(now, 6);
-  const rangeStart = buckets[0]?.start ?? startOfMonth(now);
+  const rangeDays = normalizeReportsRangeDays(filters.range);
+  const bucket = normalizeReportsBucket(filters.bucket);
+  const rankingLimit = normalizeReportsRankingLimit(filters.rankingLimit);
+  const realUserWhere = buildRealUserWhere();
+  const { rangeStart, buckets } = buildReportBuckets(now, rangeDays, bucket);
   const todayStart = startOfDay(now);
-  const last30Start = daysAgo(todayStart, 29);
-  const current7Start = daysAgo(todayStart, 6);
-  const previous7Start = daysAgo(todayStart, 13);
+  const comparisonWindowDays = bucket === "week" ? 7 : Math.min(30, rangeDays);
+  const currentComparisonStart = daysAgo(todayStart, comparisonWindowDays - 1);
+  const previousComparisonStart = daysAgo(todayStart, comparisonWindowDays * 2 - 1);
   const openReportStatuses = [ReportStatus.OPEN, ReportStatus.UNDER_REVIEW];
   const openAlertStatuses = [AIAlertStatus.OPEN, AIAlertStatus.ACKNOWLEDGED];
 
@@ -4909,7 +5315,6 @@ export async function getAdminReportsData(): Promise<AdminReportsData> {
     comments,
     cases,
     publishedCases,
-    rejectedCases,
     verificationRequests,
     approvedLawyers,
     rejectedVerifications,
@@ -4935,7 +5340,13 @@ export async function getAdminReportsData(): Promise<AdminReportsData> {
     publishedCurrent7,
     publishedPrevious7,
   ] = await Promise.all([
-    prisma.user.findMany({ where: { createdAt: { gte: rangeStart } }, select: { createdAt: true } }),
+    prisma.user.findMany({
+      where: {
+        createdAt: { gte: rangeStart },
+        ...realUserWhere,
+      },
+      select: { createdAt: true },
+    }),
     prisma.discussion.findMany({ where: { createdAt: { gte: rangeStart } }, select: { createdAt: true } }),
     prisma.answer.findMany({ where: { createdAt: { gte: rangeStart } }, select: { createdAt: true } }),
     prisma.comment.findMany({ where: { createdAt: { gte: rangeStart } }, select: { createdAt: true } }),
@@ -4943,10 +5354,6 @@ export async function getAdminReportsData(): Promise<AdminReportsData> {
     prisma.caseRecord.findMany({
       where: { publishedAt: { gte: rangeStart }, status: RepositoryItemStatus.PUBLISHED },
       select: { publishedAt: true, region: { select: { name: true } }, court: { select: { name: true } }, category: { select: { name: true } } },
-    }),
-    prisma.caseRecord.findMany({
-      where: { status: RepositoryItemStatus.REJECTED, reviewedAt: { gte: rangeStart } },
-      select: { reviewedAt: true },
     }),
     prisma.lawyerVerificationRequest.findMany({
       where: { submittedAt: { gte: rangeStart } },
@@ -4987,9 +5394,9 @@ export async function getAdminReportsData(): Promise<AdminReportsData> {
       select: { category: { select: { name: true } } },
     }),
     prisma.tagMetricDaily.findMany({
-      where: { metricDate: { gte: last30Start } },
+      where: { metricDate: { gte: rangeStart } },
       orderBy: [{ engagementScore: "desc" }],
-      take: 10,
+      take: Math.max(10, rankingLimit),
       select: {
         engagementScore: true,
         tag: { select: { name: true } },
@@ -5016,49 +5423,52 @@ export async function getAdminReportsData(): Promise<AdminReportsData> {
       select: { detectedAt: true },
     }),
     prisma.loginAttempt.count({
-      where: { success: false, createdAt: { gte: current7Start } },
+      where: { success: false, createdAt: { gte: currentComparisonStart } },
     }),
     prisma.loginAttempt.count({
-      where: { success: false, createdAt: { gte: previous7Start, lt: current7Start } },
+      where: { success: false, createdAt: { gte: previousComparisonStart, lt: currentComparisonStart } },
     }),
     prisma.contentReport.count({
-      where: { createdAt: { gte: current7Start } },
+      where: { createdAt: { gte: currentComparisonStart } },
     }),
     prisma.contentReport.count({
-      where: { createdAt: { gte: previous7Start, lt: current7Start } },
+      where: { createdAt: { gte: previousComparisonStart, lt: currentComparisonStart } },
     }),
     prisma.fileAsset.count({
-      where: { scanStatus: { in: [FileScanStatus.FAILED, FileScanStatus.INFECTED] }, createdAt: { gte: current7Start } },
+      where: { scanStatus: { in: [FileScanStatus.FAILED, FileScanStatus.INFECTED] }, createdAt: { gte: currentComparisonStart } },
     }),
     prisma.fileAsset.count({
-      where: { scanStatus: { in: [FileScanStatus.FAILED, FileScanStatus.INFECTED] }, createdAt: { gte: previous7Start, lt: current7Start } },
+      where: {
+        scanStatus: { in: [FileScanStatus.FAILED, FileScanStatus.INFECTED] },
+        createdAt: { gte: previousComparisonStart, lt: currentComparisonStart },
+      },
     }),
     prisma.caseRecord.count({
-      where: { status: RepositoryItemStatus.PUBLISHED, publishedAt: { gte: current7Start } },
+      where: { status: RepositoryItemStatus.PUBLISHED, publishedAt: { gte: currentComparisonStart } },
     }),
     prisma.caseRecord.count({
-      where: { status: RepositoryItemStatus.PUBLISHED, publishedAt: { gte: previous7Start, lt: current7Start } },
+      where: { status: RepositoryItemStatus.PUBLISHED, publishedAt: { gte: previousComparisonStart, lt: currentComparisonStart } },
     }),
   ]);
 
-  const userGrowthCounts = bucketDatesByMonth(users.map((item) => item.createdAt), buckets);
-  const discussionCounts = bucketDatesByMonth(discussions.map((item) => item.createdAt), buckets);
-  const answerCounts = bucketDatesByMonth(answers.map((item) => item.createdAt), buckets);
-  const commentCounts = bucketDatesByMonth(comments.map((item) => item.createdAt), buckets);
-  const caseCounts = bucketDatesByMonth(cases.map((item) => item.createdAt), buckets);
-  const verificationSubmittedCounts = bucketDatesByMonth(verificationRequests.map((item) => item.submittedAt), buckets);
-  const verificationApprovedCounts = bucketDatesByMonth(approvedLawyers.map((item) => item.verifiedAt), buckets);
-  const verificationRejectedCounts = bucketDatesByMonth(rejectedVerifications.map((item) => item.reviewedAt), buckets);
-  const reportCounts = bucketDatesByMonth(reports.map((item) => item.createdAt), buckets);
-  const alertCounts = bucketDatesByMonth(alerts.map((item) => item.detectedAt), buckets);
-  const actionCounts = bucketDatesByMonth(actions.map((item) => item.createdAt), buckets);
+  const userGrowthCounts = bucketDates(users.map((item) => item.createdAt), buckets);
+  const discussionCounts = bucketDates(discussions.map((item) => item.createdAt), buckets);
+  const answerCounts = bucketDates(answers.map((item) => item.createdAt), buckets);
+  const commentCounts = bucketDates(comments.map((item) => item.createdAt), buckets);
+  const caseCounts = bucketDates(cases.map((item) => item.createdAt), buckets);
+  const verificationSubmittedCounts = bucketDates(verificationRequests.map((item) => item.submittedAt), buckets);
+  const verificationApprovedCounts = bucketDates(approvedLawyers.map((item) => item.verifiedAt), buckets);
+  const verificationRejectedCounts = bucketDates(rejectedVerifications.map((item) => item.reviewedAt), buckets);
+  const reportCounts = bucketDates(reports.map((item) => item.createdAt), buckets);
+  const alertCounts = bucketDates(alerts.map((item) => item.detectedAt), buckets);
+  const actionCounts = bucketDates(actions.map((item) => item.createdAt), buckets);
 
-  const approvedLast30 = approvedLawyers.filter((item) => item.verifiedAt && item.verifiedAt >= last30Start).length;
-  const rejectedLast30 = rejectedVerifications.filter((item) => item.reviewedAt && item.reviewedAt >= last30Start).length;
-  const verificationApprovalRate30d =
-    approvedLast30 + rejectedLast30 === 0 ? null : Math.round((approvedLast30 / (approvedLast30 + rejectedLast30)) * 100);
+  const approvedInRange = approvedLawyers.filter((item) => item.verifiedAt && item.verifiedAt >= rangeStart).length;
+  const rejectedInRange = rejectedVerifications.filter((item) => item.reviewedAt && item.reviewedAt >= rangeStart).length;
+  const verificationApprovalRateInRange =
+    approvedInRange + rejectedInRange === 0 ? null : Math.round((approvedInRange / (approvedInRange + rejectedInRange)) * 100);
 
-  const publishedCases30d = publishedCases.filter((item) => item.publishedAt && item.publishedAt >= last30Start).length;
+  const publishedCasesInRange = publishedCases.filter((item) => item.publishedAt && item.publishedAt >= rangeStart).length;
 
   const aggregateLabels = (items: Array<{ label: string | null }>) =>
     Array.from(
@@ -5070,49 +5480,54 @@ export async function getAdminReportsData(): Promise<AdminReportsData> {
     )
       .map(([label, count]) => ({ label, count }))
       .sort((left, right) => right.count - left.count)
-      .slice(0, 5);
+      .slice(0, rankingLimit);
 
   const summaryNotes = [
     `User growth ${percentChange(
       userGrowthCounts[userGrowthCounts.length - 1] ?? 0,
       userGrowthCounts[userGrowthCounts.length - 2] ?? 0,
-    ).toFixed(0)}% versus the prior month bucket.`,
-    `${publishedCases30d} cases were published in the last 30 days, with ${openReports + openAlerts} open moderation signals platform-wide.`,
-    verificationApprovalRate30d === null
-      ? "Verification approval rate is not available yet for the last 30 days."
-      : `Verification approval rate is ${verificationApprovalRate30d}% across last-30-day decided requests.`,
+    ).toFixed(0)}% versus the prior ${bucket} bucket.`,
+    `${publishedCasesInRange} cases were published in the last ${rangeDays} days, with ${openReports + openAlerts} open moderation signals platform-wide.`,
+    verificationApprovalRateInRange === null
+      ? `Verification approval rate is not available yet for the last ${rangeDays} days.`
+      : `Verification approval rate is ${verificationApprovalRateInRange}% across decided requests in the last ${rangeDays} days.`,
   ];
 
   const anomalies: AdminReportsData["anomalies"] = [
     {
       label: "Reports volume",
-      detail: `${reportsCurrent7} in the last 7 days vs ${reportsPrevious7} in the prior 7 days`,
+      detail: `${reportsCurrent7} in the last ${comparisonWindowDays} days vs ${reportsPrevious7} in the prior ${comparisonWindowDays} days`,
       status: reportsCurrent7 > Math.max(3, reportsPrevious7 * 1.5) ? "warning" : "stable",
     },
     {
       label: "Failed logins",
-      detail: `${failedLoginsCurrent7} in the last 7 days vs ${failedLoginsPrevious7} in the prior 7 days`,
+      detail: `${failedLoginsCurrent7} in the last ${comparisonWindowDays} days vs ${failedLoginsPrevious7} in the prior ${comparisonWindowDays} days`,
       status: failedLoginsCurrent7 > Math.max(5, failedLoginsPrevious7 * 1.5) ? "warning" : "stable",
     },
     {
       label: "File scan failures",
-      detail: `${fileFailuresCurrent7} in the last 7 days vs ${fileFailuresPrevious7} in the prior 7 days`,
+      detail: `${fileFailuresCurrent7} in the last ${comparisonWindowDays} days vs ${fileFailuresPrevious7} in the prior ${comparisonWindowDays} days`,
       status: fileFailuresCurrent7 > Math.max(2, fileFailuresPrevious7 * 1.5) ? "warning" : "stable",
     },
     {
       label: "Case publication velocity",
-      detail: `${publishedCurrent7} published in the last 7 days vs ${publishedPrevious7} in the prior 7 days`,
+      detail: `${publishedCurrent7} published in the last ${comparisonWindowDays} days vs ${publishedPrevious7} in the prior ${comparisonWindowDays} days`,
       status: publishedPrevious7 >= 4 && publishedCurrent7 < publishedPrevious7 / 2 ? "warning" : "stable",
     },
   ];
 
   return {
     generatedAt: now,
+    filters: {
+      rangeDays,
+      bucket,
+      rankingLimit,
+    },
     summary: {
-      newUsers30d: users.filter((item) => item.createdAt >= last30Start).length,
-      publishedCases30d,
+      newUsersInRange: users.length,
+      publishedCasesInRange,
       openModerationSignals: openReports + openAlerts,
-      verificationApprovalRate30d,
+      verificationApprovalRateInRange,
     },
     summaryNotes,
     userGrowth: buckets.map((bucket, index) => ({
@@ -5142,10 +5557,12 @@ export async function getAdminReportsData(): Promise<AdminReportsData> {
       regions: aggregateLabels(regionCases.map((item) => ({ label: item.region?.name ?? null }))),
       courts: aggregateLabels(courtCases.map((item) => ({ label: item.court?.name ?? null }))),
       categories: aggregateLabels(categoryCases.map((item) => ({ label: item.category.name }))),
-      tags: tagMetrics.map((item) => ({
-        label: item.tag.name,
-        score: item.engagementScore === null ? 0 : Number(item.engagementScore),
-      })),
+      tags: tagMetrics
+        .slice(0, rankingLimit)
+        .map((item) => ({
+          label: item.tag.name,
+          score: item.engagementScore === null ? 0 : Number(item.engagementScore),
+        })),
     },
     queueAging: [
       {

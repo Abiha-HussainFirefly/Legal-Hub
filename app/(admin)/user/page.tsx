@@ -145,7 +145,7 @@ export default async function UserPage({
             </p>
           </div>
 
-          <div className="rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] px-5 py-4 text-sm text-slate-600">
+          <div className="legal-soft-panel px-5 py-4 text-sm text-slate-600">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Current result window</p>
             <p className="mt-2 text-base font-semibold text-[#2F1D3B]">
               {data.pagination.start} to {data.pagination.end} of {formatNumber(data.pagination.total)}
@@ -166,7 +166,7 @@ export default async function UserPage({
                   <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[#2F1D3B]">{card.value}</p>
                   <p className="mt-2 text-sm leading-7 text-slate-600">{card.detail}</p>
                 </div>
-                <div className="rounded-[18px] bg-[#F4EFF8] p-3 text-[#4C2F5E]">
+                <div className="workspace-pill p-3">
                   <Icon className="h-5 w-5" />
                 </div>
               </div>

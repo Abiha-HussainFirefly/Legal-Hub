@@ -1,6 +1,67 @@
+import AdminPagination from "@/app/components/admin/AdminPagination";
 import { getAdminSystemJobsData } from "@/lib/services/admin.server";
 import { Activity, ArrowUpRight, Bot, FileClock, Gavel, Mail, SearchCheck, ShieldAlert } from "lucide-react";
 import Link from "next/link";
+
+const TABLE_PAGE_SIZE = 5;
+
+function getFirstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function parsePageParam(value: string | undefined) {
+  const parsed = Number.parseInt(value ?? "1", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+}
+
+function buildPageHref(
+  searchParams: Record<string, string | string[] | undefined>,
+  overrides: Record<string, number>,
+) {
+  const params = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(searchParams)) {
+    const firstValue = getFirstParam(value);
+    if (firstValue) params.set(key, firstValue);
+  }
+
+  for (const [key, value] of Object.entries(overrides)) {
+    if (value <= 1) {
+      params.delete(key);
+      continue;
+    }
+
+    params.set(key, `${value}`);
+  }
+
+  const query = params.toString();
+  return query ? `/system-jobs?${query}` : "/system-jobs";
+}
+
+function paginateRows<T>(rows: T[], page: number, pageSize: number) {
+  const total = rows.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const currentPage = Math.min(Math.max(page, 1), totalPages);
+  const startIndex = (currentPage - 1) * pageSize;
+  const pagedRows = rows.slice(startIndex, startIndex + pageSize);
+
+  return {
+    rows: pagedRows,
+    currentPage,
+    total,
+    totalPages,
+    start: total === 0 ? 0 : startIndex + 1,
+    end: total === 0 ? 0 : startIndex + pagedRows.length,
+  };
+}
+
+function buildVisiblePages(currentPage: number, totalPages: number) {
+  const startPage = Math.max(1, currentPage - 2);
+  const endPage = Math.min(totalPages, startPage + 4);
+  const adjustedStart = Math.max(1, endPage - 4);
+
+  return Array.from({ length: endPage - adjustedStart + 1 }, (_, index) => adjustedStart + index);
+}
 
 function formatDateTime(value: Date) {
   return new Intl.DateTimeFormat("en-US", {
@@ -12,8 +73,24 @@ function formatDateTime(value: Date) {
   }).format(value);
 }
 
-export default async function AdminSystemJobsPage() {
+export default async function AdminSystemJobsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const resolvedSearchParams = (await searchParams) ?? {};
   const data = await getAdminSystemJobsData();
+  const dbQueueTable = paginateRows(data.dbQueues, parsePageParam(getFirstParam(resolvedSearchParams.dbQueuePage)), TABLE_PAGE_SIZE);
+  const throughputTable = paginateRows(data.throughput, parsePageParam(getFirstParam(resolvedSearchParams.throughputPage)), TABLE_PAGE_SIZE);
+  const monitoringTable = paginateRows(
+    data.unsupportedSurfaces,
+    parsePageParam(getFirstParam(resolvedSearchParams.monitoringPage)),
+    TABLE_PAGE_SIZE,
+  );
+
+  const dbQueuePages = buildVisiblePages(dbQueueTable.currentPage, dbQueueTable.totalPages);
+  const throughputPages = buildVisiblePages(throughputTable.currentPage, throughputTable.totalPages);
+  const monitoringPages = buildVisiblePages(monitoringTable.currentPage, monitoringTable.totalPages);
 
   const summaryCards = [
     {
@@ -58,7 +135,7 @@ export default async function AdminSystemJobsPage() {
             </p>
           </div>
 
-          <div className="rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] px-5 py-4 text-sm text-slate-600">
+          <div className="legal-soft-panel px-5 py-4 text-sm text-slate-600">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Generated</p>
             <p className="mt-2 text-base font-semibold text-[#2F1D3B]">{formatDateTime(data.generatedAt)}</p>
           </div>
@@ -77,7 +154,7 @@ export default async function AdminSystemJobsPage() {
                   <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[#2F1D3B]">{card.value}</p>
                   <p className="mt-2 text-sm leading-7 text-slate-600">{card.detail}</p>
                 </div>
-                <div className="rounded-[18px] bg-[#F4EFF8] p-3 text-[#4C2F5E]">
+                <div className="workspace-pill p-3">
                   <Icon className="h-5 w-5" />
                 </div>
               </div>
@@ -99,37 +176,67 @@ export default async function AdminSystemJobsPage() {
               </div>
             </div>
 
-            <div className="mt-5 grid gap-4">
-              {data.dbQueues.map((queue) => (
-                <div key={queue.key} className="rounded-[22px] border border-[#4C2F5E]/10 bg-[#FBF9FD] p-4">
-                  <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                    <div className="max-w-3xl">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                            queue.status === "attention" ? "bg-[#FCE8E6] text-[#A33A31]" : "bg-[#E8F4EF] text-[#1B7A5A]"
-                          }`}
-                        >
-                          {queue.status === "attention" ? "Attention" : "Healthy"}
-                        </span>
-                        <span className="rounded-full border border-[#4C2F5E]/12 bg-white px-3 py-1 text-xs font-semibold text-[#4C2F5E]">
-                          {queue.count} open
-                        </span>
-                        <span className="rounded-full border border-[#4C2F5E]/12 bg-white px-3 py-1 text-xs font-semibold text-[#4C2F5E]">
-                          Oldest {queue.oldestAge}
-                        </span>
-                      </div>
-                      <h3 className="mt-4 text-lg font-semibold text-[#2F1D3B]">{queue.title}</h3>
-                      <p className="mt-2 text-sm leading-7 text-slate-600">{queue.detail}</p>
-                    </div>
+            <div className="legal-table-wrap mt-5 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="legal-table min-w-full table-auto">
+                  <thead>
+                    <tr>
+                      <th className="min-w-[200px] px-6 py-4 text-left text-sm font-semibold">Queue</th>
+                      <th className="min-w-[120px] px-6 py-4 text-left text-sm font-semibold">Status</th>
+                      <th className="min-w-[120px] px-6 py-4 text-left text-sm font-semibold">Open Items</th>
+                      <th className="min-w-[140px] px-6 py-4 text-left text-sm font-semibold">Oldest Item</th>
+                      <th className="min-w-[320px] px-6 py-4 text-left text-sm font-semibold">Detail</th>
+                      <th className="min-w-[140px] px-6 py-4 text-left text-sm font-semibold">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {dbQueueTable.rows.map((queue) => (
+                      <tr key={queue.key}>
+                        <td className="px-6 py-4 align-top">
+                          <p className="text-sm font-semibold text-[#2F1D3B]">{queue.title}</p>
+                        </td>
+                        <td className="px-6 py-4 align-top">
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                              queue.status === "attention" ? "bg-[#FCE8E6] text-[#A33A31]" : "bg-[#E8F4EF] text-[#1B7A5A]"
+                            }`}
+                          >
+                            {queue.status === "attention" ? "Attention" : "Healthy"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 align-top text-sm leading-6 text-slate-600">{queue.count}</td>
+                        <td className="px-6 py-4 align-top text-sm leading-6 text-slate-600">{queue.oldestAge}</td>
+                        <td className="px-6 py-4 align-top text-sm leading-6 text-slate-600">{queue.detail}</td>
+                        <td className="px-6 py-4 align-top">
+                          <Link href={queue.href} className="inline-flex items-center gap-2 text-sm font-semibold text-[#4C2F5E] hover:text-[#2F1D3B]">
+                            Open queue
+                            <ArrowUpRight className="h-4 w-4" />
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
-                    <Link href={queue.href} className="legal-button-secondary text-sm">
-                      Open Queue
-                      <ArrowUpRight className="h-4 w-4" />
-                    </Link>
-                  </div>
-                </div>
-              ))}
+              <AdminPagination
+                start={dbQueueTable.start}
+                end={dbQueueTable.end}
+                total={dbQueueTable.total}
+                currentPage={dbQueueTable.currentPage}
+                pageLinks={dbQueuePages.map((pageNumber) => ({
+                  pageNumber,
+                  href: buildPageHref(resolvedSearchParams, { dbQueuePage: pageNumber }),
+                }))}
+                previousHref={buildPageHref(resolvedSearchParams, {
+                  dbQueuePage: Math.max(1, dbQueueTable.currentPage - 1),
+                })}
+                nextHref={buildPageHref(resolvedSearchParams, {
+                  dbQueuePage: Math.min(dbQueueTable.totalPages, dbQueueTable.currentPage + 1),
+                })}
+                isFirstPage={dbQueueTable.currentPage === 1}
+                isLastPage={dbQueueTable.currentPage === dbQueueTable.totalPages}
+              />
             </div>
           </section>
 
@@ -144,14 +251,46 @@ export default async function AdminSystemJobsPage() {
               </div>
             </div>
 
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
-              {data.throughput.map((item) => (
-                <div key={item.label} className="rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8C7A9B]">{item.label}</p>
-                  <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[#2F1D3B]">{item.value}</p>
-                  <p className="mt-2 text-sm leading-7 text-slate-600">{item.detail}</p>
-                </div>
-              ))}
+            <div className="legal-table-wrap mt-5 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="legal-table min-w-full table-auto">
+                  <thead>
+                    <tr>
+                      <th className="min-w-[220px] px-6 py-4 text-left text-sm font-semibold">Metric</th>
+                      <th className="min-w-[120px] px-6 py-4 text-left text-sm font-semibold">Value</th>
+                      <th className="min-w-[320px] px-6 py-4 text-left text-sm font-semibold">Detail</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {throughputTable.rows.map((item) => (
+                      <tr key={item.label}>
+                        <td className="px-6 py-4 align-top text-sm font-semibold leading-6 text-[#2F1D3B]">{item.label}</td>
+                        <td className="px-6 py-4 align-top text-sm leading-6 text-slate-600">{item.value}</td>
+                        <td className="px-6 py-4 align-top text-sm leading-6 text-slate-600">{item.detail}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <AdminPagination
+                start={throughputTable.start}
+                end={throughputTable.end}
+                total={throughputTable.total}
+                currentPage={throughputTable.currentPage}
+                pageLinks={throughputPages.map((pageNumber) => ({
+                  pageNumber,
+                  href: buildPageHref(resolvedSearchParams, { throughputPage: pageNumber }),
+                }))}
+                previousHref={buildPageHref(resolvedSearchParams, {
+                  throughputPage: Math.max(1, throughputTable.currentPage - 1),
+                })}
+                nextHref={buildPageHref(resolvedSearchParams, {
+                  throughputPage: Math.min(throughputTable.totalPages, throughputTable.currentPage + 1),
+                })}
+                isFirstPage={throughputTable.currentPage === 1}
+                isLastPage={throughputTable.currentPage === throughputTable.totalPages}
+              />
             </div>
           </section>
         </div>
@@ -167,22 +306,54 @@ export default async function AdminSystemJobsPage() {
             </div>
           </div>
 
-          <div className="mt-5 space-y-4">
-            {data.unsupportedSurfaces.map((item) => (
-              <div key={item.title} className="rounded-[22px] border border-[#4C2F5E]/10 bg-[#FBF9FD] p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                      item.status === "external" ? "bg-[#EEF2F7] text-[#36506E]" : "bg-[#F6EBD6] text-[#8B642A]"
-                    }`}
-                  >
-                    {item.status === "external" ? "External telemetry" : "Not modeled"}
-                  </span>
-                </div>
-                <h3 className="mt-3 text-base font-semibold text-[#2F1D3B]">{item.title}</h3>
-                <p className="mt-2 text-sm leading-7 text-slate-600">{item.detail}</p>
-              </div>
-            ))}
+          <div className="legal-table-wrap mt-5 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="legal-table min-w-full table-auto">
+                <thead>
+                  <tr>
+                    <th className="min-w-[220px] px-6 py-4 text-left text-sm font-semibold">Surface</th>
+                    <th className="min-w-[150px] px-6 py-4 text-left text-sm font-semibold">Status</th>
+                    <th className="min-w-[340px] px-6 py-4 text-left text-sm font-semibold">Detail</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {monitoringTable.rows.map((item) => (
+                    <tr key={item.title}>
+                      <td className="px-6 py-4 align-top text-sm font-semibold leading-6 text-[#2F1D3B]">{item.title}</td>
+                      <td className="px-6 py-4 align-top">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                            item.status === "external" ? "bg-[#EEF2F7] text-[#36506E]" : "bg-[#F6EBD6] text-[#8B642A]"
+                          }`}
+                        >
+                          {item.status === "external" ? "External telemetry" : "Not modeled"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 align-top text-sm leading-6 text-slate-600">{item.detail}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <AdminPagination
+              start={monitoringTable.start}
+              end={monitoringTable.end}
+              total={monitoringTable.total}
+              currentPage={monitoringTable.currentPage}
+              pageLinks={monitoringPages.map((pageNumber) => ({
+                pageNumber,
+                href: buildPageHref(resolvedSearchParams, { monitoringPage: pageNumber }),
+              }))}
+              previousHref={buildPageHref(resolvedSearchParams, {
+                monitoringPage: Math.max(1, monitoringTable.currentPage - 1),
+              })}
+              nextHref={buildPageHref(resolvedSearchParams, {
+                monitoringPage: Math.min(monitoringTable.totalPages, monitoringTable.currentPage + 1),
+              })}
+              isFirstPage={monitoringTable.currentPage === 1}
+              isLastPage={monitoringTable.currentPage === monitoringTable.totalPages}
+            />
           </div>
         </section>
       </section>
