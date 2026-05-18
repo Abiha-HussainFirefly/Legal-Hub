@@ -1,6 +1,8 @@
 import { adminGamificationAction } from "@/app/actions/admin-platform";
 import BadgeSearchSelect from "@/app/components/admin/BadgeSearchSelect";
+import UserSearchSelect from "@/app/components/admin/UserSearchSelect";
 import { getAdminGamificationPageData } from "@/lib/services/admin.server";
+import { prisma } from "@/lib/prisma";
 import { Award, BadgeCheck, Crown, Sparkles } from "lucide-react";
 import Link from "next/link";
 
@@ -21,7 +23,36 @@ function badgeStateClasses(isActive: boolean) {
 }
 
 export default async function GamificationPage() {
-  const data = await getAdminGamificationPageData();
+  const [data, users] = await Promise.all([
+    getAdminGamificationPageData(),
+    prisma.user.findMany({
+      select: {
+        id: true,
+        displayName: true,
+        profile: {
+          select: {
+            username: true,
+          },
+        },
+        identifiers: {
+          select: {
+            value: true,   
+            type: true,
+          },
+          where: { type: "EMAIL" },
+          take: 1,
+        },
+      },
+      orderBy: { displayName: "asc" },
+    }),
+  ]);
+
+  const userOptions = users.map((u) => ({
+    id: u.id,
+    displayName: u.displayName ?? "Unnamed user",
+    username: u.profile?.username ?? null,
+    email: u.identifiers?.[0]?.value ?? "",
+  }));
 
   const summaryCards = [
     {
@@ -52,6 +83,7 @@ export default async function GamificationPage() {
 
   return (
     <div className="space-y-6">
+      {/* ── Header ── */}
       <section className="legal-panel px-6 py-7 md:px-8">
         <p className="legal-kicker">Badges & Gamification</p>
         <h1 className="mt-4 text-4xl font-semibold tracking-[-0.05em] text-[#102033]">
@@ -63,10 +95,10 @@ export default async function GamificationPage() {
         </p>
       </section>
 
+      {/* ── Summary cards ── */}
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {summaryCards.map((card) => {
           const Icon = card.icon;
-
           return (
             <div key={card.title} className="legal-panel p-5">
               <div className="flex items-start justify-between gap-4">
@@ -84,7 +116,9 @@ export default async function GamificationPage() {
         })}
       </section>
 
+      
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+        {/* Leaderboard */}
         <section className="legal-panel p-5 md:p-6">
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -126,7 +160,9 @@ export default async function GamificationPage() {
           </div>
         </section>
 
+        {/* Action forms */}
         <div className="space-y-6">
+          {/* Create Badge */}
           <section className="legal-panel p-5 md:p-6">
             <h2 className="text-xl font-semibold tracking-[-0.03em] text-[#2F1D3B]">Create Badge</h2>
             <p className="mt-2 text-sm leading-7 text-slate-600">
@@ -145,6 +181,7 @@ export default async function GamificationPage() {
             </form>
           </section>
 
+          {/* Award Badge */}
           <section className="legal-panel p-5 md:p-6">
             <h2 className="text-xl font-semibold tracking-[-0.03em] text-[#2F1D3B]">Award Badge</h2>
             <p className="mt-2 text-sm leading-7 text-slate-600">
@@ -162,7 +199,11 @@ export default async function GamificationPage() {
                   isActive: badge.isActive,
                 }))}
               />
-              <input name="userId" placeholder="Target user ID" className="legal-field" required />
+              <UserSearchSelect
+                name="userId"
+                users={userOptions}
+                placeholder="Search users by name, username, or email"
+              />
               <input name="reason" placeholder="Award reason" className="legal-field" required />
               <button type="submit" className="legal-button-primary w-full">
                 Award Badge
@@ -170,6 +211,7 @@ export default async function GamificationPage() {
             </form>
           </section>
 
+          {/* Manual Point Adjustment */}
           <section className="legal-panel p-5 md:p-6">
             <h2 className="text-xl font-semibold tracking-[-0.03em] text-[#2F1D3B]">Manual Point Adjustment</h2>
             <p className="mt-2 text-sm leading-7 text-slate-600">
@@ -177,7 +219,11 @@ export default async function GamificationPage() {
             </p>
             <form action={adminGamificationAction} className="mt-5 space-y-3">
               <input type="hidden" name="intent" value="manual_adjustment" />
-              <input name="userId" placeholder="Target user ID" className="legal-field" required />
+              <UserSearchSelect
+                name="userId"
+                users={userOptions}
+                placeholder="Search users by name, username, or email"
+              />
               <input name="pointsDelta" type="number" placeholder="Points delta, positive or negative" className="legal-field" required />
               <input name="reason" placeholder="Reason for manual adjustment" className="legal-field" required />
               <button type="submit" className="legal-button-secondary w-full">
@@ -188,6 +234,7 @@ export default async function GamificationPage() {
         </div>
       </div>
 
+      {/* ── Badge Catalog ── */}
       <section className="legal-panel p-5 md:p-6">
         <h2 className="text-xl font-semibold tracking-[-0.03em] text-[#2F1D3B]">Badge Catalog</h2>
         <p className="mt-2 text-sm leading-7 text-slate-600">
@@ -210,7 +257,6 @@ export default async function GamificationPage() {
                     {badge.pointsAwarded} points / {badge.awardCount} awards issued
                   </p>
                 </div>
-
                 <form action={adminGamificationAction} className="grid gap-3 xl:w-[240px]">
                   <input type="hidden" name="intent" value="toggle_badge" />
                   <input type="hidden" name="badgeId" value={badge.id} />
@@ -226,6 +272,7 @@ export default async function GamificationPage() {
         </div>
       </section>
 
+      {/* ── Recent activity ── */}
       <div className="grid gap-6 xl:grid-cols-2">
         <section className="legal-panel p-5 md:p-6">
           <h2 className="text-xl font-semibold tracking-[-0.03em] text-[#2F1D3B]">Recent Badge Awards</h2>
@@ -249,14 +296,18 @@ export default async function GamificationPage() {
               <div key={event.id} className="rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] p-4">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-semibold text-[#2F1D3B]">{event.displayName}</p>
-                  <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${event.pointsDelta >= 0 ? "bg-[#E6F5EF] text-[#0E7A55]" : "bg-[#FCE8E6] text-[#A33A31]"}`}>
-                    {event.pointsDelta >= 0 ? "+" : ""}
-                    {event.pointsDelta} pts
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                    event.pointsDelta >= 0 ? "bg-[#E6F5EF] text-[#0E7A55]" : "bg-[#FCE8E6] text-[#A33A31]"
+                  }`}>
+                    {event.pointsDelta >= 0 ? "+" : ""}{event.pointsDelta} pts
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-slate-500">{formatDate(event.createdAt)}</p>
-                <p className="mt-2 text-sm text-slate-600">{event.metadataSummary ?? "No metadata summary stored."}</p>
-              </div>
+<p className="mt-2 text-sm text-slate-600">
+  {event.metadataSummary 
+    ? event.metadataSummary.split(" / actorId:")[0] 
+    : "No metadata summary stored."}
+</p>              </div>
             ))}
           </div>
         </section>

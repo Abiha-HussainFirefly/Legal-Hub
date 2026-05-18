@@ -30,7 +30,6 @@ function buildPageHref(
       params.delete(key);
       continue;
     }
-
     params.set(key, `${value}`);
   }
 
@@ -59,7 +58,6 @@ function buildVisiblePages(currentPage: number, totalPages: number) {
   const startPage = Math.max(1, currentPage - 2);
   const endPage = Math.min(totalPages, startPage + 4);
   const adjustedStart = Math.max(1, endPage - 4);
-
   return Array.from({ length: endPage - adjustedStart + 1 }, (_, index) => adjustedStart + index);
 }
 
@@ -100,45 +98,30 @@ export default async function TaxonomyPage({
 }) {
   const resolvedSearchParams = (await searchParams) ?? {};
   const data = await getAdminTaxonomyPageData();
+
   const categoryTable = paginateRows(data.categories, parsePageParam(getFirstParam(resolvedSearchParams.categoriesPage)), TABLE_PAGE_SIZE);
-  const tagTable = paginateRows(data.tags, parsePageParam(getFirstParam(resolvedSearchParams.tagsPage)), TABLE_PAGE_SIZE);
-  const regionTable = paginateRows(data.regions, parsePageParam(getFirstParam(resolvedSearchParams.regionsPage)), TABLE_PAGE_SIZE);
-  const courtTable = paginateRows(data.courts, parsePageParam(getFirstParam(resolvedSearchParams.courtsPage)), TABLE_PAGE_SIZE);
+  const tagTable      = paginateRows(data.tags,       parsePageParam(getFirstParam(resolvedSearchParams.tagsPage)),       TABLE_PAGE_SIZE);
+  const regionTable   = paginateRows(data.regions,    parsePageParam(getFirstParam(resolvedSearchParams.regionsPage)),    TABLE_PAGE_SIZE);
+  const courtTable    = paginateRows(data.courts,     parsePageParam(getFirstParam(resolvedSearchParams.courtsPage)),     TABLE_PAGE_SIZE);
 
   const categoryPages = buildVisiblePages(categoryTable.currentPage, categoryTable.totalPages);
-  const tagPages = buildVisiblePages(tagTable.currentPage, tagTable.totalPages);
-  const regionPages = buildVisiblePages(regionTable.currentPage, regionTable.totalPages);
-  const courtPages = buildVisiblePages(courtTable.currentPage, courtTable.totalPages);
+  const tagPages      = buildVisiblePages(tagTable.currentPage,      tagTable.totalPages);
+  const regionPages   = buildVisiblePages(regionTable.currentPage,   regionTable.totalPages);
+  const courtPages    = buildVisiblePages(courtTable.currentPage,     courtTable.totalPages);
+
+  
+  const allRegions = data.regions;
 
   const summaryCards = [
-    {
-      title: "Categories",
-      value: data.summary.categories,
-      detail: `${data.summary.inactiveCategories} inactive`,
-      icon: Scale,
-    },
-    {
-      title: "Tags",
-      value: data.summary.tags,
-      detail: `${data.summary.inactiveTags} inactive`,
-      icon: Tags,
-    },
-    {
-      title: "Regions",
-      value: data.summary.regions,
-      detail: `${data.summary.inactiveRegions} inactive`,
-      icon: MapPinned,
-    },
-    {
-      title: "Courts",
-      value: data.summary.courts,
-      detail: `${data.summary.inactiveCourts} inactive`,
-      icon: FileSpreadsheet,
-    },
+    { title: "Categories", value: data.summary.categories, detail: `${data.summary.inactiveCategories} inactive`, icon: Scale },
+    { title: "Tags",       value: data.summary.tags,       detail: `${data.summary.inactiveTags} inactive`,       icon: Tags },
+    { title: "Regions",    value: data.summary.regions,    detail: `${data.summary.inactiveRegions} inactive`,    icon: MapPinned },
+    { title: "Courts",     value: data.summary.courts,     detail: `${data.summary.inactiveCourts} inactive`,     icon: FileSpreadsheet },
   ];
 
   return (
     <div className="space-y-6">
+      {/* ── Header ── */}
       <section className="legal-panel px-6 py-7 md:px-8">
         <p className="legal-kicker">Taxonomy & Seed Data</p>
         <h1 className="mt-4 text-4xl font-semibold tracking-[-0.05em] text-[#102033]">
@@ -151,10 +134,10 @@ export default async function TaxonomyPage({
         </p>
       </section>
 
+      {/* ── Summary cards ── */}
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {summaryCards.map((card) => {
           const Icon = card.icon;
-
           return (
             <div key={card.title} className="legal-panel p-5">
               <div className="flex items-start justify-between gap-4">
@@ -172,7 +155,9 @@ export default async function TaxonomyPage({
         })}
       </section>
 
+      {/* ── Create forms ── */}
       <div className="grid gap-6 xl:grid-cols-2">
+        {/* Create Category */}
         <TaxonomyCard
           title="Create Category"
           description="Use this for new legal content lanes or practice-area references. Prefer deactivation over deletion once referenced."
@@ -181,7 +166,7 @@ export default async function TaxonomyPage({
             <input type="hidden" name="entity" value="category" />
             <input type="hidden" name="intent" value="create" />
             <input name="name" placeholder="Category name" className="legal-field" required />
-            <input name="slug" placeholder="category-slug" className="legal-field" />
+            <input name="slug" placeholder="category-slug (auto-generated)" className="legal-field" />
             <select name="scope" className="legal-field">
               <option value="BOTH">Discussion and case</option>
               <option value="DISCUSSION">Discussion only</option>
@@ -195,6 +180,7 @@ export default async function TaxonomyPage({
           </form>
         </TaxonomyCard>
 
+        {/* Create Tag */}
         <TaxonomyCard
           title="Create Tag"
           description="Curate topic coverage carefully to avoid synonym sprawl. Use consistent tag types for ranking and discovery quality."
@@ -203,7 +189,7 @@ export default async function TaxonomyPage({
             <input type="hidden" name="entity" value="tag" />
             <input type="hidden" name="intent" value="create" />
             <input name="name" placeholder="Tag name" className="legal-field" required />
-            <input name="slug" placeholder="tag-slug" className="legal-field" />
+            <input name="slug" placeholder="tag-slug (auto-generated)" className="legal-field" />
             <select name="tagType" className="legal-field">
               <option value="TOPIC">Topic</option>
               <option value="PRACTICE_AREA">Practice area</option>
@@ -218,6 +204,7 @@ export default async function TaxonomyPage({
           </form>
         </TaxonomyCard>
 
+        {/* Create Region */}
         <TaxonomyCard
           title="Create Region"
           description="Region hierarchy affects lawyer trust, case routing, and court mapping. Keep structure consistent."
@@ -226,7 +213,7 @@ export default async function TaxonomyPage({
             <input type="hidden" name="entity" value="region" />
             <input type="hidden" name="intent" value="create" />
             <input name="name" placeholder="Region name" className="legal-field" required />
-            <input name="slug" placeholder="region-slug" className="legal-field" />
+            <input name="slug" placeholder="region-slug (auto-generated)" className="legal-field" />
             <select name="regionType" className="legal-field">
               <option value="STATE">State</option>
               <option value="COUNTRY">Country</option>
@@ -235,7 +222,7 @@ export default async function TaxonomyPage({
               <option value="CITY">City</option>
               <option value="DISTRICT">District</option>
             </select>
-            <input name="countryCode" placeholder="Country code" className="legal-field" />
+            <input name="countryCode" placeholder="Country code e.g. PK" className="legal-field" />
             <input name="reason" placeholder="Reason for creation" className="legal-field md:col-span-2" required />
             <button type="submit" className="legal-button-primary md:col-span-2 md:w-fit">
               Create Region
@@ -243,6 +230,7 @@ export default async function TaxonomyPage({
           </form>
         </TaxonomyCard>
 
+        
         <TaxonomyCard
           title="Create Court"
           description="Court-to-region integrity matters for repository classification and legal navigation."
@@ -251,7 +239,7 @@ export default async function TaxonomyPage({
             <input type="hidden" name="entity" value="court" />
             <input type="hidden" name="intent" value="create" />
             <input name="name" placeholder="Court name" className="legal-field" required />
-            <input name="slug" placeholder="court-slug" className="legal-field" />
+            <input name="slug" placeholder="court-slug (auto-generated)" className="legal-field" />
             <select name="courtLevel" className="legal-field">
               <option value="OTHER">Other</option>
               <option value="LOCAL">Local</option>
@@ -261,8 +249,21 @@ export default async function TaxonomyPage({
               <option value="SUPREME">Supreme</option>
               <option value="TRIBUNAL">Tribunal</option>
             </select>
-            <input name="regionId" placeholder="Linked region ID" className="legal-field" />
-            <input name="websiteUrl" placeholder="Official website URL" className="legal-field" />
+
+            
+            <select name="regionId" className="legal-field">
+              <option value="">No region (national)</option>
+              {allRegions
+                .filter((r) => r.isActive)
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((region) => (
+                  <option key={region.id} value={region.id}>
+                    {region.name} ({prettyText(region.type)})
+                  </option>
+                ))}
+            </select>
+
+            <input name="websiteUrl" placeholder="Official website URL" className="legal-field md:col-span-2" />
             <input name="reason" placeholder="Reason for creation" className="legal-field md:col-span-2" required />
             <button type="submit" className="legal-button-primary md:col-span-2 md:w-fit">
               Create Court
@@ -271,7 +272,9 @@ export default async function TaxonomyPage({
         </TaxonomyCard>
       </div>
 
+      {/* ── Tables ── */}
       <div className="grid gap-6 xl:grid-cols-2">
+        {/* Categories table */}
         <TaxonomyCard
           title="Categories"
           description="Dependency-aware deactivation is safer than deletion once discussions, cases, or lawyer-practice references exist."
@@ -325,7 +328,6 @@ export default async function TaxonomyPage({
                 </tbody>
               </table>
             </div>
-
             <AdminPagination
               start={categoryTable.start}
               end={categoryTable.end}
@@ -335,18 +337,15 @@ export default async function TaxonomyPage({
                 pageNumber,
                 href: buildPageHref(resolvedSearchParams, { categoriesPage: pageNumber }),
               }))}
-              previousHref={buildPageHref(resolvedSearchParams, {
-                categoriesPage: Math.max(1, categoryTable.currentPage - 1),
-              })}
-              nextHref={buildPageHref(resolvedSearchParams, {
-                categoriesPage: Math.min(categoryTable.totalPages, categoryTable.currentPage + 1),
-              })}
+              previousHref={buildPageHref(resolvedSearchParams, { categoriesPage: Math.max(1, categoryTable.currentPage - 1) })}
+              nextHref={buildPageHref(resolvedSearchParams, { categoriesPage: Math.min(categoryTable.totalPages, categoryTable.currentPage + 1) })}
               isFirstPage={categoryTable.currentPage === 1}
               isLastPage={categoryTable.currentPage === categoryTable.totalPages}
             />
           </div>
         </TaxonomyCard>
 
+        {/* Tags table */}
         <TaxonomyCard
           title="Tags"
           description="Use deactivation to retire noisy labels. Merge and bulk-curation workflows remain a recommended next step."
@@ -397,7 +396,6 @@ export default async function TaxonomyPage({
                 </tbody>
               </table>
             </div>
-
             <AdminPagination
               start={tagTable.start}
               end={tagTable.end}
@@ -407,12 +405,8 @@ export default async function TaxonomyPage({
                 pageNumber,
                 href: buildPageHref(resolvedSearchParams, { tagsPage: pageNumber }),
               }))}
-              previousHref={buildPageHref(resolvedSearchParams, {
-                tagsPage: Math.max(1, tagTable.currentPage - 1),
-              })}
-              nextHref={buildPageHref(resolvedSearchParams, {
-                tagsPage: Math.min(tagTable.totalPages, tagTable.currentPage + 1),
-              })}
+              previousHref={buildPageHref(resolvedSearchParams, { tagsPage: Math.max(1, tagTable.currentPage - 1) })}
+              nextHref={buildPageHref(resolvedSearchParams, { tagsPage: Math.min(tagTable.totalPages, tagTable.currentPage + 1) })}
               isFirstPage={tagTable.currentPage === 1}
               isLastPage={tagTable.currentPage === tagTable.totalPages}
             />
@@ -421,6 +415,7 @@ export default async function TaxonomyPage({
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
+        {/* Regions table */}
         <TaxonomyCard
           title="Regions"
           description="Region hierarchy influences courts, practice areas, and legal trust views."
@@ -474,7 +469,6 @@ export default async function TaxonomyPage({
                 </tbody>
               </table>
             </div>
-
             <AdminPagination
               start={regionTable.start}
               end={regionTable.end}
@@ -484,18 +478,15 @@ export default async function TaxonomyPage({
                 pageNumber,
                 href: buildPageHref(resolvedSearchParams, { regionsPage: pageNumber }),
               }))}
-              previousHref={buildPageHref(resolvedSearchParams, {
-                regionsPage: Math.max(1, regionTable.currentPage - 1),
-              })}
-              nextHref={buildPageHref(resolvedSearchParams, {
-                regionsPage: Math.min(regionTable.totalPages, regionTable.currentPage + 1),
-              })}
+              previousHref={buildPageHref(resolvedSearchParams, { regionsPage: Math.max(1, regionTable.currentPage - 1) })}
+              nextHref={buildPageHref(resolvedSearchParams, { regionsPage: Math.min(regionTable.totalPages, regionTable.currentPage + 1) })}
               isFirstPage={regionTable.currentPage === 1}
               isLastPage={regionTable.currentPage === regionTable.totalPages}
             />
           </div>
         </TaxonomyCard>
 
+        {/* Courts table */}
         <TaxonomyCard
           title="Courts"
           description="Keep courts mapped carefully so case routing and reporting remain jurisdictionally accurate."
@@ -557,7 +548,6 @@ export default async function TaxonomyPage({
                 </tbody>
               </table>
             </div>
-
             <AdminPagination
               start={courtTable.start}
               end={courtTable.end}
@@ -567,19 +557,14 @@ export default async function TaxonomyPage({
                 pageNumber,
                 href: buildPageHref(resolvedSearchParams, { courtsPage: pageNumber }),
               }))}
-              previousHref={buildPageHref(resolvedSearchParams, {
-                courtsPage: Math.max(1, courtTable.currentPage - 1),
-              })}
-              nextHref={buildPageHref(resolvedSearchParams, {
-                courtsPage: Math.min(courtTable.totalPages, courtTable.currentPage + 1),
-              })}
+              previousHref={buildPageHref(resolvedSearchParams, { courtsPage: Math.max(1, courtTable.currentPage - 1) })}
+              nextHref={buildPageHref(resolvedSearchParams, { courtsPage: Math.min(courtTable.totalPages, courtTable.currentPage + 1) })}
               isFirstPage={courtTable.currentPage === 1}
               isLastPage={courtTable.currentPage === courtTable.totalPages}
             />
           </div>
         </TaxonomyCard>
       </div>
-
     </div>
   );
 }

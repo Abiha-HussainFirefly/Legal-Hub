@@ -290,6 +290,37 @@ export async function adminReferenceDataAction(formData: FormData) {
   if (intent === "create") {
     if (!createCommon.name || !createCommon.slug) throw new Error("Name and slug are required");
 
+    // ✅ Validate regionId exists before transaction (courts only)
+    if (entity === "court") {
+      const regionId = normalizeText(formData.get("regionId"));
+      if (regionId) {
+        const regionExists = await prisma.region.findUnique({
+          where: { id: regionId },
+          select: { id: true },
+        });
+        if (!regionExists) {
+          throw new Error(
+            `The selected region does not exist. Please create the region first, then add the court.`
+          );
+        }
+      }
+    }
+
+    // ✅ Guard against duplicate slugs before entering the transaction
+    const slugExists = await (async () => {
+      if (entity === "category") return prisma.category.findUnique({ where: { slug: createCommon.slug } });
+      if (entity === "tag")      return prisma.tag.findUnique({ where: { slug: createCommon.slug } });
+      if (entity === "region")   return prisma.region.findUnique({ where: { slug: createCommon.slug } });
+      if (entity === "court")    return prisma.court.findUnique({ where: { slug: createCommon.slug } });
+      return null;
+    })();
+
+    if (slugExists) {
+      throw new Error(
+        `A ${entity} with the slug "${createCommon.slug}" already exists. Choose a different name or slug.`
+      );
+    }
+
     await prisma.$transaction(async (tx) => {
       let targetId = "";
 
@@ -485,7 +516,6 @@ export async function adminGamificationAction(formData: FormData) {
 
     if (!badge) throw new Error("Badge not found");
 
-    // ✅ Validate user exists before entering the transaction
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { id: true },

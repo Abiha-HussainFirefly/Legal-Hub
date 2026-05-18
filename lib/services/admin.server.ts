@@ -36,11 +36,6 @@ const FILE_SCAN_STATUSES = new Set(Object.values(FileScanStatus));
 const NOTIFICATION_TYPES = new Set(Object.values(NotificationType));
 const REQUIRED_VERIFICATION_DOCUMENT_TYPES = ["BAR_LICENSE", "NATIONAL_ID"] as const;
 const GAMIFICATION_LEADERBOARD_EXCLUDED_TOKENS = [
-  "fatimanoor",
-  "ahmedali",
-  "nimrakhan",
-  "hassanraza",
-  "shahidkhan",
   "admin",
 ] as const;
 
@@ -1547,16 +1542,38 @@ export async function getAdminDashboardData(filters: AdminDashboardFilters = {})
       },
     }),
     prisma.lawyerVerificationRequest.count({
-      where: { status: { in: [LawyerVerificationStatus.PENDING, LawyerVerificationStatus.UNDER_REVIEW] } },
+      where: {
+        lawyerProfile: {
+          is: {
+            user: realUserWhere,
+          },
+        },
+        status: { in: [LawyerVerificationStatus.PENDING, LawyerVerificationStatus.UNDER_REVIEW] },
+      },
     }),
     prisma.lawyerProfile.count({
-      where: { verificationStatus: LawyerVerificationStatus.VERIFIED },
-    }),
-    prisma.lawyerVerificationRequest.count({
-      where: { status: LawyerVerificationStatus.REJECTED },
+      where: {
+        verificationStatus: LawyerVerificationStatus.VERIFIED,
+        user: realUserWhere,
+      },
     }),
     prisma.lawyerVerificationRequest.count({
       where: {
+        lawyerProfile: {
+          is: {
+            user: realUserWhere,
+          },
+        },
+        status: LawyerVerificationStatus.REJECTED,
+      },
+    }),
+    prisma.lawyerVerificationRequest.count({
+      where: {
+        lawyerProfile: {
+          is: {
+            user: realUserWhere,
+          },
+        },
         status: { in: [LawyerVerificationStatus.PENDING, LawyerVerificationStatus.UNDER_REVIEW] },
         expiresAt: { gte: now, lte: nextSevenDays },
       },
@@ -1675,6 +1692,11 @@ export async function getAdminDashboardData(filters: AdminDashboardFilters = {})
     }),
     prisma.lawyerVerificationRequest.findMany({
       where: {
+        lawyerProfile: {
+          is: {
+            user: realUserWhere,
+          },
+        },
         status: { in: [LawyerVerificationStatus.PENDING, LawyerVerificationStatus.UNDER_REVIEW] },
       },
       select: {
@@ -2325,6 +2347,43 @@ export async function getAdminUsersPageData(filters: AdminUsersFilters = {}): Pr
       createdAt: row.createdAt,
     })),
   };
+}
+
+export async function getAdminUserSearchSuggestions(limit = 24): Promise<string[]> {
+  const realUserWhere = buildRealUserWhere();
+  const safeLimit = Math.min(Math.max(limit, 1), 50);
+  const rows = await prisma.user.findMany({
+    where: realUserWhere,
+    select: {
+      displayName: true,
+      profile: {
+        select: {
+          username: true,
+        },
+      },
+      identifiers: {
+        where: { type: "EMAIL", isPrimary: true },
+        select: { value: true },
+        take: 1,
+      },
+    },
+    orderBy: [{ createdAt: "desc" }, { displayName: "asc" }],
+    take: safeLimit,
+  });
+
+  const suggestions = new Set<string>();
+
+  for (const row of rows) {
+    const displayName = row.displayName?.trim();
+    const username = row.profile?.username?.trim();
+    const email = row.identifiers[0]?.value?.trim();
+
+    if (displayName) suggestions.add(displayName);
+    if (username) suggestions.add(`@${username}`);
+    if (email) suggestions.add(email);
+  }
+
+  return Array.from(suggestions).slice(0, safeLimit);
 }
 
 export async function getAdminRolesPageData(filters: {
@@ -5356,15 +5415,34 @@ export async function getAdminReportsData(filters: AdminReportsFilters = {}): Pr
       select: { publishedAt: true, region: { select: { name: true } }, court: { select: { name: true } }, category: { select: { name: true } } },
     }),
     prisma.lawyerVerificationRequest.findMany({
-      where: { submittedAt: { gte: rangeStart } },
+      where: {
+        lawyerProfile: {
+          is: {
+            user: realUserWhere,
+          },
+        },
+        submittedAt: { gte: rangeStart },
+      },
       select: { submittedAt: true },
     }),
     prisma.lawyerProfile.findMany({
-      where: { verifiedAt: { gte: rangeStart }, verificationStatus: LawyerVerificationStatus.VERIFIED },
+      where: {
+        verifiedAt: { gte: rangeStart },
+        verificationStatus: LawyerVerificationStatus.VERIFIED,
+        user: realUserWhere,
+      },
       select: { verifiedAt: true },
     }),
     prisma.lawyerVerificationRequest.findMany({
-      where: { status: LawyerVerificationStatus.REJECTED, reviewedAt: { gte: rangeStart } },
+      where: {
+        lawyerProfile: {
+          is: {
+            user: realUserWhere,
+          },
+        },
+        status: LawyerVerificationStatus.REJECTED,
+        reviewedAt: { gte: rangeStart },
+      },
       select: { reviewedAt: true },
     }),
     prisma.contentReport.findMany({
@@ -5413,7 +5491,14 @@ export async function getAdminReportsData(filters: AdminReportsFilters = {}): Pr
       select: { createdAt: true },
     }),
     prisma.lawyerVerificationRequest.findFirst({
-      where: { status: { in: [LawyerVerificationStatus.PENDING, LawyerVerificationStatus.UNDER_REVIEW] } },
+      where: {
+        lawyerProfile: {
+          is: {
+            user: realUserWhere,
+          },
+        },
+        status: { in: [LawyerVerificationStatus.PENDING, LawyerVerificationStatus.UNDER_REVIEW] },
+      },
       orderBy: { submittedAt: "asc" },
       select: { submittedAt: true },
     }),

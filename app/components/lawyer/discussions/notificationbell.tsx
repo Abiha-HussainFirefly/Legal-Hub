@@ -1,5 +1,6 @@
 'use client';
 
+import { useToast } from '@/app/components/ui/toast/toast-context';
 import { apiRequest } from '@/lib/api-client';
 import { Bell, CheckCheck, MessageSquare, UserCheck, AlertCircle, Award, ThumbsUp } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -46,21 +47,50 @@ function Icon({ type }: { type: string }) {
 
 export default function NotificationBell() {
   const router = useRouter();
+  const { addToast } = useToast();
   const [open,   setOpen]   = useState(false);
   const [items,  setItems]  = useState<NotifItem[]>([]);
   const [unread, setUnread] = useState(0);
   const [busy,   setBusy]   = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const seenNotificationIdsRef = useRef<Set<string>>(new Set());
+  const hasLoadedInitialNotificationsRef = useRef(false);
 
   const load = useCallback(async () => {
     
     if (items.length === 0) setBusy(true);
     try {
       const d = await apiRequest<{ data?: NotifItem[]; unreadCount?: number }>('/api/notifications?limit=15');
-      setItems(d.data ?? []);
+      const nextItems = d.data ?? [];
+      const seenIds = seenNotificationIdsRef.current;
+
+      if (!hasLoadedInitialNotificationsRef.current) {
+        for (const item of nextItems) {
+          seenIds.add(item.id);
+        }
+        hasLoadedInitialNotificationsRef.current = true;
+      } else {
+        const freshItems = nextItems.filter((item) => !seenIds.has(item.id));
+
+        for (const item of freshItems) {
+          addToast(
+            'info',
+            item.title,
+            item.message ?? item.discussion?.title ?? 'A new notification is available.',
+            true,
+            6000,
+          );
+        }
+
+        for (const item of nextItems) {
+          seenIds.add(item.id);
+        }
+      }
+
+      setItems(nextItems);
       setUnread(d.unreadCount ?? 0);
     } finally { setBusy(false); }
-  }, [items.length]);
+  }, [addToast, items.length]);
 
   async function markAll() {
     

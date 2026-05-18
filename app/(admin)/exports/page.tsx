@@ -1,4 +1,5 @@
 import AdminSearchField from "@/app/components/admin/AdminSearchField";
+import { getAdminUserSearchSuggestions } from "@/lib/services/admin.server";
 
 function ExportCard({
   title,
@@ -36,7 +37,9 @@ function ExportForm({
   );
 }
 
-export default function AdminExportsPage() {
+export default async function AdminExportsPage() {
+  const userSuggestions = await getAdminUserSearchSuggestions();
+
   return (
     <div className="space-y-6">
       <section className="legal-panel px-6 py-7 md:px-8">
@@ -58,7 +61,12 @@ export default function AdminExportsPage() {
         >
           <ExportForm dataset="users">
             <div className="grid gap-3 md:grid-cols-2">
-              <AdminSearchField placeholder="Name, email, username, organization" wrapperClassName="md:col-span-2" />
+              <AdminSearchField
+                placeholder="Name, email, username, organization"
+                wrapperClassName="md:col-span-2"
+                listId="admin-export-user-suggestions"
+                suggestions={userSuggestions}
+              />
               <select name="status" className="legal-field">
                 <option value="">All statuses</option>
                 <option value="ACTIVE">Active</option>

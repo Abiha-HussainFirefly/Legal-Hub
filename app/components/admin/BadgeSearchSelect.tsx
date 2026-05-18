@@ -11,10 +11,6 @@ type BadgeOption = {
   isActive: boolean;
 };
 
-function buildBadgeLabel(badge: BadgeOption) {
-  return `${badge.name} (${badge.code}) - ${badge.pointsAwarded} pts`;
-}
-
 export default function BadgeSearchSelect({
   badges,
   name,
@@ -23,52 +19,64 @@ export default function BadgeSearchSelect({
   name: string;
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
+
   const options = useMemo(
-    () =>
-      badges.map((badge) => ({
-        ...badge,
-        label: buildBadgeLabel(badge),
-      })),
+    () => [...badges].sort((a, b) => Number(b.isActive) - Number(a.isActive)),
     [badges],
   );
-  const [query, setQuery] = useState("");
+
+  const [query, setQuery]               = useState("");
   const [selectedBadgeId, setSelectedBadgeId] = useState("");
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen]             = useState(false);
+
   const filteredOptions = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    const sorted = [...options].sort((left, right) => Number(right.isActive) - Number(left.isActive));
-
-    if (!normalizedQuery) return sorted.slice(0, 8);
-
-    return sorted
-      .filter((badge) =>
-        [badge.name, badge.code, `${badge.pointsAwarded}`, badge.label].some((value) =>
-          value.toLowerCase().includes(normalizedQuery),
+    const q = query.trim().toLowerCase();
+    if (!q) return options.slice(0, 8);
+    return options
+      .filter((b) =>
+        [b.name, b.code, `${b.pointsAwarded}`].some((v) =>
+          v.toLowerCase().includes(q),
         ),
       )
       .slice(0, 8);
   }, [options, query]);
 
   useEffect(() => {
-    function handlePointerDown(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
+    function handlePointerDown(e: MouseEvent) {
+      if (!rootRef.current?.contains(e.target as Node)) setIsOpen(false);
     }
-
     document.addEventListener("mousedown", handlePointerDown);
     return () => document.removeEventListener("mousedown", handlePointerDown);
   }, []);
 
-  function syncSelection(nextValue: string, input: HTMLInputElement) {
-    const exactMatch = options.find((badge) => badge.label === nextValue);
-    setSelectedBadgeId(exactMatch?.id ?? "");
-    input.setCustomValidity(exactMatch ? "" : "Select a badge from the suggestions.");
+  function selectBadge(badge: BadgeOption) {
+    // ✅ Show only the badge name in the input, not the full label
+    setQuery(badge.name);
+    setSelectedBadgeId(badge.id);
+    setIsOpen(false);
   }
 
-  function selectBadge(badge: (typeof options)[number]) {
-    setQuery(badge.label);
-    setSelectedBadgeId(badge.id);
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const val = e.target.value;
+    setQuery(val);
+    // If user edits the text, clear the selection
+    setSelectedBadgeId("");
+    e.target.setCustomValidity("Select a badge from the suggestions.");
+    setIsOpen(true);
+  }
+
+  function handleBlur(e: React.FocusEvent<HTMLInputElement>) {
+    // Re-validate: if a badge is selected the field is valid
+    if (selectedBadgeId) {
+      e.target.setCustomValidity("");
+    } else {
+      e.target.setCustomValidity("Select a badge from the suggestions.");
+    }
+  }
+
+  function clear() {
+    setQuery("");
+    setSelectedBadgeId("");
     setIsOpen(false);
   }
 
@@ -79,30 +87,37 @@ export default function BadgeSearchSelect({
       <div className="relative">
         <input
           value={query}
-          onChange={(event) => {
-            const nextValue = event.target.value;
-            setQuery(nextValue);
-            syncSelection(nextValue, event.target);
-            setIsOpen(true);
-          }}
+          onChange={handleInputChange}
           onFocus={() => setIsOpen(true)}
-          onBlur={(event) => syncSelection(event.target.value, event.target)}
+          onBlur={handleBlur}
           placeholder="Search badges by name, code, or points"
           className="legal-field pr-12"
           autoComplete="off"
           required
         />
 
-        <button
-          type="button"
-          onClick={() => setIsOpen((current) => !current)}
-          className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-[#8C7A9B] transition hover:text-[#4C2F5E]"
-          aria-label="Toggle badge suggestions"
-        >
-          <ChevronDown className={`h-4 w-4 transition ${isOpen ? "rotate-180" : ""}`} />
-        </button>
+        
+        {selectedBadgeId ? (
+          <button
+            type="button"
+            onClick={clear}
+            className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-slate-400 hover:text-slate-600"
+            aria-label="Clear badge selection"
+          >
+            ✕
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setIsOpen((v) => !v)}
+            className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-[#8C7A9B] transition hover:text-[#4C2F5E]"
+            aria-label="Toggle badge suggestions"
+          >
+            <ChevronDown className={`h-4 w-4 transition ${isOpen ? "rotate-180" : ""}`} />
+          </button>
+        )}
 
-        {isOpen ? (
+        {isOpen && (
           <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 overflow-hidden rounded-[22px] border border-[#4C2F5E]/12 bg-white shadow-[0_20px_40px_rgba(47,29,59,0.12)]">
             <div className="border-b border-[#4C2F5E]/8 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8C7A9B]">
               {query.trim() ? "Matching badges" : "Suggested badges"}
@@ -114,7 +129,7 @@ export default function BadgeSearchSelect({
                   <button
                     key={badge.id}
                     type="button"
-                    onMouseDown={(event) => event.preventDefault()}
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={() => selectBadge(badge)}
                     className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition hover:bg-[#FBF9FD]"
                   >
@@ -126,7 +141,9 @@ export default function BadgeSearchSelect({
                     </div>
                     <span
                       className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                        badge.isActive ? "bg-[#E6F5EF] text-[#0E7A55]" : "bg-[#FCE8E6] text-[#A33A31]"
+                        badge.isActive
+                          ? "bg-[#E6F5EF] text-[#0E7A55]"
+                          : "bg-[#FCE8E6] text-[#A33A31]"
                       }`}
                     >
                       {badge.isActive ? "Active" : "Retired"}
@@ -138,9 +155,8 @@ export default function BadgeSearchSelect({
               <p className="px-4 py-4 text-sm text-slate-500">No badges match this search.</p>
             )}
           </div>
-        ) : null}
+        )}
       </div>
-
     </div>
   );
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import { useToast } from '@/app/components/ui/toast/toast-context';
 import ThemeModeSelector from '@/app/components/theme/ThemeModeSelector';
 import { ADMIN_PERMISSION_KEYS, canAccessAdminPortal, canAccessAdminPermission, getAdminPermissionForPath } from '@/lib/auth/roles';
 import { logoutClientSession } from '@/lib/auth/client-session';
@@ -86,6 +87,7 @@ export default function Sidebar() {
   const router = useRouter();
   const { isOpen, isMobile } = useSidebar();
   const { data: session } = useSession();
+  const { addToast } = useToast();
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
@@ -94,6 +96,8 @@ export default function Sidebar() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const seenNotificationIdsRef = useRef<Set<string>>(new Set());
+  const hasLoadedInitialNotificationsRef = useRef(false);
 
   const sidebarWidth = isMobile ? (isOpen ? '256px' : '0px') : isOpen ? '256px' : '72px';
   const showLabels = isOpen;
@@ -143,6 +147,8 @@ export default function Sidebar() {
         setNotifications([]);
         setUnreadCount(0);
         setNotificationsLoading(false);
+        seenNotificationIdsRef.current = new Set();
+        hasLoadedInitialNotificationsRef.current = false;
         return;
       }
 
@@ -155,30 +161,55 @@ export default function Sidebar() {
         const payload = await response.json();
         if (ignore) return;
 
+        const nextNotifications: Notification[] = Array.isArray(payload.items)
+          ? payload.items.map(
+              (item: {
+                id: string;
+                title: string;
+                message: string | null;
+                relativeTime: string;
+                isRead: boolean;
+                relatedHref?: string | null;
+                relatedLabel?: string | null;
+              }) => ({
+                id: item.id,
+                title: item.title,
+                message: item.message ?? '',
+                time: item.relativeTime,
+                read: item.isRead,
+                relatedHref: item.relatedHref ?? null,
+                relatedLabel: item.relatedLabel ?? null,
+              }),
+            )
+          : [];
+
+        const seenIds = seenNotificationIdsRef.current;
+
+        if (!hasLoadedInitialNotificationsRef.current) {
+          for (const item of nextNotifications) {
+            seenIds.add(item.id);
+          }
+          hasLoadedInitialNotificationsRef.current = true;
+        } else {
+          const freshItems = nextNotifications.filter((item) => !seenIds.has(item.id));
+
+          for (const item of freshItems) {
+            addToast(
+              'info',
+              item.title,
+              item.message || item.relatedLabel || 'A new admin notification is available.',
+              true,
+              6000,
+            );
+          }
+
+          for (const item of nextNotifications) {
+            seenIds.add(item.id);
+          }
+        }
+
         setUnreadCount(typeof payload.unreadCount === 'number' ? payload.unreadCount : 0);
-        setNotifications(
-          Array.isArray(payload.items)
-            ? payload.items.map(
-                (item: {
-                  id: string;
-                  title: string;
-                  message: string | null;
-                  relativeTime: string;
-                  isRead: boolean;
-                  relatedHref?: string | null;
-                  relatedLabel?: string | null;
-                }) => ({
-                  id: item.id,
-                  title: item.title,
-                  message: item.message ?? '',
-                  time: item.relativeTime,
-                  read: item.isRead,
-                  relatedHref: item.relatedHref ?? null,
-                  relatedLabel: item.relatedLabel ?? null,
-                }),
-              )
-            : [],
-        );
+        setNotifications(nextNotifications);
       } catch (error) {
         console.error('Failed to load admin shell notifications', error);
       } finally {
@@ -189,11 +220,13 @@ export default function Sidebar() {
     }
 
     loadNotifications();
+    const interval = window.setInterval(loadNotifications, 60000);
 
     return () => {
       ignore = true;
+      window.clearInterval(interval);
     };
-  }, [canViewShellNotifications]);
+  }, [addToast, canViewShellNotifications]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
