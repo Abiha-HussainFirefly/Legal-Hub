@@ -2943,9 +2943,13 @@ export async function getAdminTaxonomyPageData(): Promise<AdminTaxonomyPageData>
 }
 
 export async function getAdminGamificationPageData(): Promise<AdminGamificationPageData> {
+  const realUserWhere = buildRealUserWhere();
   const [leaders, badges, recentAwards, recentManualAdjustments, badgeCount, activeBadges, awardedBadges, totalPointsAwarded, manualAdjustments30d] =
     await Promise.all([
       prisma.userGamification.findMany({
+        where: {
+          user: realUserWhere,
+        },
         orderBy: [{ totalPoints: "desc" }, { level: "desc" }, { updatedAt: "desc" }],
         take: 32,
         select: {

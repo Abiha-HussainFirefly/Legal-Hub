@@ -5,6 +5,7 @@ import AnimatedLink from '@/app/components/ui/animated-link';
 import Tooltip from '@/app/components/ui/tooltip';
 import { apiRequest } from '@/lib/api-client';
 import { applyOptimisticDiscussionReaction } from '@/lib/discussion-reaction-state';
+import { EMOJI_REACTIONS } from '@/lib/constants/reactions';
 import { ArrowUp, Bookmark, BookmarkCheck, Check, Eye, MapPin, MessageSquare, Share2, Smile } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -62,13 +63,6 @@ interface ReactionResponse {
   } | null;
 }
 
-const EMOJI_REACTIONS = [
-  { emoji: '\u{1F44D}', type: 'LIKE', label: 'Like' },
-  { emoji: '\u{2764}\u{FE0F}', type: 'LOVE', label: 'Support' },
-  { emoji: '\u{1F680}', type: 'INSIGHTFUL', label: 'Insightful' },
-  { emoji: '\u{1F440}', type: 'HELPFUL', label: 'Follow' },
-];
-
 function timeAgo(value: string) {
   const minutes = Math.floor((Date.now() - new Date(value).getTime()) / 60000);
   if (minutes < 1) return 'just now';
@@ -88,6 +82,24 @@ function initials(name: string | null) {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join('');
+}
+
+function reactionTooltipText(stat: { count: number; reactors: string[] }) {
+  const uniqueReactors = Array.from(new Set(stat.reactors.filter(Boolean)));
+
+  if (uniqueReactors.length === 0) {
+    return `${stat.count} reaction${stat.count === 1 ? '' : 's'}`;
+  }
+
+  if (uniqueReactors.length === 1) {
+    return `${uniqueReactors[0]} reacted`;
+  }
+
+  if (uniqueReactors.length === 2) {
+    return `${uniqueReactors[0]} and ${uniqueReactors[1]} reacted`;
+  }
+
+  return `${uniqueReactors[0]}, ${uniqueReactors[1]} +${uniqueReactors.length - 2} others reacted`;
 }
 
 export default function DiscussionCard({
@@ -379,7 +391,7 @@ export default function DiscussionCard({
                 </Tooltip>
 
                 {showEmojiPicker ? (
-                  <div className="absolute bottom-11 right-0 z-20 flex items-center gap-1 rounded-full border border-[#4C2F5E]/8 bg-white p-1.5 shadow-[0_12px_26px_rgba(76,47,94,0.08)] lh-form-enter">
+                  <div className="absolute bottom-11 right-0 z-20 flex flex-wrap items-center gap-1 rounded-2xl border border-[#4C2F5E]/8 bg-white p-1.5 shadow-[0_12px_26px_rgba(76,47,94,0.08)] lh-form-enter" style={{ minWidth: '200px', maxWidth: '260px' }}>
                     {EMOJI_REACTIONS.map((reaction) => (
                       <Tooltip key={reaction.emoji} content={reaction.label}>
                         <button
@@ -398,23 +410,24 @@ export default function DiscussionCard({
               </div>
 
               {canReact ? activeEmojiEntries.slice(0, 2).map(([emoji, stat]) => (
-                <button
-                  key={emoji}
-                  onClick={() => {
-                    const match = EMOJI_REACTIONS.find((item) => item.emoji === emoji);
-                    if (match) {
-                      void updateReaction({ reactionType: match.type, emoji });
-                    }
-                  }}
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-semibold transition ${
-                    myEmoji === emoji
-                      ? 'border-[#4C2F5E]/16 bg-[#F1EAF6] text-[#4C2F5E]'
-                      : 'border-[#2F1D3B]/10 bg-white text-[#6B5C79] hover:bg-[#F8F6FB]'
-                  }`}
-                >
-                  <span>{emoji}</span>
-                  {stat.count}
-                </button>
+                <Tooltip key={emoji} content={reactionTooltipText(stat)}>
+                  <button
+                    onClick={() => {
+                      const match = EMOJI_REACTIONS.find((item) => item.emoji === emoji);
+                      if (match) {
+                        void updateReaction({ reactionType: match.type, emoji });
+                      }
+                    }}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-semibold transition ${
+                      myEmoji === emoji
+                        ? 'border-[#4C2F5E]/16 bg-[#F1EAF6] text-[#4C2F5E]'
+                        : 'border-[#2F1D3B]/10 bg-white text-[#6B5C79] hover:bg-[#F8F6FB]'
+                    }`}
+                  >
+                    <span>{emoji}</span>
+                    {stat.count}
+                  </button>
+                </Tooltip>
               )) : null}
 
               <AnimatedLink

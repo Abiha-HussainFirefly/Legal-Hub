@@ -273,7 +273,7 @@ export default function ProfilePage({
           name: trimmedName,
           avatarUrl: formData.avatarUrl.trim(),
           linkedInUrl: formData.linkedInUrl.trim(),
-          occupation: formData.occupation,
+          ...(variant === "lawyer" ? { occupation: formData.occupation } : {}),
         });
       }
 
@@ -469,29 +469,31 @@ export default function ProfilePage({
               }
             />
 
-            <DetailCard
-              icon={<UserRound className="h-5 w-5" />}
-              label="Occupation"
-              content={
-                isEditing ? (
-                  <select
-                    value={formData.occupation}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, occupation: e.target.value }))
-                    }
-                    className="w-full rounded-[18px] border border-[var(--border-subtle)] bg-[var(--background-card-nested)] px-4 py-3 text-[15px] text-[var(--heading)] outline-none focus:border-[var(--primary)]"
-                  >
-                    {OCCUPATION_OPTIONS.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <span className="text-[15px] text-[var(--heading)]">{displayData.occupation}</span>
-                )
-              }
-            />
+            {variant === "lawyer" ? (
+              <DetailCard
+                icon={<UserRound className="h-5 w-5" />}
+                label="Occupation"
+                content={
+                  isEditing ? (
+                    <select
+                      value={formData.occupation}
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, occupation: e.target.value }))
+                      }
+                      className="w-full rounded-[18px] border border-[var(--border-subtle)] bg-[var(--background-card-nested)] px-4 py-3 text-[15px] text-[var(--heading)] outline-none focus:border-[var(--primary)]"
+                    >
+                      {OCCUPATION_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="text-[15px] text-[var(--heading)]">{displayData.occupation}</span>
+                  )
+                }
+              />
+            ) : null}
 
             <DetailCard
               icon={<Camera className="h-5 w-5" />}

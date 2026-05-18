@@ -1,7 +1,7 @@
 "use server";
 
 import { auth } from "@/auth";
-import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from "@/lib/auth/roles";
+import { ADMIN_PERMISSION_KEYS, LAWYER_PERMISSION_KEYS, canAccessAdminPermission, canAccessLawyerPermission } from "@/lib/auth/roles";
 import { prisma } from "@/lib/prisma";
 import { compare, hash } from "bcryptjs";
 import { revalidatePath } from "next/cache";
@@ -82,10 +82,17 @@ export async function updateUserDetails(formData: UpdateUserDetailsInput) {
   const userId = session.user.id;
   const roles = session.user.roles ?? [];
   const permissions = session.user.permissions ?? [];
+  const canEditOwnAccount =
+    canAccessLawyerPermission(roles, permissions, LAWYER_PERMISSION_KEYS.ACCOUNT_EDIT_SELF) ||
+    canAccessAdminPermission(roles, permissions, ADMIN_PERMISSION_KEYS.PROFILE_EDIT_SELF) ||
+    canAccessAdminPermission(roles, permissions, LAWYER_PERMISSION_KEYS.ACCOUNT_EDIT_SELF);
+  const canChangeOwnPassword =
+    canAccessLawyerPermission(roles, permissions, LAWYER_PERMISSION_KEYS.ACCOUNT_PASSWORD_CHANGE_SELF) ||
+    canAccessAdminPermission(roles, permissions, LAWYER_PERMISSION_KEYS.ACCOUNT_PASSWORD_CHANGE_SELF);
 
   try {
     if (isProfileUpdate(formData)) {
-      if (!canAccessLawyerPermission(roles, permissions, LAWYER_PERMISSION_KEYS.ACCOUNT_EDIT_SELF)) {
+      if (!canEditOwnAccount) {
         throw new Error("You do not have permission to update account details");
       }
 
@@ -129,7 +136,7 @@ export async function updateUserDetails(formData: UpdateUserDetailsInput) {
     }
 
     if (isPasswordUpdate(formData)) {
-      if (!canAccessLawyerPermission(roles, permissions, LAWYER_PERMISSION_KEYS.ACCOUNT_PASSWORD_CHANGE_SELF)) {
+      if (!canChangeOwnPassword) {
         throw new Error("You do not have permission to change your password");
       }
 

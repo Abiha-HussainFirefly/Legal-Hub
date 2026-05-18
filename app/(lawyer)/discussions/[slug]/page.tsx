@@ -10,6 +10,7 @@ import Tooltip from '@/app/components/ui/tooltip';
 import { apiRequest, getErrorMessage } from '@/lib/api-client';
 import { logoutClientSession } from '@/lib/auth/client-session';
 import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from '@/lib/auth/roles';
+import { EMOJI_REACTIONS } from '@/lib/constants/reactions';
 import {
   ArrowUp,
   Bookmark,
@@ -28,13 +29,6 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { use, useEffect, useRef, useState } from 'react';
-
-const EMOJI_REACTIONS = [
-  { emoji: '\u{1F44D}', type: 'LIKE', label: 'Like' },
-  { emoji: '\u{2764}\u{FE0F}', type: 'LOVE', label: 'Support' },
-  { emoji: '\u{1F680}', type: 'INSIGHTFUL', label: 'Insightful' },
-  { emoji: '\u{1F440}', type: 'HELPFUL', label: 'Follow' },
-];
 
 interface Author {
   id: string;
@@ -147,7 +141,6 @@ interface AuthResponse {
   user?: CurrentUser;
 }
 
-
 function applyOptimisticDiscussionReaction({
   score,
   viewerReaction,
@@ -171,7 +164,6 @@ function applyOptimisticDiscussionReaction({
     viewerReaction?.reactionType === nextReaction.reactionType &&
     (viewerReaction?.emoji ?? null) === (nextReaction.emoji ?? null);
 
-  // Remove previous emoji stat if existed
   if (viewerReaction?.emoji) {
     const prev = updatedEmojiStats[viewerReaction.emoji];
     if (prev) {
@@ -185,13 +177,11 @@ function applyOptimisticDiscussionReaction({
   }
 
   if (isSameReaction) {
-    // Toggle off
     updatedViewerReaction = null;
     if (!viewerReaction?.emoji) {
       updatedScore = score - 1;
     }
   } else {
-    // Apply new reaction
     updatedViewerReaction = {
       reactionType: nextReaction.reactionType,
       emoji: nextReaction.emoji ?? null,
@@ -203,12 +193,10 @@ function applyOptimisticDiscussionReaction({
         count: (existing?.count ?? 0) + 1,
         reactors: existing?.reactors ?? [],
       };
-      // If switching from upvote to emoji, decrease score
       if (viewerReaction?.reactionType === 'UPVOTE' && !viewerReaction?.emoji) {
         updatedScore = score - 1;
       }
     } else {
-      // Plain upvote
       if (!viewerReaction) {
         updatedScore = score + 1;
       }
@@ -252,6 +240,24 @@ function initials(name: string | null) {
         .join('')
         .toUpperCase()
     : 'LH';
+}
+
+function reactionTooltipText(stat: { count: number; reactors: string[] }) {
+  const uniqueReactors = Array.from(new Set(stat.reactors.filter(Boolean)));
+
+  if (uniqueReactors.length === 0) {
+    return `${stat.count} reaction${stat.count === 1 ? '' : 's'}`;
+  }
+
+  if (uniqueReactors.length === 1) {
+    return `${uniqueReactors[0]} reacted`;
+  }
+
+  if (uniqueReactors.length === 2) {
+    return `${uniqueReactors[0]} and ${uniqueReactors[1]} reacted`;
+  }
+
+  return `${uniqueReactors[0]}, ${uniqueReactors[1]} +${uniqueReactors.length - 2} others reacted`;
 }
 
 function kindLabel(value: string) {
@@ -913,7 +919,7 @@ export default function DiscussionDetailPage({
                   </Tooltip>
 
                   {showEmojiPicker ? (
-                    <div className="absolute bottom-12 left-0 z-20 flex items-center gap-1 rounded-full border border-[#2F1D3B]/8 bg-white p-1.5 shadow-[0_12px_26px_rgba(76,47,94,0.08)] lh-form-enter">
+                    <div className="absolute bottom-12 left-0 z-20 flex flex-wrap items-center gap-1 rounded-2xl border border-[#2F1D3B]/8 bg-white p-1.5 shadow-[0_12px_26px_rgba(76,47,94,0.08)] lh-form-enter" style={{ minWidth: '220px', maxWidth: '280px' }}>
                       {EMOJI_REACTIONS.map((reaction) => (
                         <Tooltip key={reaction.emoji} content={reaction.label}>
                           <button
@@ -930,23 +936,24 @@ export default function DiscussionDetailPage({
                 </div>
 
                 {canReactToDiscussion ? activeEmojis.map(([emoji, stat]) => (
-                  <button
-                    key={emoji}
-                    onClick={() => {
-                      const found = EMOJI_REACTIONS.find((reaction) => reaction.emoji === emoji);
-                      if (found) {
-                        void updateReaction({ reactionType: found.type, emoji });
-                      }
-                    }}
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-semibold transition ${
-                      myEmoji === emoji
-                        ? 'border-[#4C2F5E]/16 bg-[#F1EAF6] text-[#4C2F5E]'
-                        : 'border-[#2F1D3B]/8 bg-white text-[#6B5C79] hover:bg-[#F8F6FB]'
-                    } ${actionPulse ? 'lh-action-bump' : ''}`}
-                  >
-                    <span>{emoji}</span>
-                    {stat.count}
-                  </button>
+                  <Tooltip key={emoji} content={reactionTooltipText(stat)}>
+                    <button
+                      onClick={() => {
+                        const found = EMOJI_REACTIONS.find((reaction) => reaction.emoji === emoji);
+                        if (found) {
+                          void updateReaction({ reactionType: found.type, emoji });
+                        }
+                      }}
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-semibold transition ${
+                        myEmoji === emoji
+                          ? 'border-[#4C2F5E]/16 bg-[#F1EAF6] text-[#4C2F5E]'
+                          : 'border-[#2F1D3B]/8 bg-white text-[#6B5C79] hover:bg-[#F8F6FB]'
+                      } ${actionPulse ? 'lh-action-bump' : ''}`}
+                    >
+                      <span>{emoji}</span>
+                      {stat.count}
+                    </button>
+                  </Tooltip>
                 )) : null}
 
                 <span className="inline-flex items-center gap-2 rounded-full border border-[#2F1D3B]/8 bg-[#F8F6FB] px-3 py-2 text-sm font-semibold text-[#6B5C79]">

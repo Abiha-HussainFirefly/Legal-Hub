@@ -82,11 +82,19 @@ export async function POST(
 
     const { slug } = await params;
     const body = await req.json();
-    const reactionType = body?.reactionType as ReactionType | undefined;
-    const emoji = typeof body?.emoji === 'string' ? body.emoji : null;
+    const reactionTypeInput =
+      typeof body?.reactionType === 'string' ? body.reactionType.trim().toUpperCase() : '';
+    const reactionType = Object.values(ReactionType).includes(reactionTypeInput as ReactionType)
+      ? (reactionTypeInput as ReactionType)
+      : null;
+    const emoji = typeof body?.emoji === 'string' && body.emoji.trim() ? body.emoji : null;
 
     if (!reactionType) {
-      return NextResponse.json({ error: 'reactionType is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid reactionType' }, { status: 400 });
+    }
+
+    if (!emoji && reactionType !== 'UPVOTE' && reactionType !== 'DOWNVOTE') {
+      return NextResponse.json({ error: 'emoji is required for emoji reactions' }, { status: 400 });
     }
 
     const discussion = await prisma.discussion.findUnique({

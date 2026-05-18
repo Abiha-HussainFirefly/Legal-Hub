@@ -162,6 +162,12 @@ enum ReactionType {
   LOVE
   HAPPY
   UNHAPPY
+  IDEA
+  THINKING
+  GRATEFUL
+  CLAP
+  LEGAL
+  HOT
 }
 
 enum TagType {

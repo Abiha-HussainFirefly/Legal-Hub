@@ -1,5 +1,7 @@
 export const ADMIN_PERMISSION_KEYS = {
   DASHBOARD_VIEW: "admin.dashboard.view",
+  PROFILE_VIEW_SELF: "admin.profile.view.self",
+  PROFILE_EDIT_SELF: "admin.profile.edit.self",
   REPORTS_VIEW: "reports.view",
   EXPORTS_VIEW: "reports.export",
   USERS_MANAGE: "users.status.manage",
