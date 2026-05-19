@@ -1,7 +1,10 @@
 import { prisma } from '@/lib/prisma';
 import { upsertUserActivityDaily } from '@/lib/services/user-activity';
-import { Prisma, RepositoryItemStatus } from '@prisma/client';
 import type { CaseCommentItem, CaseReactionType, CaseRepositoryRecord, CaseSourceType, CaseVisibility } from '@/types/case';
+import { createHash, randomUUID } from 'crypto';
+import { mkdir, rm, writeFile } from 'fs/promises';
+import { Prisma, RepositoryItemStatus } from '@prisma/client';
+import path from 'path';
 
 const CASE_SUBMISSION_POINTS = 12;
 
@@ -93,6 +96,7 @@ const caseRecordInclude = {
       asset: {
         select: {
           id: true,
+          objectKey: true,
           originalFileName: true,
           mimeType: true,
           fileSize: true,
@@ -280,6 +284,83 @@ async function uniqueSlug(base: string) {
   }
 
   return candidate;
+}
+
+function sanitizeFilename(value: string) {
+  const normalized = value.trim().replace(/[/\\?%*:|"<>]/g, '-');
+  return normalized.length ? normalized : 'attachment';
+}
+
+function buildPublicAssetUrl(objectKey: string) {
+  return `/${objectKey.replace(/\\/g, '/')}`;
+}
+
+async function cleanupUploadedFiles(filePaths: string[]) {
+  await Promise.all(
+    filePaths.map((filePath) =>
+      rm(filePath, { force: true }).catch(() => undefined),
+    ),
+  );
+}
+
+async function persistCaseSourceFiles(
+  tx: Prisma.TransactionClient,
+  {
+    caseId,
+    uploaderId,
+    files,
+    writtenFilePaths,
+  }: {
+    caseId: string;
+    uploaderId: string;
+    files: File[];
+    writtenFilePaths: string[];
+  },
+) {
+  if (!files.length) return;
+
+  const now = new Date();
+  const year = String(now.getUTCFullYear());
+  const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const baseDir = path.join(process.cwd(), 'public', 'uploads', 'case-source-files', year, month);
+
+  await mkdir(baseDir, { recursive: true });
+
+  for (const file of files) {
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const checksumSha256 = createHash('sha256').update(bytes).digest('hex');
+    const safeOriginalName = sanitizeFilename(file.name);
+    const objectName = `${randomUUID()}-${safeOriginalName}`;
+    const absolutePath = path.join(baseDir, objectName);
+    const objectKey = path.posix.join('uploads', 'case-source-files', year, month, objectName);
+
+    await writeFile(absolutePath, bytes);
+    writtenFilePaths.push(absolutePath);
+
+    const asset = await tx.fileAsset.create({
+      data: {
+        uploaderId,
+        storageProvider: 'local',
+        bucket: 'public',
+        objectKey,
+        originalFileName: safeOriginalName,
+        mimeType: file.type || null,
+        fileSize: file.size,
+        checksumSha256,
+        scanStatus: 'PENDING',
+        isPublic: true,
+      },
+      select: { id: true },
+    });
+
+    await tx.caseSourceFile.create({
+      data: {
+        caseId,
+        assetId: asset.id,
+        label: safeOriginalName,
+      },
+    });
+  }
 }
 
 const defaultRepositoryRegions = [
@@ -637,6 +718,7 @@ export function mapCaseRecord(record: CaseRecordWithRelations, viewerId?: string
       fileType: file.asset.mimeType ?? 'Unknown',
       fileSizeLabel: bytesLabel(file.asset.fileSize),
       uploadedAt: file.createdAt.toISOString(),
+      url: buildPublicAssetUrl(file.asset.objectKey),
     })),
     revisions: record.revisions.map((revision) => ({
       id: revision.id,
@@ -1022,6 +1104,247 @@ export async function submitCaseRecordForReview(slug: string, userId: string) {
   return findCaseRecordBySlug(slug, userId);
 }
 
+export async function updateCaseRecord(slug: string, userId: string, input: CreateCaseDraftInput, files: File[] = []) {
+  const record = await prisma.caseRecord.findUnique({
+    where: { slug },
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      status: true,
+      authorId: true,
+      revisionCount: true,
+      canonicalCitation: true,
+    },
+  });
+
+  if (!record) {
+    throw new Error('Case not found.');
+  }
+
+  if (record.authorId !== userId) {
+    throw new Error('Only the case author can edit this record.');
+  }
+
+  if (!['DRAFT', 'REJECTED'].includes(record.status)) {
+    throw new Error('Only draft or rejected records can be edited.');
+  }
+
+  const category = await prisma.category.findUnique({
+    where: { slug: input.categorySlug },
+    select: { id: true, slug: true, name: true },
+  });
+
+  if (!category) {
+    throw new Error('Selected category was not found.');
+  }
+
+  const [region, court, organization, tagRows] = await Promise.all([
+    input.regionSlug
+      ? prisma.region.findUnique({ where: { slug: input.regionSlug }, select: { id: true, slug: true, name: true } })
+      : Promise.resolve(null),
+    input.courtSlug
+      ? prisma.court.findUnique({ where: { slug: input.courtSlug }, select: { id: true, slug: true, name: true } })
+      : Promise.resolve(null),
+    input.organizationId
+      ? prisma.organization.findUnique({ where: { id: input.organizationId }, select: { id: true } })
+      : Promise.resolve(null),
+    input.tagSlugs?.length
+      ? prisma.tag.findMany({ where: { slug: { in: input.tagSlugs } }, select: { id: true, slug: true } })
+      : Promise.resolve([]),
+  ]);
+
+  const cleanLinks = (input.sourceLinks ?? [])
+    .map((item) => ({
+      label: item.label?.trim() || null,
+      sourceName: item.sourceName?.trim() || null,
+      url: item.url.trim(),
+    }))
+    .filter((item) => item.url.length > 0);
+
+  const cleanCitations = Array.from(new Set((input.citations ?? []).map((item) => item.trim()).filter(Boolean)));
+  const cleanCitation = input.canonicalCitation?.trim() || null;
+  const cleanTitle = input.title.trim();
+
+  if (!cleanTitle) {
+    throw new Error('Case title is required.');
+  }
+
+  if (cleanCitation) {
+    const existingCitation = await prisma.caseRecord.findUnique({
+      where: { canonicalCitation: cleanCitation },
+      select: { id: true, title: true },
+    });
+
+    if (existingCitation && existingCitation.id !== record.id) {
+      throw new Error(
+        `Canonical citation "${cleanCitation}" already exists on "${existingCitation.title}". Change the citation or open the existing case.`,
+      );
+    }
+  }
+
+  const nextStatus: RepositoryItemStatus = input.intent === 'submit' ? 'PENDING_REVIEW' : record.status;
+  const nextRevisionVersion = (record.revisionCount ?? 0) + 1;
+
+  const writtenFilePaths: string[] = [];
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const existingSourceFileCount = await tx.caseSourceFile.count({
+        where: { caseId: record.id },
+      });
+
+      await tx.caseRecord.update({
+        where: { id: record.id },
+        data: {
+          title: cleanTitle,
+          canonicalCitation: cleanCitation,
+          docketNumber: input.docketNumber?.trim() || null,
+          summary: input.summary?.trim() || null,
+          facts: input.facts?.trim() || null,
+          issues: input.issues?.trim() || null,
+          holding: input.holding?.trim() || null,
+          outcome: input.outcome?.trim() || null,
+          proceduralHistory: input.proceduralHistory?.trim() || null,
+          sourceType: input.sourceType ?? 'USER_SUBMITTED',
+          visibility: input.visibility ?? 'PUBLIC',
+          status: nextStatus,
+          organizationId: organization?.id ?? null,
+          primaryCategoryId: category.id,
+          regionId: region?.id ?? null,
+          courtId: court?.id ?? null,
+          sourceCount: cleanLinks.length + existingSourceFileCount + files.length,
+          revisionCount: nextRevisionVersion,
+          reviewedById: null,
+          reviewedAt: null,
+        },
+      });
+
+      await tx.caseSourceLink.deleteMany({
+        where: { caseId: record.id },
+      });
+
+      if (cleanLinks.length) {
+        await tx.caseSourceLink.createMany({
+          data: cleanLinks.map((item, index) => ({
+            caseId: record.id,
+            label: item.label,
+            sourceName: item.sourceName,
+            url: item.url,
+            isPrimary: index === 0,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      await tx.caseTag.deleteMany({
+        where: { caseId: record.id },
+      });
+
+      if (tagRows.length) {
+        await tx.caseTag.createMany({
+          data: tagRows.map((tag) => ({
+            caseId: record.id,
+            tagId: tag.id,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      await tx.caseCitation.deleteMany({
+        where: { sourceCaseId: record.id },
+      });
+
+      if (cleanCitations.length) {
+        const citedCases = await tx.caseRecord.findMany({
+          where: {
+            OR: [
+              { canonicalCitation: { in: cleanCitations } },
+              { slug: { in: cleanCitations } },
+            ],
+          },
+          select: { id: true, canonicalCitation: true, slug: true },
+        });
+
+        if (citedCases.length) {
+          const citedLookup = new Map<string, { id: string; canonicalCitation: string | null; slug: string }>();
+
+          for (const cited of citedCases) {
+            if (cited.canonicalCitation) {
+              citedLookup.set(cited.canonicalCitation, cited);
+            }
+            citedLookup.set(cited.slug, cited);
+          }
+
+          await tx.caseCitation.createMany({
+            data: cleanCitations
+              .map((citationInput) => {
+                const cited = citedLookup.get(citationInput);
+                if (!cited) return null;
+
+                return {
+                  sourceCaseId: record.id,
+                  citedCaseId: cited.id,
+                  citationText: citationInput,
+                };
+              })
+              .filter(Boolean) as Array<{
+              sourceCaseId: string;
+              citedCaseId: string;
+              citationText: string;
+            }>,
+            skipDuplicates: true,
+          });
+        }
+      }
+
+      if (files.length) {
+        await persistCaseSourceFiles(tx, {
+          caseId: record.id,
+          uploaderId: userId,
+          files,
+          writtenFilePaths,
+        });
+      }
+
+      await tx.caseRevision.create({
+        data: {
+          caseId: record.id,
+          version: nextRevisionVersion,
+          editorId: userId,
+          status: nextStatus,
+          changeSummary:
+            input.intent === 'submit'
+              ? 'Case record updated and submitted for review.'
+              : 'Case record updated from the case editor.',
+          snapshot: {
+            title: cleanTitle,
+            canonicalCitation: cleanCitation,
+            docketNumber: input.docketNumber?.trim() || null,
+            summary: input.summary?.trim() || null,
+            facts: input.facts?.trim() || null,
+            issues: input.issues?.trim() || null,
+            holding: input.holding?.trim() || null,
+            outcome: input.outcome?.trim() || null,
+            proceduralHistory: input.proceduralHistory?.trim() || null,
+            categorySlug: input.categorySlug,
+            tagSlugs: input.tagSlugs ?? [],
+            regionSlug: input.regionSlug ?? null,
+            courtSlug: input.courtSlug ?? null,
+            sourceLinks: cleanLinks,
+            citations: cleanCitations,
+          },
+        },
+      });
+    });
+  } catch (error) {
+    await cleanupUploadedFiles(writtenFilePaths);
+    throw error;
+  }
+
+  return findCaseRecordBySlug(slug, userId);
+}
+
 export async function getCaseRepositoryMeta(viewerId?: string | null) {
   await ensureRepositoryMetaSeeded(viewerId);
 
@@ -1073,7 +1396,7 @@ export async function getCaseRepositoryMeta(viewerId?: string | null) {
   };
 }
 
-export async function createCaseDraft(authorId: string, input: CreateCaseDraftInput) {
+export async function createCaseDraft(authorId: string, input: CreateCaseDraftInput, files: File[] = []) {
   const category = await prisma.category.findUnique({
     where: { slug: input.categorySlug },
     select: { id: true, name: true },
@@ -1131,8 +1454,11 @@ export async function createCaseDraft(authorId: string, input: CreateCaseDraftIn
   const versionStatus: RepositoryItemStatus = status;
 
   
-  const created = await prisma.$transaction(async (tx) => {
-    const caseRecord = await tx.caseRecord.create({
+  const writtenFilePaths: string[] = [];
+
+  try {
+    const created = await prisma.$transaction(async (tx) => {
+      const caseRecord = await tx.caseRecord.create({
       data: {
         slug,
         title: cleanTitle,
@@ -1152,7 +1478,7 @@ export async function createCaseDraft(authorId: string, input: CreateCaseDraftIn
         primaryCategoryId: category.id,
         regionId: region?.id ?? null,
         courtId: court?.id ?? null,
-        sourceCount: cleanLinks.length,
+        sourceCount: cleanLinks.length + files.length,
         revisionCount: 1,
         sourceLinks: cleanLinks.length
           ? {
@@ -1200,7 +1526,61 @@ export async function createCaseDraft(authorId: string, input: CreateCaseDraftIn
       select: { id: true, slug: true },
     });
 
-    await tx.userStats.upsert({
+      const cleanCitations = Array.from(new Set((input.citations ?? []).map((item) => item.trim()).filter(Boolean)));
+
+      if (cleanCitations.length) {
+        const citedCases = await tx.caseRecord.findMany({
+          where: {
+            OR: [
+              { canonicalCitation: { in: cleanCitations } },
+              { slug: { in: cleanCitations } },
+            ],
+          },
+          select: { id: true, canonicalCitation: true, slug: true },
+        });
+
+        if (citedCases.length) {
+          const citedLookup = new Map<string, { id: string; canonicalCitation: string | null; slug: string }>();
+
+          for (const cited of citedCases) {
+            if (cited.canonicalCitation) {
+              citedLookup.set(cited.canonicalCitation, cited);
+            }
+            citedLookup.set(cited.slug, cited);
+          }
+
+          await tx.caseCitation.createMany({
+            data: cleanCitations
+              .map((citationInput) => {
+                const cited = citedLookup.get(citationInput);
+                if (!cited) return null;
+
+                return {
+                  sourceCaseId: caseRecord.id,
+                  citedCaseId: cited.id,
+                  citationText: citationInput,
+                };
+              })
+              .filter(Boolean) as Array<{
+              sourceCaseId: string;
+              citedCaseId: string;
+              citationText: string;
+            }>,
+            skipDuplicates: true,
+          });
+        }
+      }
+
+      if (files.length) {
+        await persistCaseSourceFiles(tx, {
+          caseId: caseRecord.id,
+          uploaderId: authorId,
+          files,
+          writtenFilePaths,
+        });
+      }
+
+      await tx.userStats.upsert({
       where: { userId: authorId },
       update: {
         caseCount: { increment: 1 },
@@ -1213,7 +1593,7 @@ export async function createCaseDraft(authorId: string, input: CreateCaseDraftIn
       },
     });
 
-    await tx.gamificationEvent.create({
+      await tx.gamificationEvent.create({
       data: {
         userId: authorId,
         eventType: 'CASE_SUBMITTED',
@@ -1222,7 +1602,7 @@ export async function createCaseDraft(authorId: string, input: CreateCaseDraftIn
       },
     });
 
-    await tx.userGamification.upsert({
+      await tx.userGamification.upsert({
       where: { userId: authorId },
       update: {
         totalPoints: { increment: CASE_SUBMISSION_POINTS },
@@ -1235,14 +1615,17 @@ export async function createCaseDraft(authorId: string, input: CreateCaseDraftIn
       },
     });
 
-    await upsertUserActivityDaily(tx, authorId, {
+      await upsertUserActivityDaily(tx, authorId, {
       caseCount: 1,
       engagementScore: CASE_SUBMISSION_POINTS,
+      });
+
+      return caseRecord;
     });
 
-    return caseRecord;
-  });
-
-  
-  return findCaseRecordBySlug(created.slug, authorId);
+    return findCaseRecordBySlug(created.slug, authorId);
+  } catch (error) {
+    await cleanupUploadedFiles(writtenFilePaths);
+    throw error;
+  }
 }

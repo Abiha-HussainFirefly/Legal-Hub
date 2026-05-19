@@ -30,6 +30,8 @@ interface CourtOption extends SelectOption {
   regionId?: string | null;
 }
 
+type CasePersistHandler = (payload: CaseDraftPayload, selectedFiles: File[]) => Promise<void>;
+
 interface CaseEditorProps {
   mode: 'create' | 'edit';
   initialCase?: CaseRepositoryRecord | null;
@@ -37,8 +39,8 @@ interface CaseEditorProps {
   tags: SelectOption[];
   regions: SelectOption[];
   courts: CourtOption[];
-  onSaveDraft?: (payload: CaseDraftPayload) => Promise<void>;
-  onSubmitForReview?: (payload: CaseDraftPayload) => Promise<void>;
+  onSaveDraft?: CasePersistHandler;
+  onSubmitForReview?: CasePersistHandler;
   canSaveDraft?: boolean;
   canSubmitForReview?: boolean;
 }
@@ -323,7 +325,7 @@ export default function CaseEditor({
 
     try {
       setSubmitting(intent);
-      await handler(payload);
+      await handler(payload, selectedFiles);
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'Unable to save case draft.');
     } finally {
@@ -988,7 +990,7 @@ export default function CaseEditor({
                     type="button"
                     onClick={() => goToStep(index)}
                     className={`flex w-full items-start gap-3 rounded-[18px] px-3 py-3 text-left transition ${
-                      isActive ? 'bg-[#F7F1FB]' : 'hover:bg-[#FBF9FD]'
+                      isActive ? 'case-editor-active-step bg-[#F7F1FB]' : 'hover:bg-[#FBF9FD]'
                     }`}
                   >
                     <StatusPill active={isActive} complete={isComplete} />
@@ -1090,7 +1092,7 @@ export default function CaseEditor({
           </div>
 
           {showPreview ? (
-            <div className="mt-6 rounded-[28px] border border-[#4C2F5E]/10 bg-[linear-gradient(180deg,#ffffff_0%,#fcf9fe_100%)] p-5 shadow-[0_12px_30px_rgba(76,47,94,0.05)] lh-form-enter">
+            <div className="case-editor-live-preview mt-6 rounded-[28px] border border-[#4C2F5E]/10 bg-[linear-gradient(180deg,#ffffff_0%,#fcf9fe_100%)] p-5 shadow-[0_12px_30px_rgba(76,47,94,0.05)] lh-form-enter">
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">Live preview</p>
               <p className="mt-3 text-sm font-semibold uppercase tracking-[0.16em] text-[#8C7A9B]">
                 {citation || 'Citation pending'}

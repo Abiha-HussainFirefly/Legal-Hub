@@ -60,6 +60,7 @@ export interface CaseSourceFileItem {
   fileType: string;
   fileSizeLabel: string;
   uploadedAt: string;
+  url?: string;
 }
 
 export interface CaseRevisionItem {

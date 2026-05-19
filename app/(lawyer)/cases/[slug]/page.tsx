@@ -454,10 +454,16 @@ export default function CaseDetailPage() {
             <div className="mt-4 space-y-3">
               {record.sourceFiles.length ? (
                 record.sourceFiles.map((file) => (
-                  <div key={file.id} className="rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] p-4">
+                  <a
+                    key={file.id}
+                    href={file.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block rounded-[20px] border border-[#4C2F5E]/10 bg-[#FBF9FD] p-4 transition hover:bg-white"
+                  >
                     <p className="text-sm font-semibold text-[#2F1D3B]">{file.label}</p>
                     <p className="mt-2 text-xs text-[#706181]">{file.filename} / {file.fileSizeLabel}</p>
-                  </div>
+                  </a>
                 ))
               ) : (
                 <div className="rounded-[20px] border border-dashed border-[#4C2F5E]/15 bg-[#FBF9FD] px-4 py-6 text-sm text-[#706181]">

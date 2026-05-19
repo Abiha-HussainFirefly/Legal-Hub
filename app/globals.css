@@ -632,6 +632,7 @@ html[data-theme='dark'] .legal-workspace-shell :is(
   .bg-\[\#FCFAFD\],
   .bg-\[\#F8F6FB\],
   .bg-\[\#F8F4FB\],
+  .bg-\[\#F7F1FB\],
   .bg-\[\#F7F3FA\],
   .bg-\[\#F4EFF8\],
   .bg-\[\#F1EAF6\],
@@ -690,6 +691,20 @@ html[data-theme='dark'] .legal-workspace-shell :is(
   .border-gray-100,
   .border-gray-200
 ) {
+  border-color: var(--border-subtle) !important;
+}
+
+html[data-theme='dark'] .legal-workspace-shell .case-editor-active-step {
+  background: color-mix(in srgb, var(--background-card-nested) 78%, var(--primary) 22%) !important;
+}
+
+html[data-theme='dark'] .legal-workspace-shell .case-editor-live-preview {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--background-surface) 94%, transparent) 0%,
+      color-mix(in srgb, var(--background-card-nested) 92%, transparent) 100%
+    ) !important;
   border-color: var(--border-subtle) !important;
 }
 

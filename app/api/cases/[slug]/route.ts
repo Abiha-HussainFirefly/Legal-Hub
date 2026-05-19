@@ -6,6 +6,7 @@ import {
   findCaseRecordBySlug,
   submitCaseRecordForReview,
   toggleCaseBookmark,
+  updateCaseRecord,
 } from '@/lib/services/case-repository.server';
 
 export async function GET(
@@ -51,8 +52,36 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await req.json();
     const { slug } = await params;
+    const contentType = req.headers.get('content-type') ?? '';
+
+    if (contentType.includes('multipart/form-data')) {
+      if (!userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.CASES_EDIT_OWN)) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+
+      const formData = await req.formData();
+      const payloadRaw = formData.get('payload');
+      const files = formData.getAll('files').filter((entry): entry is File => entry instanceof File);
+
+      if (!payloadRaw) {
+        return NextResponse.json({ error: 'Missing payload data field' }, { status: 400 });
+      }
+
+      const payload = JSON.parse(payloadRaw as string);
+
+      if (
+        payload?.intent === 'submit' &&
+        !userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.CASES_SUBMIT_OWN_FOR_REVIEW)
+      ) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+
+      const record = await updateCaseRecord(slug, user.id, payload, files);
+      return NextResponse.json({ data: record });
+    }
+
+    const body = await req.json();
 
     if (body?.action === 'toggle-save') {
       if (!userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.CASES_BOOKMARK)) {

@@ -1,9 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { LAWYER_PERMISSION_KEYS } from '@/lib/auth/roles';
-import { getSessionUser } from '@/lib/services/api-auth';
-import { userHasLawyerPermission } from '@/lib/services/api-auth';
+import { getSessionUser, userHasLawyerPermission } from '@/lib/services/api-auth';
 import { createCaseDraft, listCaseRecords } from '@/lib/services/case-repository.server';
 import type { CaseSourceType, CaseVisibility } from '@/types/case';
+import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(req: NextRequest) {
   try {
@@ -59,11 +58,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await req.json();
-    if (body?.intent === 'submit' && !userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.CASES_SUBMIT_OWN_FOR_REVIEW)) {
+    
+    const formData = await req.formData();
+    
+    
+    const payloadRaw = formData.get('payload');
+    if (!payloadRaw) {
+      return NextResponse.json({ error: 'Missing payload data field' }, { status: 400 });
+    }
+    const payload = JSON.parse(payloadRaw as string);
+
+    
+    const files = formData.getAll('files').filter((entry): entry is File => entry instanceof File);
+
+    
+    if (payload?.intent === 'submit' && !userHasLawyerPermission(user, LAWYER_PERMISSION_KEYS.CASES_SUBMIT_OWN_FOR_REVIEW)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const created = await createCaseDraft(user.id, body);
+
+    
+    const created = await createCaseDraft(user.id, payload, files);
 
     return NextResponse.json({ data: created }, { status: 201 });
   } catch (error) {

@@ -63,11 +63,18 @@ export default function CreateCasePage() {
       .finally(() => setLoading(false));
   }, [addToast]);
 
-  async function persist(payload: CaseDraftPayload, intent: 'draft' | 'submit') {
+  async function persist(payload: CaseDraftPayload, selectedFiles: File[], intent: 'draft' | 'submit') {
+    const formData = new FormData();
+
+    formData.append('payload', JSON.stringify({ ...payload, intent }));
+
+    for (const file of selectedFiles) {
+      formData.append('files', file);
+    }
+
     const response = await fetch('/api/cases', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...payload, intent }),
+      body: formData,
     });
 
     const result = await response.json();
@@ -97,8 +104,8 @@ export default function CreateCasePage() {
       tags={meta.tags}
       regions={meta.regions}
       courts={meta.courts}
-      onSaveDraft={(payload) => persist(payload, 'draft')}
-      onSubmitForReview={(payload) => persist(payload, 'submit')}
+      onSaveDraft={(payload, selectedFiles) => persist(payload, selectedFiles, 'draft')}
+      onSubmitForReview={(payload, selectedFiles) => persist(payload, selectedFiles, 'submit')}
       canSaveDraft={canCreateDrafts}
       canSubmitForReview={canSubmitCases}
     />
