@@ -1130,6 +1130,7 @@ export async function createCaseDraft(authorId: string, input: CreateCaseDraftIn
   const status: RepositoryItemStatus = input.intent === 'submit' ? 'PENDING_REVIEW' : 'DRAFT';
   const versionStatus: RepositoryItemStatus = status;
 
+  
   const created = await prisma.$transaction(async (tx) => {
     const caseRecord = await tx.caseRecord.create({
       data: {
@@ -1195,9 +1196,8 @@ export async function createCaseDraft(authorId: string, input: CreateCaseDraftIn
           },
         },
       },
-      include: {
-        ...caseRecordInclude,
-      },
+      
+      select: { id: true, slug: true },
     });
 
     await tx.userStats.upsert({
@@ -1243,5 +1243,6 @@ export async function createCaseDraft(authorId: string, input: CreateCaseDraftIn
     return caseRecord;
   });
 
-  return mapCaseRecord(created as CaseRecordWithRelations, authorId);
+  
+  return findCaseRecordBySlug(created.slug, authorId);
 }
