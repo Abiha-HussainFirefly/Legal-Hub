@@ -30,9 +30,9 @@ export default function CaseCitationList({
 
       <div className="mt-5 space-y-3">
         {citations.length ? (
-          citations.map((citation) => (
+          citations.map((citation, index) => (
             <Link
-              key={citation.id}
+              key={`${citation.id}-${citation.relationshipLabel}-${citation.slug}-${index}`}
               href={`/cases/${citation.slug}`}
               className="flex flex-col gap-3 rounded-[22px] border border-[#4C2F5E]/10 bg-[#FBF9FD] p-4 transition hover:border-[#4C2F5E]/20 hover:bg-white"
             >

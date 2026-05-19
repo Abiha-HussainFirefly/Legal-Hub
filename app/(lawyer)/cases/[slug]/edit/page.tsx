@@ -5,9 +5,9 @@ import CaseEmptyState from '@/app/components/cases/case-empty-state';
 import { useCaseWorkspace } from '@/app/components/cases/case-workspace';
 import { useToast } from '@/app/components/ui/toast/toast-context';
 import { LAWYER_PERMISSION_KEYS, canAccessLawyerPermission } from '@/lib/auth/roles';
-import type { CaseRepositoryRecord } from '@/types/case';
+import type { CaseDraftPayload, CaseRepositoryRecord } from '@/types/case';
 import { BriefcaseBusiness } from 'lucide-react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 interface Option {
@@ -29,6 +29,7 @@ interface MetaResponse {
 
 export default function EditCasePage() {
   const params = useParams<{ slug: string }>();
+  const router = useRouter();
   const { user } = useCaseWorkspace();
   const { addToast } = useToast();
   const [meta, setMeta] = useState<MetaResponse | null>(null);
@@ -39,6 +40,39 @@ export default function EditCasePage() {
   const userPermissions = user?.permissions ?? [];
   const canEditOwnCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_EDIT_OWN);
   const canSubmitCases = canAccessLawyerPermission(userRoles, userPermissions, LAWYER_PERMISSION_KEYS.CASES_SUBMIT_OWN_FOR_REVIEW);
+
+  async function persist(payload: CaseDraftPayload, selectedFiles: File[], intent: 'draft' | 'submit') {
+    if (!params?.slug) {
+      throw new Error('Case slug is missing.');
+    }
+
+    const formData = new FormData();
+    formData.append('payload', JSON.stringify({ ...payload, intent }));
+
+    for (const file of selectedFiles) {
+      formData.append('files', file);
+    }
+
+    const response = await fetch(`/api/cases/${params.slug}`, {
+      method: 'PATCH',
+      body: formData,
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to update case record.');
+    }
+
+    addToast(
+      'success',
+      intent === 'draft' ? 'Case saved' : 'Submitted for review',
+      intent === 'draft'
+        ? 'The case changes have been saved.'
+        : 'The updated case has been submitted into the reviewer queue.',
+    );
+
+    router.push(`/cases/${params.slug}`);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -115,6 +149,8 @@ export default function EditCasePage() {
       tags={meta.tags}
       regions={meta.regions}
       courts={meta.courts}
+      onSaveDraft={(payload, selectedFiles) => persist(payload, selectedFiles, 'draft')}
+      onSubmitForReview={(payload, selectedFiles) => persist(payload, selectedFiles, 'submit')}
       canSaveDraft={canEditOwnCases}
       canSubmitForReview={canSubmitCases}
     />
